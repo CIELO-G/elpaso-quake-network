@@ -1,0 +1,248 @@
+[
+  {
+    "network": "AM",
+    "station": "R0F2D",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.648649,
+    "longitude": -106.460311,
+    "elevation_m": 1196.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-10-26",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "R3E95",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.666667,
+    "longitude": -106.182827,
+    "elevation_m": 1228.3,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-09-10",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "R4B41",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.828829,
+    "longitude": -106.531547,
+    "elevation_m": 1258.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-05-01",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "R5912",
+    "location": "00",
+    "channels": "E??",
+    "latitude": 32.333333,
+    "longitude": -106.719858,
+    "elevation_m": 1303.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2022-12-03",
+    "model": "RS4D",
+    "instrument": {
+      "geophone": {
+        "channels": "EHZ",
+        "sensitivity": 399650000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      },
+      "accelerometer": {
+        "channels": "EN?",
+        "sensitivity": 384500.0,
+        "input_units": "M/S**2",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "R9070",
+    "location": "00",
+    "channels": "E??",
+    "latitude": 32.252252,
+    "longitude": -106.714585,
+    "elevation_m": 1220.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-10-09",
+    "model": "RS4D",
+    "instrument": {
+      "geophone": {
+        "channels": "EHZ",
+        "sensitivity": 399650000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      },
+      "accelerometer": {
+        "channels": "EN?",
+        "sensitivity": 384500.0,
+        "input_units": "M/S**2",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "RADA1",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.918919,
+    "longitude": -106.578900,
+    "elevation_m": 1183.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-12-27",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "RC9B8",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.459459,
+    "longitude": -106.089922,
+    "elevation_m": 1121.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-10-17",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "RDB14",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.801802,
+    "longitude": -106.227661,
+    "elevation_m": 1222.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-12-17",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "RE2E7",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.927928,
+    "longitude": -106.443264,
+    "elevation_m": 1274.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-09-28",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "S50BE",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.675676,
+    "longitude": -106.098641,
+    "elevation_m": 1225.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2025-09-08",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "EP",
+    "station": "KIDD",
+    "location": "",
+    "channels": "HH?",
+    "fdsnws_url": "IRIS",
+    "latitude": 31.771774,
+    "longitude": -106.506378,
+    "elevation_m": 1162.5,
+    "sample_rate_hz": 100.0,
+    "start_date": "2009-10-08",
+    "model": "broadband",
+    "instrument": {
+      "seismometer": {
+        "channels": "HH?",
+        "sensitivity": 943437000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 0.05
+      }
+    }
+  }
+]

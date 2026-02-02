@@ -1,0 +1,49 @@
+# =============================================================================
+# El Paso Seismic Network - Detection Configuration
+# =============================================================================
+
+# Path to station list (JSON), relative to working directory (project root)
+stations_file: "stations.json"
+
+# -----------------------------------------------------------------------------
+# I/O directories
+# -----------------------------------------------------------------------------
+
+# Where preprocessed waveforms live (output of processing)
+input_dir: "output"
+
+# Where detection results will be written
+output_dir: "output"
+
+# -----------------------------------------------------------------------------
+# PhaseNet model
+# -----------------------------------------------------------------------------
+
+# SeisBench pretrained model name
+phasenet_model: "original"
+
+# Pick probability thresholds
+p_threshold: 0.3
+s_threshold: 0.3
+
+# SeisBench classify() parameters
+# Overlap between sliding windows (samples). PhaseNet uses 3001-sample windows;
+# 1500 = 50% overlap (SeisBench default).
+classify_overlap: 1500
+classify_batch_size: 256
+
+# Amplitude measurement window around each pick (seconds)
+# Peak absolute velocity (m/s) is measured in [pick - before, pick + after]
+amp_window_before: 0.5
+amp_window_after: 2.0
+
+# Default time window when --start/--end are not provided
+detect_window_hours: 24
+detect_latency_hours: 6
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+log_dir: "logs"
+log_max_bytes: 10485760    # 10 MB per log file
+log_backup_count: 5        # keep 5 rotated files

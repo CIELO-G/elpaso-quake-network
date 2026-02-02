@@ -1,0 +1,32 @@
+# =============================================================================
+# El Paso Seismic Network - Catalog Configuration
+# =============================================================================
+
+# Path to station list (JSON), relative to working directory (project root)
+stations_file: "stations.json"
+
+# -----------------------------------------------------------------------------
+# I/O directories
+# -----------------------------------------------------------------------------
+
+# Where association results live (output of association)
+input_dir: "output"
+
+# Where catalog output will be written
+output_dir: "output"
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Output files (relative to output_dir)
+# -----------------------------------------------------------------------------
+catalog_file: "5-catalog/catalog.csv"
+assignments_file: "5-catalog/assignments.csv"
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+log_dir: "logs"
+log_max_bytes: 10485760    # 10 MB per log file
+log_backup_count: 5        # keep 5 rotated files

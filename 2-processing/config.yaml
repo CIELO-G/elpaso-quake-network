@@ -1,0 +1,57 @@
+# =============================================================================
+# El Paso Seismic Network - Preprocessing Configuration
+# =============================================================================
+
+# Path to station list (JSON), relative to working directory (project root)
+stations_file: "stations.json"
+
+# -----------------------------------------------------------------------------
+# I/O directories
+# -----------------------------------------------------------------------------
+
+# Where raw miniSEED files live (output of ingestion)
+input_dir: "output"
+
+# Where processed waveforms will be written
+output_dir: "output"
+
+# -----------------------------------------------------------------------------
+# Processing parameters
+# -----------------------------------------------------------------------------
+
+# Bandpass filter bounds (Hz)
+filter_freqmin: 1.0
+filter_freqmax: 45.0
+
+# Pre-filter corners for instrument response removal (Hz)
+# [f1, f2, f3, f4] — cosine taper applied outside f2–f3
+pre_filt: [0.5, 1.0, 45.0, 49.0]
+
+# Instrument response removal output type (VEL = velocity, DISP = displacement)
+response_output: "VEL"
+
+# Water level for spectral division (dB)
+water_level: 60
+
+# Taper fraction applied to each end of the trace
+taper_fraction: 0.05
+
+# Detrend methods applied in order before response removal
+detrend_methods: ["demean", "linear"]
+
+# Butterworth bandpass filter order (number of poles)
+filter_order: 4
+
+# Use zero-phase (acausal) filtering
+filter_zerophase: true
+
+# Default time window when --start/--end are not provided
+process_window_hours: 24
+process_latency_hours: 6
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+log_dir: "logs"
+log_max_bytes: 10485760    # 10 MB per log file
+log_backup_count: 5        # keep 5 rotated files

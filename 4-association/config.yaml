@@ -1,0 +1,92 @@
+# =============================================================================
+# El Paso Seismic Network - Association Configuration
+# =============================================================================
+
+# Path to station list (JSON), relative to working directory (project root)
+stations_file: "stations.json"
+
+# -----------------------------------------------------------------------------
+# I/O directories
+# -----------------------------------------------------------------------------
+
+# Where detection results live (output of detection)
+input_dir: "output"
+
+# Where association results will be written
+output_dir: "output"
+
+# -----------------------------------------------------------------------------
+# Network center (approximate centroid of 11 stations)
+# -----------------------------------------------------------------------------
+center_lat: 31.85
+center_lon: -106.40
+
+# -----------------------------------------------------------------------------
+# Search region (degrees from center)
+# -----------------------------------------------------------------------------
+xlim_degree: 0.5
+ylim_degree: 0.5
+zlim_km: [0, 30]
+
+# Degrees-to-km conversion at this latitude
+degree2km: 111.19
+
+# -----------------------------------------------------------------------------
+# 1D velocity model (km/s)
+# -----------------------------------------------------------------------------
+vel:
+  P: 5.5
+  S: 3.18
+
+# -----------------------------------------------------------------------------
+# Association method: BGMM (Bayesian) or GMM
+# -----------------------------------------------------------------------------
+method: "BGMM"
+
+# -----------------------------------------------------------------------------
+# DBSCAN pre-clustering
+# -----------------------------------------------------------------------------
+use_dbscan: true
+dbscan_eps: 50            # seconds
+dbscan_min_samples: 3
+
+# -----------------------------------------------------------------------------
+# Event quality filters
+# -----------------------------------------------------------------------------
+min_picks_per_eq: 3
+min_stations_per_eq: 3        # minimum unique stations per event (post-association QC)
+max_sigma11: 2.0          # max time residual std (s)
+max_sigma22: 2.0          # max amplitude residual std (log10)
+oversample_factor: 5
+
+# -----------------------------------------------------------------------------
+# Pick quality filter
+# -----------------------------------------------------------------------------
+min_pick_probability: 0.4
+
+# -----------------------------------------------------------------------------
+# Default time window (scheduled mode)
+# -----------------------------------------------------------------------------
+assoc_window_hours: 24
+assoc_latency_hours: 6
+
+# -----------------------------------------------------------------------------
+# Local magnitude (ML) — Hutton & Boore (1987)
+# -----------------------------------------------------------------------------
+ml_freq_hz: 5.0              # Dominant frequency for vel->disp conversion (Hz)
+ml_wa_gain: 2080              # Wood-Anderson static magnification
+ml_min_distance: 1.0          # Minimum hypocentral distance (km)
+
+# Attenuation coefficients:
+#   ML = log10(A_wa) + a*log10(r/ref) + b*(r-ref) + c
+ml_a: 1.110
+ml_b: 0.00189
+ml_c: 3.0
+ml_ref_distance: 100.0        # Reference distance (km)
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+log_dir: "logs"
+log_max_bytes: 10485760    # 10 MB per log file
+log_backup_count: 5        # keep 5 rotated files

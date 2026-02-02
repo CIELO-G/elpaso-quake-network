@@ -1,0 +1,70 @@
+# =============================================================================
+# El Paso Seismic Network - Data Ingestion Configuration
+# =============================================================================
+
+# Raspberry Shake FDSNWS endpoint
+# Note: do NOT use "RASPISHAKE" shortcut — ObsPy 1.4 maps it to a dead hostname.
+# The correct URL per RS docs is data.raspberryshake.org.
+fdsnws_url: "https://data.raspberryshake.org"
+
+# Path to station list (JSON), relative to working directory (project root)
+stations_file: "stations.json"
+
+# Defaults applied when not specified per station
+default_channels: "EHZ"
+default_location: "00"
+
+# -----------------------------------------------------------------------------
+# Fetch settings
+# -----------------------------------------------------------------------------
+
+# Size of each FDSNWS request (hours)
+chunk_hours: 1
+
+# How far behind real-time to fetch (hours).
+# Raspberry Shake data is typically available after a short delay.
+data_latency_hours: 6
+
+# How much data to fetch per scheduled run (hours).
+# Set >= chunk_hours. For daily cron jobs, use 24.
+# Already-downloaded chunks are skipped automatically.
+fetch_window_hours: 24
+
+# Polite delay between stations (seconds) to avoid hammering the server
+station_delay_seconds: 2
+
+# Maximum concurrent station fetches
+max_workers: 4
+
+# -----------------------------------------------------------------------------
+# Retry settings
+# -----------------------------------------------------------------------------
+
+# Per-chunk retries (for transient errors on a working connection)
+max_retries: 3
+retry_base_delay_seconds: 10
+
+# Connection-level retries (for server outages at startup)
+connect_retries: 3
+connect_retry_delay_seconds: 30
+
+# -----------------------------------------------------------------------------
+# Metadata
+# -----------------------------------------------------------------------------
+
+# Re-fetch StationXML if cached copy is older than this (days)
+metadata_refresh_days: 7
+
+# -----------------------------------------------------------------------------
+# Storage
+# -----------------------------------------------------------------------------
+
+# Base directory for all output (raw waveforms, metadata, database)
+output_dir: "output"
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+log_dir: "logs"
+log_max_bytes: 10485760    # 10 MB per log file
+log_backup_count: 5        # keep 5 rotated files

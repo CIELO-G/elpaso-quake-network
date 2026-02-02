@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El Paso Seismic Pipeline</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --gray: #475569;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: .75rem 1rem .25rem;
+  }
+  .header h1 { font-size: 1.15rem; font-weight: 600; }
+  .badge {
+    font-size: .7rem;
+    padding: .15rem .5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .badge-idle     { background: var(--gray);  color: #e2e8f0; }
+  .badge-running  { background: var(--blue);  color: #fff; }
+  .badge-completed{ background: var(--green); color: #fff; }
+  .badge-failed   { background: var(--red);   color: #fff; }
+  .badge-waiting  { background: var(--amber); color: #000; }
+  .badge-stopped  { background: var(--gray);  color: #e2e8f0; }
+
+  .subheader { color: var(--muted); font-size: .75rem; padding: 0 1rem .5rem; }
+
+  /* step strip */
+  .steps {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    padding: 0 1rem .6rem;
+  }
+  .arrow { color: var(--muted); font-size: .9rem; user-select: none; }
+  .step-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: .35rem;
+    padding: .25rem .6rem;
+    font-size: .72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .step-chip.st-pending  { color: var(--muted); }
+  .step-chip.st-running  { color: var(--blue); border-color: var(--blue); }
+  .step-chip.st-completed { color: var(--green); }
+  .step-chip.st-failed   { color: var(--red); border-color: var(--red); }
+  .step-chip.st-skipped  { color: var(--muted); }
+
+  @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:.5 } }
+  .step-chip.st-running { animation: pulse 2s ease-in-out infinite; }
+
+  /* main layout */
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 0;
+    padding: 0 1rem 1rem;
+    min-height: 0;
+  }
+
+  /* map */
+  .map-wrap {
+    flex: 3;
+    min-width: 0;
+    border-radius: .5rem;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  #map { height: 100%; width: 100%; }
+
+  /* sidebar */
+  .sidebar {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    padding-left: .75rem;
+    min-width: 260px;
+    overflow-y: auto;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: .5rem;
+    padding: .6rem .75rem;
+  }
+  .panel-title {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    margin-bottom: .4rem;
+  }
+
+  /* stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .35rem .8rem;
+  }
+  .stat-item .stat-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .stat-item .stat-label {
+    font-size: .6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  /* progress bar (shared style) */
+  .bar-outer {
+    height: 10px;
+    background: var(--bg);
+    border-radius: 5px;
+    margin-bottom: .35rem;
+    overflow: hidden;
+  }
+  .bar-inner {
+    height: 100%;
+    border-radius: 5px;
+    transition: width .5s, background .3s;
+  }
+
+  /* progress panel specifics */
+  .progress-text {
+    font-size: .7rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .progress-steps {
+    margin-top: .3rem;
+    font-size: .65rem;
+    color: var(--muted);
+    line-height: 1.6;
+    display: flex;
+    gap: .6rem;
+    flex-wrap: wrap;
+  }
+  .progress-steps .ps-item { white-space: nowrap; }
+  .progress-steps .ps-val { color: var(--text); font-weight: 600; }
+
+  /* throughput / step timing */
+  .throughput-text {
+    margin-top: .35rem;
+    font-size: .65rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .step-timing-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: .35rem;
+  }
+  .step-timing-bar > div { min-width: 2px; }
+  .step-timing-legend {
+    margin-top: .2rem;
+    font-size: .6rem;
+    color: var(--muted);
+    line-height: 1.6;
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+  .step-timing-legend .stl-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-right: 2px;
+    vertical-align: middle;
+  }
+
+  /* event chart */
+  .event-chart { margin-top: .1rem; }
+  .event-chart svg { display: block; }
+
+  /* station activity heatmap */
+  .heatmap-wrap { margin-top: .1rem; overflow-x: auto; }
+  .heatmap-wrap svg { display: block; }
+  .heatmap-label {
+    font-size: .6rem;
+    color: var(--muted);
+    margin-top: .25rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .heatmap-label .hm-grad {
+    height: 6px;
+    width: 80px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #1e293b, #3b82f6, #22c55e);
+  }
+
+  /* disk panel */
+  .disk-text {
+    font-size: .7rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .disk-breakdown {
+    margin-top: .3rem;
+    font-size: .6rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .disk-breakdown span { color: var(--text); font-weight: 600; }
+
+  /* error log panel */
+  .error-log {
+    background: #020617;
+    border: 1px solid var(--border);
+    border-radius: .35rem;
+    padding: .5rem;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: .65rem;
+    line-height: 1.55;
+    max-height: 140px;
+    overflow-y: auto;
+    color: var(--muted);
+  }
+  .error-log .el-row { padding: .1rem 0; border-bottom: 1px solid #1e293b; }
+  .error-log .el-row:last-child { border-bottom: none; }
+  .error-log .el-time { color: var(--gray); margin-right: .4em; }
+  .error-log .el-step { color: var(--blue); margin-right: .4em; font-weight: 600; }
+  .el-ERROR, .el-CRITICAL { color: var(--red); }
+  .el-WARNING { color: var(--amber); }
+  .error-count {
+    font-size: .65rem;
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: .4em;
+  }
+
+  /* leaflet overrides for dark theme */
+  .leaflet-container { background: #0f172a; }
+  .leaflet-control-attribution { font-size: .55rem !important; opacity: .5; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>El Paso Seismic Pipeline</h1>
+  <span class="badge badge-idle" id="pipeline-badge">idle</span>
+</div>
+<div class="subheader" id="subheader"></div>
+<div class="steps" id="step-strip"></div>
+
+<div class="main">
+  <div class="map-wrap">
+    <div id="map"></div>
+  </div>
+  <div class="sidebar">
+    <!-- Progress + Throughput -->
+    <div class="panel">
+      <div class="panel-title">Progress</div>
+      <div class="bar-outer"><div class="bar-inner" id="progress-bar" style="width:0; background:var(--blue)"></div></div>
+      <div class="progress-text" id="progress-text">&mdash;</div>
+      <div class="progress-steps" id="progress-steps"></div>
+      <div class="throughput-text" id="throughput-text"></div>
+      <div class="step-timing-bar" id="step-timing-bar"></div>
+      <div class="step-timing-legend" id="step-timing-legend"></div>
+    </div>
+    <!-- Statistics -->
+    <div class="panel">
+      <div class="panel-title">Statistics</div>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-item"><div class="stat-value" id="s-events">&mdash;</div><div class="stat-label">Events</div></div>
+        <div class="stat-item"><div class="stat-value" id="s-picks">&mdash;</div><div class="stat-label">Picks</div></div>
+        <div class="stat-item"><div class="stat-value" id="s-days">&mdash;</div><div class="stat-label">Days</div></div>
+        <div class="stat-item"><div class="stat-value" id="s-stations">&mdash;</div><div class="stat-label">Stations</div></div>
+        <div class="stat-item"><div class="stat-value" id="s-mag">&mdash;</div><div class="stat-label">Magnitude</div></div>
+        <div class="stat-item"><div class="stat-value" id="s-latest">&mdash;</div><div class="stat-label">Latest event</div></div>
+      </div>
+    </div>
+    <!-- Event Rate -->
+    <div class="panel">
+      <div class="panel-title">Events / Day</div>
+      <div class="event-chart" id="event-chart">
+        <div style="color:var(--muted);font-size:.65rem">No events yet.</div>
+      </div>
+    </div>
+    <!-- Station Activity -->
+    <div class="panel">
+      <div class="panel-title">Station Activity <span class="error-count" id="heatmap-range"></span></div>
+      <div class="heatmap-wrap" id="station-heatmap">
+        <div style="color:var(--muted);font-size:.65rem">No pick data yet.</div>
+      </div>
+      <div class="heatmap-label">
+        <span>0</span><div class="hm-grad"></div><span id="heatmap-max">max</span>
+        <span style="margin-left:auto">picks / station / day</span>
+      </div>
+    </div>
+    <!-- Disk Usage -->
+    <div class="panel">
+      <div class="panel-title">Disk Usage</div>
+      <div class="bar-outer"><div class="bar-inner" id="disk-bar"></div></div>
+      <div class="disk-text" id="disk-text">&mdash;</div>
+      <div class="disk-breakdown" id="disk-breakdown"></div>
+    </div>
+    <!-- Error Log -->
+    <div class="panel">
+      <div class="panel-title">Errors <span class="error-count" id="error-count"></span></div>
+      <div class="error-log" id="error-log">
+        <div style="color:var(--muted)">No errors.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ───────────────────────────────────────────────────
+const STEP_COLORS = {
+  ingest: '#3b82f6', process: '#f59e0b', detect: '#22c55e',
+  associate: '#a855f7', catalog: '#64748b'
+};
+const STEP_LABELS = {
+  ingest: '1 Ingest', process: '2 Process', detect: '3 Detect',
+  associate: '4 Associate', catalog: '5 Catalog'
+};
+const STEP_SHORT = {
+  ingest: 'Ingest', process: 'Process', detect: 'Detect',
+  associate: 'Assoc', catalog: 'Catalog'
+};
+const STATUS_ICON = {
+  pending: '', running: '\u25b6', completed: '\u2713', failed: '\u2717', skipped: '\u2014'
+};
+const HEALTH_COLORS = { ok: '#3b82f6', warning: '#f59e0b', error: '#ef4444', unknown: '#475569' };
+
+// ── Map setup ───────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([31.85, -106.40], 10);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OSM</a>',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+const stationLayer = L.layerGroup().addTo(map);
+const eventLayer = L.layerGroup().addTo(map);
+
+// ── Station triangle icon (color-aware) ─────────────────────────
+function stationIcon(color) {
+  color = color || '#3b82f6';
+  return L.divIcon({
+    className: '',
+    iconSize: [14, 14],
+    iconAnchor: [7, 12],
+    html: `<svg width="14" height="14" viewBox="0 0 14 14"><polygon points="7,1 13,13 1,13" fill="${color}" stroke="#fff" stroke-width="1.2"/></svg>`
+  });
+}
+
+// ── Event color interpolation (amber → red by index) ────────────
+function eventColor(idx, total) {
+  if (total <= 1) return '#ef4444';
+  const t = idx / (total - 1);
+  const r = Math.round(245 + (239 - 245) * t);
+  const g = Math.round(158 - 158 * t);
+  const b = Math.round(11 + (68 - 11) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+function formatTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtDur(sec) {
+  if (sec == null) return '\u2014';
+  sec = Math.round(sec);
+  if (sec < 60) return sec + 's';
+  const m = Math.floor(sec / 60), s = sec % 60;
+  if (m < 60) return m + 'm ' + String(s).padStart(2, '0') + 's';
+  const h = Math.floor(m / 60), rm = m % 60;
+  return h + 'h ' + String(rm).padStart(2, '0') + 'm';
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ── Render pipeline status + step strip ─────────────────────────
+function renderStatus(data) {
+  const p = data.pipeline;
+  const steps = data.steps || [];
+
+  const badge = document.getElementById('pipeline-badge');
+  const mode = p.mode || 'single';
+  const label = p.status + (mode === 'continuous' ? ' \u00b7 continuous' : '');
+  badge.textContent = label;
+  badge.className = 'badge badge-' + p.status;
+
+  const sub = document.getElementById('subheader');
+  let parts = [];
+  if (p.started_at) parts.push('Started: ' + formatTime(p.started_at));
+  if (mode === 'continuous' && p.continuous) {
+    parts.push('Day: ' + (p.continuous.current_day || '?'));
+  } else if (p.args && (p.args.start || p.args.end)) {
+    parts.push('Date range: ' + (p.args.start || '?') + ' to ' + (p.args.end || '?'));
+  }
+  sub.textContent = parts.join(' \u00b7 ');
+
+  const strip = document.getElementById('step-strip');
+  strip.innerHTML = steps.map((s, i) => {
+    const icon = STATUS_ICON[s.status] || '';
+    const chip = `<span class="step-chip st-${s.status}">${icon ? icon + ' ' : ''}${STEP_LABELS[s.name] || s.name}</span>`;
+    return (i > 0 ? '<span class="arrow">\u2192</span>' : '') + chip;
+  }).join('');
+}
+
+// ── Render stations on map ──────────────────────────────────────
+let stationsLoaded = false;
+const stationMarkers = {};
+
+function renderStations(stations) {
+  if (stationsLoaded) return;
+  stationsLoaded = true;
+  stations.forEach(s => {
+    const m = L.marker([s.latitude, s.longitude], { icon: stationIcon() })
+      .bindTooltip(`<b>${s.station}</b><br>${s.network} \u00b7 ${s.model}<br>${s.channels}`, { className: '' })
+      .addTo(stationLayer);
+    stationMarkers[s.station] = { marker: m, data: s };
+  });
+}
+
+// ── Update station health on map ────────────────────────────────
+function renderStationHealth(healthData) {
+  const HEALTH_LABEL = { ok: 'OK', warning: 'Intermittent', error: 'Offline', unknown: 'Unknown' };
+  healthData.forEach(h => {
+    const entry = stationMarkers[h.station];
+    if (!entry) return;
+    const color = HEALTH_COLORS[h.status] || HEALTH_COLORS.unknown;
+    entry.marker.setIcon(stationIcon(color));
+    const s = entry.data;
+    entry.marker.setTooltipContent(
+      `<b>${s.station}</b><br>${s.network} \u00b7 ${s.model}<br>${s.channels}<br>Health: <b>${HEALTH_LABEL[h.status] || h.status}</b>`
+    );
+  });
+}
+
+// ── Render events on map ────────────────────────────────────────
+let lastEventCount = -1;
+function renderEvents(events) {
+  if (events.length === lastEventCount) return;
+  lastEventCount = events.length;
+  eventLayer.clearLayers();
+  events.forEach((e, i) => {
+    if (e.latitude == null || e.longitude == null) return;
+    const radius = 3 + (e.magnitude || 0) * 3;
+    L.circleMarker([e.latitude, e.longitude], {
+      radius: radius,
+      fillColor: eventColor(i, events.length),
+      color: eventColor(i, events.length),
+      weight: 1,
+      fillOpacity: 0.8
+    })
+    .bindTooltip(
+      `<b>${e.event_id}</b><br>${e.time}<br>M ${e.magnitude != null ? e.magnitude.toFixed(1) : '?'} \u00b7 ${e.depth_km != null ? e.depth_km.toFixed(1) : '?'} km<br>${e.num_picks || 0} picks`,
+      { className: '' }
+    )
+    .addTo(eventLayer);
+  });
+}
+
+// ── Render stats panel ──────────────────────────────────────────
+function renderStats(s) {
+  document.getElementById('s-events').textContent = s.catalog_events || '0';
+  document.getElementById('s-picks').textContent = s.total_picks != null ? s.total_picks.toLocaleString() : '\u2014';
+  document.getElementById('s-days').textContent = s.days_with_raw || '0';
+  document.getElementById('s-stations').textContent = s.station_count || '0';
+
+  if (s.magnitude_min != null && s.magnitude_max != null) {
+    const mn = s.magnitude_min.toFixed(1);
+    const mx = s.magnitude_max.toFixed(1);
+    document.getElementById('s-mag').textContent = mn === mx ? mn : mn + ' \u2013 ' + mx;
+  } else {
+    document.getElementById('s-mag').textContent = '\u2014';
+  }
+
+  if (s.latest_event_time) {
+    const d = new Date(s.latest_event_time);
+    document.getElementById('s-latest').textContent = d.toISOString().slice(0, 16).replace('T', ' ');
+  } else {
+    document.getElementById('s-latest').textContent = '\u2014';
+  }
+}
+
+// ── Render progress panel ───────────────────────────────────────
+function renderProgress(p) {
+  const bar = document.getElementById('progress-bar');
+  const pct = p.percent || 0;
+  bar.style.width = pct + '%';
+
+  const isWaiting = p.waiting;
+  const isContinuous = p.mode === 'continuous';
+
+  bar.style.background = (isWaiting || pct >= 95) ? 'var(--green)' : 'var(--blue)';
+
+  const txt = document.getElementById('progress-text');
+  let line = `<b>${p.days_complete}</b> / ${p.total_days} days (${pct}%)`;
+  line += ` &nbsp;\u00b7&nbsp; ${p.start_date} \u2192 ${p.target_date}`;
+
+  if (isWaiting && p.next_run_at) {
+    const diffSec = Math.max(0, Math.floor((new Date(p.next_run_at).getTime() - Date.now()) / 1000));
+    const hh = Math.floor(diffSec / 3600), mm = Math.floor((diffSec % 3600) / 60);
+    const wait = hh > 0 ? hh + 'h ' + String(mm).padStart(2, '0') + 'm' : mm + 'm';
+    line += ` &nbsp;\u00b7&nbsp; <span style="color:var(--green)">Live</span> \u2014 next: <b>${p.current_day}</b> in ~${wait}`;
+  } else if (p.current_day && p.pipeline_status === 'running') {
+    line += isContinuous
+      ? ` &nbsp;\u00b7&nbsp; <span style="color:var(--blue)">Catching up</span> \u2014 <b>${p.current_day}</b>`
+      : ` &nbsp;\u00b7&nbsp; Processing: <b>${p.current_day}</b>`;
+  } else if (p.pipeline_status === 'stopped') {
+    line += ` &nbsp;\u00b7&nbsp; <span style="color:var(--muted)">Stopped</span>`;
+  }
+  txt.innerHTML = line;
+
+  const steps = document.getElementById('progress-steps');
+  let items = [
+    ['Ingested', p.days_ingested], ['Processed', p.days_processed],
+    ['Detected', p.days_detected], ['Associated', p.days_associated],
+  ];
+  if (isContinuous && p.days_skipped && p.days_skipped.length > 0)
+    items.push(['Skipped', p.days_skipped.length]);
+  steps.innerHTML = items.map(([label, n]) =>
+    `<span class="ps-item">${label}: <span class="ps-val">${n}</span></span>`
+  ).join('');
+}
+
+// ── Render throughput + step timing ─────────────────────────────
+function renderThroughput(t) {
+  const el = document.getElementById('throughput-text');
+  const barEl = document.getElementById('step-timing-bar');
+  const legEl = document.getElementById('step-timing-legend');
+
+  if (!t.avg_day_sec) {
+    el.innerHTML = '';
+    barEl.innerHTML = '';
+    legEl.innerHTML = '';
+    return;
+  }
+
+  // Summary line
+  let line = `Avg/day: <b>${fmtDur(t.avg_day_sec)}</b>`;
+  line += ` &nbsp;\u00b7&nbsp; Last: <b>${fmtDur(t.last_day_sec)}</b>`;
+  if (t.eta_sec != null && t.remaining_days > 0) {
+    line += ` &nbsp;\u00b7&nbsp; ETA: <b>~${fmtDur(t.eta_sec)}</b> (${t.remaining_days}d)`;
+  }
+  if (t.sample_size) line += ` &nbsp;\u00b7&nbsp; n=${t.sample_size}`;
+  el.innerHTML = line;
+
+  // Stacked bar
+  const stepAvg = t.step_avg_sec || {};
+  const total = Object.values(stepAvg).reduce((a, b) => a + b, 0) || 1;
+  const order = ['ingest', 'process', 'detect', 'associate', 'catalog'];
+  barEl.innerHTML = order.map(name => {
+    const sec = stepAvg[name] || 0;
+    const pct = (sec / total) * 100;
+    return `<div style="flex:${Math.max(pct, 0.5)};background:${STEP_COLORS[name]}" title="${STEP_SHORT[name]}: ${fmtDur(sec)} (${Math.round(pct)}%)"></div>`;
+  }).join('');
+
+  // Legend
+  legEl.innerHTML = order.filter(n => stepAvg[n]).map(name =>
+    `<span><span class="stl-dot" style="background:${STEP_COLORS[name]}"></span>${STEP_SHORT[name]} ${fmtDur(stepAvg[name])}</span>`
+  ).join('');
+}
+
+// ── Render event rate chart ─────────────────────────────────────
+function renderEventRate(data) {
+  const days = data.days || [];
+  const el = document.getElementById('event-chart');
+  if (days.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.65rem">No events yet.</div>';
+    return;
+  }
+
+  const W = el.clientWidth || 280;
+  const H = 80;
+  const PAD_LEFT = 28;
+  const PAD_BOTTOM = 16;
+  const PAD_TOP = 4;
+  const chartW = W - PAD_LEFT;
+  const chartH = H - PAD_BOTTOM - PAD_TOP;
+  const maxCount = Math.max(...days.map(d => d.count), 1);
+  const gap = days.length > 200 ? 0 : 1;
+  const barW = Math.max(1, Math.floor((chartW - gap * days.length) / Math.max(days.length, 1)));
+
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  // Y-axis gridlines + labels
+  const yTicks = maxCount <= 5 ? maxCount : Math.min(4, maxCount);
+  for (let i = 0; i <= yTicks; i++) {
+    const val = Math.round((i / yTicks) * maxCount);
+    const y = PAD_TOP + chartH - (i / yTicks) * chartH;
+    svg += `<line x1="${PAD_LEFT}" y1="${y}" x2="${W}" y2="${y}" stroke="#334155" stroke-width="0.5"/>`;
+    svg += `<text x="${PAD_LEFT - 4}" y="${y + 3}" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">${val}</text>`;
+  }
+  // Bars
+  days.forEach((d, i) => {
+    const x = PAD_LEFT + i * (barW + gap);
+    const h = Math.max(1, (d.count / maxCount) * chartH);
+    const y = PAD_TOP + chartH - h;
+    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="var(--amber)" rx="${barW > 2 ? 1 : 0}"><title>${d.date}: ${d.count} event(s)</title></rect>`;
+  });
+  // X-axis labels — show first, last, and monthly ticks
+  const xLabels = [];
+  xLabels.push({ i: 0, label: days[0].date.slice(5) });
+  let prevMonth = days[0].date.slice(0, 7);
+  for (let i = 1; i < days.length; i++) {
+    const mo = days[i].date.slice(0, 7);
+    if (mo !== prevMonth) {
+      xLabels.push({ i, label: days[i].date.slice(5) });
+      prevMonth = mo;
+    }
+  }
+  if (days.length > 1) xLabels.push({ i: days.length - 1, label: days[days.length - 1].date.slice(5) });
+  xLabels.forEach(({ i, label }) => {
+    const x = PAD_LEFT + i * (barW + gap) + barW / 2;
+    svg += `<text x="${x}" y="${H - 1}" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">${label}</text>`;
+  });
+  svg += '</svg>';
+  el.innerHTML = svg;
+}
+
+// ── Render station activity heatmap ─────────────────────────────
+function renderStationHeatmap(data) {
+  const { stations, days, matrix } = data;
+  const el = document.getElementById('station-heatmap');
+  const rangeEl = document.getElementById('heatmap-range');
+  const maxEl = document.getElementById('heatmap-max');
+
+  if (!days || days.length === 0 || !stations || stations.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.65rem">No pick data yet.</div>';
+    rangeEl.textContent = '';
+    maxEl.textContent = 'max';
+    return;
+  }
+
+  const globalMax = Math.max(1, ...matrix.flat());
+  maxEl.textContent = globalMax;
+  rangeEl.textContent = days.length + ' days';
+
+  const LABEL_W = 52;
+  const W = el.clientWidth || 280;
+  const chartW = W - LABEL_W;
+  const ROW_H = 16;
+  const PAD_BOTTOM = 16;
+  const cellW = Math.max(1, chartW / days.length);
+  const svgW = LABEL_W + cellW * days.length;
+  const svgH = ROW_H * stations.length + PAD_BOTTOM;
+
+  let svg = `<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
+
+  // Rows
+  stations.forEach((sta, si) => {
+    const y = si * ROW_H;
+    // Station label
+    svg += `<text x="${LABEL_W - 4}" y="${y + ROW_H - 4}" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">${sta}</text>`;
+    // Cells
+    const row = matrix[si];
+    row.forEach((count, di) => {
+      const x = LABEL_W + di * cellW;
+      const color = heatColor(count, globalMax);
+      svg += `<rect x="${x}" y="${y + 1}" width="${Math.max(cellW - 0.5, 0.5)}" height="${ROW_H - 2}" fill="${color}" rx="1"><title>${sta} ${days[di]}: ${count} picks</title></rect>`;
+    });
+  });
+
+  // X-axis labels — monthly ticks
+  const baseY = ROW_H * stations.length;
+  let prevMonth = days[0].slice(0, 7);
+  const ticks = [{ i: 0, label: days[0].slice(5) }];
+  for (let i = 1; i < days.length; i++) {
+    const mo = days[i].slice(0, 7);
+    if (mo !== prevMonth) {
+      ticks.push({ i, label: days[i].slice(5) });
+      prevMonth = mo;
+    }
+  }
+  if (days.length > 1) ticks.push({ i: days.length - 1, label: days[days.length - 1].slice(5) });
+  ticks.forEach(({ i, label }) => {
+    const x = LABEL_W + i * cellW + cellW / 2;
+    svg += `<text x="${x}" y="${baseY + PAD_BOTTOM - 3}" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">${label}</text>`;
+  });
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+}
+
+function heatColor(val, max) {
+  if (val === 0) return '#1e293b';
+  const t = Math.min(val / max, 1);
+  // 0→blue (#3b82f6), 1→green (#22c55e)
+  const r = Math.round(59 + (34 - 59) * t);
+  const g = Math.round(130 + (197 - 130) * t);
+  const b = Math.round(246 + (94 - 246) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── Render disk panel ───────────────────────────────────────────
+function renderDisk(d) {
+  const bar = document.getElementById('disk-bar');
+  const pct = d.usage_percent || 0;
+  bar.style.width = pct + '%';
+  bar.style.background = pct >= 85 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : 'var(--green)';
+
+  document.getElementById('disk-text').innerHTML =
+    `<b>${d.used_gb} GB</b> / ${d.total_gb} GB used \u00b7 ${d.free_gb} GB free \u00b7 Pipeline: <b>${d.output_size_gb} GB</b>`;
+
+  const bd = d.breakdown || {};
+  const parts = Object.entries(bd).map(([k, v]) => `${k}: <span>${v >= 0.01 ? v.toFixed(2) : '<0.01'} GB</span>`);
+  document.getElementById('disk-breakdown').innerHTML = parts.join(' &nbsp;\u00b7&nbsp; ');
+}
+
+// ── Render error log panel ──────────────────────────────────────
+function renderErrors(data) {
+  const errs = data.errors || [];
+  const el = document.getElementById('error-log');
+  const countEl = document.getElementById('error-count');
+
+  if (errs.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted)">No errors.</div>';
+    countEl.textContent = '';
+    return;
+  }
+
+  countEl.textContent = '(' + errs.length + ')';
+  el.innerHTML = errs.map(e =>
+    `<div class="el-row"><span class="el-time">${esc(e.timestamp)}</span><span class="el-step">[${esc(e.step)}]</span><span class="el-${e.level}">${esc(e.message)}</span></div>`
+  ).join('');
+}
+
+// ── Polling ─────────────────────────────────────────────────────
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  return r.json();
+}
+
+async function pollStatus() {
+  try { renderStatus(await fetchJSON('/api/status')); } catch(e) {}
+}
+
+async function pollData() {
+  try {
+    const [stats, catalog, progress, throughput] = await Promise.all([
+      fetchJSON('/api/stats'),
+      fetchJSON('/api/catalog'),
+      fetchJSON('/api/progress'),
+      fetchJSON('/api/throughput')
+    ]);
+    renderStats(stats);
+    renderEvents(catalog.events || []);
+    renderProgress(progress);
+    renderThroughput(throughput);
+  } catch(e) {}
+}
+
+async function pollDisk() {
+  try { renderDisk(await fetchJSON('/api/disk')); } catch(e) {}
+}
+
+async function pollErrors() {
+  try { renderErrors(await fetchJSON('/api/errors')); } catch(e) {}
+}
+
+async function pollSlow() {
+  try {
+    const [health, rate, picks] = await Promise.all([
+      fetchJSON('/api/station_health'),
+      fetchJSON('/api/event_rate'),
+      fetchJSON('/api/station_picks')
+    ]);
+    renderStationHealth(health);
+    renderEventRate(rate);
+    renderStationHeatmap(picks);
+  } catch(e) {}
+}
+
+// Initial loads
+fetchJSON('/api/stations').then(renderStations).catch(() => {});
+pollStatus();
+pollData();
+pollDisk();
+pollErrors();
+pollSlow();
+
+setInterval(pollStatus, 2500);
+setInterval(pollData, 10000);
+setInterval(pollDisk, 30000);
+setInterval(pollErrors, 10000);
+setInterval(pollSlow, 30000);
+
+// Fix map size after layout settles
+setTimeout(() => map.invalidateSize(), 200);
+</script>
+</body>
+</html>
