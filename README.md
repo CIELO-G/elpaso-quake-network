@@ -2,15 +2,6 @@
 
 Local seismic data processing pipeline for 11 Raspberry Shake / broadband stations in the El Paso area.
 
-## Pipeline Steps
-
-| Step | Module | Status | Description |
-|------|--------|--------|-------------|
-| **1** | `ingestion/` | Done | Fetch waveforms & metadata from Raspberry Shake FDSNWS |
-| **2** | `processing/` | Done | Preprocessing (instrument response removal, filtering) |
-| **3** | `detection/` | Done | PhaseNet phase picking & amplitude measurement |
-| **4** | `association/` | Done | Event association & location (GaMMA) |
-| **5** | `catalog/` | Done | Running event catalog with global IDs |
 
 ## Project Layout
 
@@ -368,35 +359,6 @@ python 5-catalog/catalog.py --config 5-catalog/config.yaml --debug
 
 Incremental logic: days already present in the catalog are skipped. Use `--rebuild` to regenerate from scratch.
 
----
-
-## End-to-End Example
-
-Ingest, process, detect, and associate for a single day:
-
-```bash
-python 1-ingestion/ingest.py --config 1-ingestion/config.yaml --start 2026-01-29T00:00:00 --end 2026-01-29T23:59:59
-python 2-processing/process.py --config 2-processing/config.yaml --start 2026-01-29 --end 2026-01-29
-python 3-detection/detect.py --config 3-detection/config.yaml --start 2026-01-29 --end 2026-01-29
-python 4-association/associate.py --config 4-association/config.yaml --start 2026-01-29 --end 2026-01-29
-python 5-catalog/catalog.py --config 5-catalog/config.yaml
-
-head -20 output/5-catalog/catalog.csv
-head -20 output/5-catalog/assignments.csv
-```
-
-### Data Flow
-
-```
-output/1-raw/2026/029/AM.R0F2D.00.EHZ.2026.029.mseed          <- 1-ingestion
-output/1-metadata/AM.R0F2D.xml                                 <- 1-ingestion (cached)
-output/2-processed/2026/029/AM.R0F2D.00.EHZ.2026.029.mseed    <- 2-processing
-output/3-picks/2026/029/2026.029.picks.csv                      <- 3-detection
-output/4-events/2026/029/2026.029.events.csv                    <- 4-association (events)
-output/4-events/2026/029/2026.029.assignments.csv               <- 4-association (picks)
-output/5-catalog/catalog.csv                                     <- 5-catalog (master catalog)
-output/5-catalog/assignments.csv                                 <- 5-catalog (all assignments)
-```
 
 ---
 
