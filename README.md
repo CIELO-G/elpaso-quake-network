@@ -411,7 +411,7 @@ When a day fails after all 5 retries, the pipeline shuts down and sends an email
 export ALERT_EMAIL_TO="you@example.com"        # recipient (required)
 export ALERT_EMAIL_FROM="sender@gmail.com"      # sender (defaults to ALERT_EMAIL_TO)
 export ALERT_SMTP_HOST="smtp.gmail.com"          # SMTP server (default)
-export ALERT_SMTP_PORT="587"                     # SMTP port (default)
+export ALERT_SMTP_PORT="465"                     # SMTP port (default)
 export ALERT_SMTP_PASSWORD="your-app-password"   # Gmail app password or SMTP password
 ```
 

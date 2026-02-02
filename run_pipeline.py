@@ -145,7 +145,7 @@ def _send_alert(subject: str, body: str) -> None:
 
     from_addr = os.environ.get("ALERT_EMAIL_FROM", to_addr)
     host = os.environ.get("ALERT_SMTP_HOST", "smtp.gmail.com")
-    port = int(os.environ.get("ALERT_SMTP_PORT", "587"))
+    port = int(os.environ.get("ALERT_SMTP_PORT", "465"))
     password = os.environ.get("ALERT_SMTP_PASSWORD", "")
 
     msg = MIMEText(body)
@@ -154,8 +154,7 @@ def _send_alert(subject: str, body: str) -> None:
     msg["To"] = to_addr
 
     try:
-        with smtplib.SMTP(host, port, timeout=30) as srv:
-            srv.starttls()
+        with smtplib.SMTP_SSL(host, port, timeout=30) as srv:
             if password:
                 srv.login(from_addr, password)
             srv.sendmail(from_addr, [to_addr], msg.as_string())
