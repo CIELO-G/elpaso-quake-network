@@ -11,10 +11,12 @@ Supports two modes:
 import argparse
 import json
 import os
+import smtplib
 import subprocess
 import sys
 import time as _time
 from datetime import date, datetime, timedelta, timezone
+from email.mime.text import MIMEText
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -24,9 +26,16 @@ EVENTS_DIR = ROOT / "output" / "4-events"
 # ── continuous-mode defaults ──────────────────────────────────────────────────
 
 LAG_HOURS = 6
-MAX_RETRIES = 2
+MAX_RETRIES = 5
 RETRY_WAIT = 120          # seconds between retries
 PIPELINE_START = date(2025, 11, 1)
+
+# ── email alert config (from environment variables) ──────────────────────────
+#   ALERT_EMAIL_TO     — recipient address (required for alerts)
+#   ALERT_EMAIL_FROM   — sender address (defaults to ALERT_EMAIL_TO)
+#   ALERT_SMTP_HOST    — SMTP server (default: smtp.gmail.com)
+#   ALERT_SMTP_PORT    — SMTP port (default: 587)
+#   ALERT_SMTP_PASSWORD — app password or SMTP password
 
 # ── step registry ────────────────────────────────────────────────────────────
 
@@ -125,6 +134,35 @@ def _make_step_statuses(initial: str = "pending") -> list[dict]:
         }
         for s in STEPS
     ]
+
+
+def _send_alert(subject: str, body: str) -> None:
+    """Send an email alert.  Silently skips if env vars are not configured."""
+    to_addr = os.environ.get("ALERT_EMAIL_TO")
+    if not to_addr:
+        print("  (email alert skipped — ALERT_EMAIL_TO not set)")
+        return
+
+    from_addr = os.environ.get("ALERT_EMAIL_FROM", to_addr)
+    host = os.environ.get("ALERT_SMTP_HOST", "smtp.gmail.com")
+    port = int(os.environ.get("ALERT_SMTP_PORT", "587"))
+    password = os.environ.get("ALERT_SMTP_PASSWORD", "")
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = to_addr
+
+    try:
+        with smtplib.SMTP(host, port, timeout=30) as srv:
+            srv.starttls()
+            if password:
+                srv.login(from_addr, password)
+            srv.sendmail(from_addr, [to_addr], msg.as_string())
+        print(f"  Alert email sent to {to_addr}")
+    except Exception as exc:
+        print(f"  WARNING: failed to send alert email: {exc}")
+
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
@@ -445,10 +483,29 @@ def continuous_run(args: argparse.Namespace) -> None:
                 current_day += timedelta(days=1)
                 print()
             else:
-                print(f"  SKIPPING {day_str} after {MAX_RETRIES} retries\n")
-                days_skipped.append(day_str)
-                cont["days_skipped"] = list(days_skipped)
-                current_day += timedelta(days=1)
+                # ── persistent failure — stop pipeline and alert ─────
+                print(f"\n  STOPPING pipeline — {day_str} failed after "
+                      f"{MAX_RETRIES} retries")
+
+                status_data["pipeline"]["status"] = "failed"
+                status_data["pipeline"]["finished_at"] = _now()
+                cont["waiting"] = False
+                cont["next_run_at"] = None
+                _write_status(status_data)
+
+                _send_alert(
+                    subject=f"[El Paso Pipeline] STOPPED — {day_str} failed",
+                    body=(
+                        f"The seismic pipeline shut down after {MAX_RETRIES} "
+                        f"consecutive failures processing {day_str}.\n\n"
+                        f"Days completed so far: {days_completed}\n"
+                        f"Pipeline started: {pipeline_started}\n"
+                        f"Stopped at: {_now()}\n\n"
+                        f"Check the dashboard or logs for details.\n"
+                        f"Restart with:  python run_pipeline.py --continuous\n"
+                    ),
+                )
+                return
 
             _write_status(status_data)
 

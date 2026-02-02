@@ -398,9 +398,24 @@ python run_pipeline.py --continuous
 
 Continuous mode features:
 - **Auto-resume**: if `--start` is omitted, detects the last completed day from `output/4-events/` and resumes from the next day
-- **Retry logic**: failed days are retried up to 2 times (with 120s between retries) before being skipped
+- **Retry logic**: failed days are retried up to 5 times (with 120s between retries); if all retries fail the pipeline **stops** instead of skipping the day
+- **Email alerts**: when the pipeline stops due to persistent failures, an email is sent (see Email Alerts below)
 - **Timing tracking**: records per-step and per-day timing for the last 100 days (used by the dashboard for throughput/ETA display)
 - **Graceful shutdown**: Ctrl+C stops after the current step finishes and writes a `stopped` status
+
+### Email alerts
+
+When a day fails after all 5 retries, the pipeline shuts down and sends an email notification. Configure via environment variables:
+
+```bash
+export ALERT_EMAIL_TO="you@example.com"        # recipient (required)
+export ALERT_EMAIL_FROM="sender@gmail.com"      # sender (defaults to ALERT_EMAIL_TO)
+export ALERT_SMTP_HOST="smtp.gmail.com"          # SMTP server (default)
+export ALERT_SMTP_PORT="587"                     # SMTP port (default)
+export ALERT_SMTP_PASSWORD="your-app-password"   # Gmail app password or SMTP password
+```
+
+For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833) (not your regular password). If `ALERT_EMAIL_TO` is not set, the alert is silently skipped and the pipeline still stops.
 
 ### Status file
 
