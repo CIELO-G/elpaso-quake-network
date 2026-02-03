@@ -1,6 +1,6 @@
 # elpaso-quake-network
 
-Local seismic data processing pipeline for 11 Raspberry Shake / broadband stations in the El Paso area.
+Local seismic data processing pipeline for 11 Raspberry Shake/broadband stations in the El Paso area.
 
 
 ## Project Layout
@@ -442,16 +442,6 @@ python -m dashboard --port 9000
 
 The dashboard serves at `http://127.0.0.1:8000` by default.
 
-### What it shows
-
-- **Station map** (Leaflet + CartoDB Dark Matter tiles) — station triangles colored by health (blue=OK, amber=intermittent, red=offline), event circles sized by magnitude and colored by recency
-- **Pipeline step strip** — live status of each step (pending, running, completed, failed) with animation
-- **Progress panel** — days processed vs target, catching-up vs live indicator, throughput (avg time per day, ETA), per-step timing breakdown
-- **Statistics** — total events, picks, days processed, station count, magnitude range, latest event
-- **Events/day chart** — bar chart of event count over time
-- **Station activity heatmap** — picks per station per day, color-coded from blue (low) to green (high)
-- **Disk usage** — filesystem usage with per-step size breakdown
-- **Error log** — most recent errors and warnings parsed from step log files
 
 ### API endpoints
 
