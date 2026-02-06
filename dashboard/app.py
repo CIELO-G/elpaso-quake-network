@@ -146,26 +146,33 @@ async def stats():
     total_picks = 0
     days_with_picks = 0
     pick_files = list(PICKS_DIR.rglob("*.picks.csv"))
-    days_with_picks = len(pick_files)
     for pf in pick_files:
         try:
             # subtract 1 for header line
-            total_picks += sum(1 for _ in open(pf)) - 1
+            count = sum(1 for _ in open(pf)) - 1
+            total_picks += count
+            if count > 0:
+                days_with_picks += 1
         except OSError:
             pass
 
-    # Count event day files
-    event_files = list(EVENTS_DIR.rglob("*.events.csv"))
-    days_with_events = len(event_files)
+    # Count event day files (only days with actual events)
+    days_with_events = 0
+    for ef in EVENTS_DIR.rglob("*.events.csv"):
+        try:
+            if sum(1 for _ in open(ef)) > 1:
+                days_with_events += 1
+        except OSError:
+            pass
 
-    # Count raw day directories
+    # Count raw day directories (only days with enough data, not spillover)
     days_with_raw = 0
     if RAW_DIR.exists():
         for year_dir in RAW_DIR.iterdir():
             if year_dir.is_dir():
-                days_with_raw += sum(
-                    1 for d in year_dir.iterdir() if d.is_dir()
-                )
+                for d in year_dir.iterdir():
+                    if d.is_dir() and sum(1 for _ in d.glob("*.mseed")) >= 3:
+                        days_with_raw += 1
 
     station_count = len(_load_stations())
 
@@ -217,14 +224,38 @@ async def disk():
     }
 
 
-def _count_day_dirs(base: Path) -> int:
-    """Count year/doy day directories under a step output dir."""
+def _count_day_dirs(base: Path, min_files: int = 0) -> int:
+    """Count year/doy day directories under a step output dir.
+
+    Args:
+        min_files: Only count directories with at least this many files.
+                   Useful for filtering out spillover directories.
+    """
     count = 0
     if not base.exists():
         return 0
     for year_dir in base.iterdir():
         if year_dir.is_dir() and year_dir.name.isdigit():
-            count += sum(1 for d in year_dir.iterdir() if d.is_dir())
+            for d in year_dir.iterdir():
+                if not d.is_dir():
+                    continue
+                if min_files > 0:
+                    if sum(1 for f in d.iterdir() if f.is_file()) >= min_files:
+                        count += 1
+                else:
+                    count += 1
+    return count
+
+
+def _count_days_with_data(base: Path, glob_pattern: str) -> int:
+    """Count day directories where CSV files have actual data rows (not just a header)."""
+    count = 0
+    for csv_file in base.rglob(glob_pattern):
+        try:
+            if sum(1 for _ in open(csv_file)) > 1:
+                count += 1
+        except OSError:
+            pass
     return count
 
 
@@ -235,10 +266,10 @@ async def progress():
     ).date()
     total_days = max((target_date - PIPELINE_START_DATE).days + 1, 0)
 
-    days_ingested = _count_day_dirs(RAW_DIR)
+    days_ingested = _count_day_dirs(RAW_DIR, min_files=3)
     days_processed = _count_day_dirs(PROCESSED_DIR)
-    days_detected = _count_day_dirs(PICKS_DIR)
-    days_associated = _count_day_dirs(EVENTS_DIR)
+    days_detected = _count_days_with_data(PICKS_DIR, "*.picks.csv")
+    days_associated = _count_days_with_data(EVENTS_DIR, "*.events.csv")
 
     # Read pipeline_status.json for current state
     current_day = None
@@ -406,7 +437,7 @@ async def station_health():
     """Check which stations have raw data in the most recent day directories."""
     stations = _load_stations()
 
-    # Collect the latest 3 day directories from 1-raw/
+    # Collect the latest 3 day directories from 1-raw/ (skip spillover dirs)
     day_dirs: list[Path] = []
     if RAW_DIR.exists():
         for year_dir in sorted(RAW_DIR.iterdir(), reverse=True):
@@ -414,6 +445,8 @@ async def station_health():
                 continue
             for doy_dir in sorted(year_dir.iterdir(), reverse=True):
                 if not doy_dir.is_dir() or not doy_dir.name.isdigit():
+                    continue
+                if sum(1 for _ in doy_dir.glob("*.mseed")) < 3:
                     continue
                 day_dirs.append(doy_dir)
                 if len(day_dirs) >= 3:

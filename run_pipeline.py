@@ -191,6 +191,9 @@ def build_command(step: dict, args: argparse.Namespace, *,
     if step["accepts_dates"]:
         start = start_override or args.start
         end = end_override or args.end
+        if start and end and start == end:
+            # Same date means "process this whole day", so end = next day
+            end = (date.fromisoformat(end) + timedelta(days=1)).isoformat()
         if start:
             cmd += ["--start", start]
         if end:
@@ -304,11 +307,17 @@ def single_run(args: argparse.Namespace) -> None:
 # ── continuous mode ──────────────────────────────────────────────────────────
 
 def _find_next_day() -> date:
-    """Auto-detect where to resume by checking the last day in 4-events/."""
-    if not EVENTS_DIR.exists():
+    """Auto-detect where to resume by checking the last day in 2-processed/.
+
+    Uses processed output rather than events, since spillover directories
+    (from traces crossing midnight) only appear in raw/picks/events but
+    never in processed (the 1-sample files fail processing).
+    """
+    processed_dir = ROOT / "output" / "2-processed"
+    if not processed_dir.exists():
         return PIPELINE_START
     latest = None
-    for year_dir in EVENTS_DIR.iterdir():
+    for year_dir in processed_dir.iterdir():
         if not year_dir.is_dir() or not year_dir.name.isdigit():
             continue
         year = int(year_dir.name)
@@ -341,8 +350,9 @@ def _run_day(day_str: str, args: argparse.Namespace,
         steps[i]["return_code"] = None
         _write_status(status_data)
 
+        end_str = (date.fromisoformat(day_str) + timedelta(days=1)).isoformat()
         cmd = build_command(step, args,
-                            start_override=day_str, end_override=day_str)
+                            start_override=day_str, end_override=end_str)
         t0 = datetime.now(timezone.utc)
         result = subprocess.run(cmd)
         elapsed = (datetime.now(timezone.utc) - t0).total_seconds()

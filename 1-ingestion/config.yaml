@@ -34,7 +34,7 @@ fetch_window_hours: 24
 station_delay_seconds: 2
 
 # Maximum concurrent station fetches
-max_workers: 4
+max_workers: 2
 
 # -----------------------------------------------------------------------------
 # Retry settings

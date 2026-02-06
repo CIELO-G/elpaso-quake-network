@@ -548,7 +548,9 @@ def main():
     totals = {"days": 0, "skipped": 0, "events": 0, "picks_associated": 0, "failed": 0}
 
     day = UTCDateTime(start_time.year, start_time.month, start_time.day)
-    end_day = UTCDateTime(end_time.year, end_time.month, end_time.day)
+    # Subtract 1 second so midnight end times stay on the previous day
+    end_adj = end_time - 1
+    end_day = UTCDateTime(end_adj.year, end_adj.month, end_adj.day)
 
     while day <= end_day:
         year = str(day.year)

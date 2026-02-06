@@ -36,7 +36,7 @@ from lib.db import DownloadDB
 # ---------------------------------------------------------------------------
 
 DEFAULTS = {
-    "fdsnws_url": "https://fdsnws.raspberryshakedata.com",
+    "fdsnws_url": "https://data.raspberryshake.org",
     "stations_file": "stations.json",
     "chunk_hours": 1,
     "data_latency_hours": 6,
@@ -167,7 +167,7 @@ def save_waveforms(stream, output_dir, logger):
 
         # Walk through each calendar day the trace spans
         day = UTCDateTime(t0.year, t0.month, t0.day)
-        while day <= t1:
+        while day < t1:
             next_day = day + 86400
             tr = trace.slice(
                 starttime=max(day, t0),
@@ -288,6 +288,11 @@ def process_station(client, db, station_cfg, start_time, end_time,
             counts["failed"] += 1
 
         chunk_start = chunk_end
+
+        # Throttle requests to avoid rate limiting
+        delay = config["station_delay_seconds"]
+        if delay > 0 and chunk_start < chunk_end_limit:
+            time.sleep(delay)
 
     return counts
 
