@@ -12,10 +12,14 @@ Usage (run from project root):
     python 4-association/associate.py --config 4-association/config.yaml --force --debug
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
+import gc
 import math
 import sys
+import time
 from pathlib import Path
 
 from obspy import UTCDateTime
@@ -24,7 +28,13 @@ from obspy import UTCDateTime
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.config import load_config, load_stations
-from lib.logger import setup_logging
+from lib.logger import MetricsWriter, setup_logging
+from lib.magnitude import (
+    MLConfig,
+    compute_ml_network,
+    compute_ml_station,
+    haversine_km,
+)
 
 DEFAULTS = {
     "stations_file": "stations.json",
@@ -35,27 +45,27 @@ DEFAULTS = {
     "log_backup_count": 5,
     "center_lat": 31.85,
     "center_lon": -106.40,
-    "xlim_degree": 0.5,
-    "ylim_degree": 0.5,
+    "xlim_degree": 0.7,
+    "ylim_degree": 0.7,
     "zlim_km": [0, 30],
     "degree2km": 111.19,
-    "vel": {"P": 5.5, "S": 3.18},
+    "vel": {"P": 6.0, "S": 3.47},
     "method": "BGMM",
     "use_dbscan": True,
-    "dbscan_eps": 50,
+    "dbscan_eps": 25,
     "dbscan_min_samples": 3,
     "min_picks_per_eq": 6,
     "min_stations_per_eq": 3,
     "max_sigma11": 2.0,
     "max_sigma22": 2.0,
     "oversample_factor": 5,
-    "min_pick_probability": 0.4,
+    "min_pick_probability": 0.5,
     "assoc_window_hours": 24,
     "assoc_latency_hours": 6,
-    # Local magnitude (ML) — Hutton & Boore (1987)
+    # Local magnitude (ML) -- Hutton & Boore (1987) with Uhrhammer & Collins (1990) gain
     "ml_freq_hz": 5.0,
-    "ml_wa_gain": 2080,
-    "ml_min_distance": 1.0,
+    "ml_wa_gain": 2800,
+    "ml_min_distance": 10.0,
     "ml_a": 1.110,
     "ml_b": 0.00189,
     "ml_c": 3.0,
@@ -77,7 +87,7 @@ ASSIGNMENT_CSV_COLUMNS = [
 # CLI
 # ---------------------------------------------------------------------------
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Associate phase picks into events and locate hypocenters",
     )
@@ -98,7 +108,7 @@ def parse_args():
 # Station DataFrame
 # ---------------------------------------------------------------------------
 
-def build_station_dataframe(stations, config, logger):
+def build_station_dataframe(stations: list[dict], config: dict, logger):
     """Convert stations.json list to GaMMA-format pandas DataFrame.
 
     Uses a stereographic projection centered on the network to convert
@@ -106,14 +116,14 @@ def build_station_dataframe(stations, config, logger):
     is the pyproj Proj object for inverse-transforming results.
     """
     import pandas as pd
-    from pyproj import Proj
+    from lib.projection import make_projection
 
     center_lon = config["center_lon"]
     center_lat = config["center_lat"]
 
-    proj = Proj(f"+proj=stere +lon_0={center_lon} +lat_0={center_lat} +units=km")
+    proj = make_projection(center_lon, center_lat)
 
-    rows = []
+    rows: list[dict] = []
     for s in stations:
         sid = f"{s['network']}.{s['station']}"
         x_km, y_km = proj(s["longitude"], s["latitude"])
@@ -135,12 +145,12 @@ def build_station_dataframe(stations, config, logger):
 # File paths
 # ---------------------------------------------------------------------------
 
-def get_daily_picks_path(input_dir, year, jday):
+def get_daily_picks_path(input_dir: str, year: str, jday: str) -> Path:
     """Return path to Step 3 daily picks CSV."""
     return Path(input_dir) / "3-picks" / year / jday / f"{year}.{jday}.picks.csv"
 
 
-def get_daily_output_paths(output_dir, year, jday):
+def get_daily_output_paths(output_dir: str, year: str, jday: str) -> tuple[Path, Path]:
     """Return ``(catalog_path, assignments_path)`` for a day's association output."""
     base = Path(output_dir) / "4-events" / year / jday
     catalog = base / f"{year}.{jday}.events.csv"
@@ -152,12 +162,8 @@ def get_daily_output_paths(output_dir, year, jday):
 # Pick loading
 # ---------------------------------------------------------------------------
 
-def load_daily_picks(picks_path, config, logger):
-    """Read Step 3 picks CSV into GaMMA-format DataFrame.
-
-    Filters picks below ``min_pick_probability`` and maps columns to the
-    format expected by ``gamma.utils.association``.
-    """
+def load_daily_picks(picks_path: Path, config: dict, logger):
+    """Read Step 3 picks CSV into GaMMA-format DataFrame."""
     import pandas as pd
 
     df = pd.read_csv(picks_path)
@@ -168,8 +174,7 @@ def load_daily_picks(picks_path, config, logger):
     # Build station ID
     df["id"] = df["network"] + "." + df["station"]
 
-    # Map columns to GaMMA expected names:
-    #   timestamp, type, prob, amp (see gamma.utils.convert_picks_csv)
+    # Map columns to GaMMA expected names
     df["timestamp"] = pd.to_datetime(df["time"])
     df["type"] = df["phase"]
     df["prob"] = df["probability"].astype(float)
@@ -192,13 +197,8 @@ def load_daily_picks(picks_path, config, logger):
 # GaMMA configuration
 # ---------------------------------------------------------------------------
 
-def build_gamma_config(config, logger):
-    """Assemble the GaMMA config dict from pipeline config values.
-
-    GaMMA expects coordinate ranges as ``x(km)``, ``y(km)``, ``z(km)``
-    keys, a ``dims`` list, ``use_amplitude``, and ``bfgs_bounds`` derived
-    from the spatial ranges.
-    """
+def build_gamma_config(config: dict, logger) -> dict:
+    """Assemble the GaMMA config dict from pipeline config values."""
     import numpy as np
 
     center_lon = config["center_lon"]
@@ -247,13 +247,8 @@ def build_gamma_config(config, logger):
 # Association
 # ---------------------------------------------------------------------------
 
-def run_association(picks_df, stations_df, gamma_config, config, logger):
-    """Run GaMMA association on a day's picks.
-
-    Returns ``(events_list, assignments_list)`` or ``(None, None)`` on
-    failure.  *events_list* contains dicts; *assignments_list* contains
-    ``(pick_index, event_index, gamma_score)`` tuples.
-    """
+def run_association(picks_df, stations_df, gamma_config: dict, config: dict, logger):
+    """Run GaMMA association on a day's picks."""
     try:
         from gamma.utils import association
     except ImportError as exc:
@@ -269,7 +264,7 @@ def run_association(picks_df, stations_df, gamma_config, config, logger):
         )
         return events_list, assignments_list
     except Exception as exc:
-        logger.error("GaMMA association failed: %s", exc)
+        logger.error("GaMMA association failed: %s: %s", type(exc).__name__, exc)
         return None, None
 
 
@@ -277,18 +272,24 @@ def run_association(picks_df, stations_df, gamma_config, config, logger):
 # Post-association QC
 # ---------------------------------------------------------------------------
 
-def filter_events_by_station_count(events_list, assignments_list, picks_df, config, logger):
+def filter_events_by_station_count(
+    events_list: list,
+    assignments_list: list,
+    picks_df,
+    config: dict,
+    logger,
+) -> tuple[list, list]:
     """Drop events whose picks come from fewer than ``min_stations_per_eq`` unique stations."""
     min_stations = config["min_stations_per_eq"]
 
     # Count unique stations per event
-    event_stations = {}
+    event_stations: dict[int, set[str]] = {}
     for pick_idx, event_idx, _score in assignments_list:
         pick = picks_df.iloc[pick_idx]
         sta_id = f"{pick.get('network', '')}.{pick.get('station', '')}"
         event_stations.setdefault(event_idx, set()).add(sta_id)
 
-    keep = set()
+    keep: set[int] = set()
     for event_idx, stations in event_stations.items():
         if len(stations) >= min_stations:
             keep.add(event_idx)
@@ -310,9 +311,9 @@ def filter_events_by_station_count(events_list, assignments_list, picks_df, conf
 # Station lookup & local magnitude (ML)
 # ---------------------------------------------------------------------------
 
-def build_station_lookup(stations):
+def build_station_lookup(stations: list[dict]) -> dict[str, dict]:
     """Return dict mapping ``"NET.STA"`` to station lat/lon/elevation."""
-    lookup = {}
+    lookup: dict[str, dict] = {}
     for s in stations:
         key = f"{s['network']}.{s['station']}"
         lookup[key] = {
@@ -323,36 +324,33 @@ def build_station_lookup(stations):
     return lookup
 
 
-def _haversine_km(lat1, lon1, lat2, lon2):
-    """Great-circle distance between two points in km (Haversine)."""
-    R = 6371.0
-    rlat1, rlat2 = math.radians(lat1), math.radians(lat2)
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(rlat1) * math.cos(rlat2) * math.sin(dlon / 2) ** 2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+def compute_event_ml(
+    event_lat: float,
+    event_lon: float,
+    event_depth_km: float,
+    event_idx: int,
+    assignments_list: list,
+    picks_df,
+    station_lookup: dict[str, dict],
+    config: dict,
+    logger,
+) -> tuple[float | None, float | None, int]:
+    """Compute local magnitude (ML) for one event using the lib/magnitude module.
 
-
-def compute_event_ml(event_lat, event_lon, event_depth_km, event_idx,
-                     assignments_list, picks_df, station_lookup, config, logger):
-    """Compute local magnitude (ML) for one event using Hutton & Boore (1987).
-
-    Returns ``(ml, ml_err, ml_count)`` — the mean ML, half-range error
-    (± value), and number of station readings, or ``(None, None, 0)``
-    if no valid readings.
+    Uses Hutton & Boore (1987) with Uhrhammer & Collins (1990) WA gain.
+    ML uncertainty is standard deviation of station readings (Issue 18).
     """
-    freq = config["ml_freq_hz"]
-    wa_gain = config["ml_wa_gain"]
-    min_dist = config["ml_min_distance"]
-    a = config["ml_a"]
-    b = config["ml_b"]
-    c = config["ml_c"]
-    ref_dist = config["ml_ref_distance"]
+    ml_cfg = MLConfig(
+        freq_hz=config["ml_freq_hz"],
+        wa_gain=config["ml_wa_gain"],
+        min_distance_km=config["ml_min_distance"],
+        a=config["ml_a"],
+        b=config["ml_b"],
+        c=config["ml_c"],
+        ref_distance_km=config["ml_ref_distance"],
+    )
 
-    # Velocity-to-Wood-Anderson displacement conversion factor (m/s -> mm)
-    vel_to_wa_mm = wa_gain * 1000.0 / (2.0 * math.pi * freq)
-
-    station_mls = []
+    station_mls: list[float] = []
 
     for pick_idx, ev_idx, _score in assignments_list:
         if ev_idx != event_idx:
@@ -368,52 +366,34 @@ def compute_event_ml(event_lat, event_lon, event_depth_km, event_idx,
         if sta is None:
             continue
 
-        d_horiz = _haversine_km(event_lat, event_lon, sta["latitude"], sta["longitude"])
+        d_horiz = haversine_km(event_lat, event_lon, sta["latitude"], sta["longitude"])
         r = math.sqrt(d_horiz ** 2 + event_depth_km ** 2)
 
-        if r < min_dist:
-            logger.debug("ML skip %s: hypocentral distance %.2f km < min %.1f km",
-                         sta_id, r, min_dist)
-            continue
+        ml_sta = compute_ml_station(float(amp_vel), r, ml_cfg)
+        if ml_sta is not None:
+            station_mls.append(ml_sta)
+            logger.debug("ML %s: amp_vel=%.3e  r=%.1f km  ML_sta=%.2f",
+                         sta_id, amp_vel, r, ml_sta)
 
-        a_wa_mm = float(amp_vel) * vel_to_wa_mm
-        if a_wa_mm <= 0:
-            continue
-
-        ml_sta = (math.log10(a_wa_mm)
-                  + a * math.log10(r / ref_dist)
-                  + b * (r - ref_dist)
-                  + c)
-        station_mls.append(ml_sta)
-        logger.debug("ML %s: amp_vel=%.3e  r=%.1f km  A_wa=%.4f mm  ML_sta=%.2f",
-                     sta_id, amp_vel, r, a_wa_mm, ml_sta)
-
-    if not station_mls:
-        return None, None, 0
-
-    n = len(station_mls)
-    ml = sum(station_mls) / n
-    if n >= 2:
-        ml_err = (max(station_mls) - min(station_mls)) / 2.0
-    else:
-        ml_err = None
-    return ml, ml_err, n
+    return compute_ml_network(station_mls)
 
 
 # ---------------------------------------------------------------------------
 # Output formatting
 # ---------------------------------------------------------------------------
 
-def format_catalog(events_list, proj, gamma_config, assignments_list,
-                   picks_df, station_lookup, config, logger):
-    """Convert GaMMA event dicts to final CSV rows.
-
-    Each event dict from GaMMA contains ``x(km)``, ``y(km)``, ``z(km)``,
-    ``time``, ``magnitude``, ``sigma_time``, ``sigma_amp``, ``event_index``,
-    etc.  We inverse-project x/y back to lat/lon, then compute a proper
-    local magnitude (ML) from pick amplitudes using Hutton & Boore (1987).
-    """
-    rows = []
+def format_catalog(
+    events_list: list,
+    proj,
+    gamma_config: dict,
+    assignments_list: list,
+    picks_df,
+    station_lookup: dict[str, dict],
+    config: dict,
+    logger,
+) -> list[dict]:
+    """Convert GaMMA event dicts to final CSV rows."""
+    rows: list[dict] = []
     for ev in events_list:
         x = ev.get("x(km)", 0.0)
         y = ev.get("y(km)", 0.0)
@@ -449,14 +429,9 @@ def format_catalog(events_list, proj, gamma_config, assignments_list,
     return rows
 
 
-def format_assignments(assignments_list, picks_df, logger):
-    """Convert GaMMA assignment tuples to final CSV rows.
-
-    *assignments_list* is a list of ``(pick_index, event_index,
-    gamma_score)`` tuples.  We look up original pick columns from
-    *picks_df* by integer index.
-    """
-    rows = []
+def format_assignments(assignments_list: list, picks_df, logger) -> list[dict]:
+    """Convert GaMMA assignment tuples to final CSV rows."""
+    rows: list[dict] = []
     for pick_idx, event_idx, _score in assignments_list:
         pick = picks_df.iloc[pick_idx]
 
@@ -481,8 +456,8 @@ def format_assignments(assignments_list, picks_df, logger):
 # CSV writers
 # ---------------------------------------------------------------------------
 
-def write_catalog_csv(rows, output_path, logger):
-    """Write event catalog CSV.  Always writes header even if empty."""
+def write_catalog_csv(rows: list[dict], output_path: Path, logger) -> None:
+    """Write event catalog CSV."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=EVENT_CSV_COLUMNS)
@@ -492,8 +467,8 @@ def write_catalog_csv(rows, output_path, logger):
     logger.info("Wrote %d event(s) to %s", len(rows), output_path)
 
 
-def write_assignments_csv(rows, output_path, logger):
-    """Write pick-assignment CSV.  Always writes header even if empty."""
+def write_assignments_csv(rows: list[dict], output_path: Path, logger) -> None:
+    """Write pick-assignment CSV."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=ASSIGNMENT_CSV_COLUMNS)
@@ -507,15 +482,16 @@ def write_assignments_csv(rows, output_path, logger):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
+def main() -> None:
     args = parse_args()
 
     config = load_config(args.config, defaults=DEFAULTS)
     stations = load_stations(config["stations_file"])
     logger = setup_logging("associate", config, debug=args.debug)
+    metrics = MetricsWriter(Path(config["log_dir"]) / "metrics.jsonl")
 
     logger.info("=" * 60)
-    logger.info("Event association & location — %d station(s)", len(stations))
+    logger.info("Event association & location -- %d station(s)", len(stations))
     logger.info("=" * 60)
 
     # Determine time window
@@ -533,7 +509,7 @@ def main():
 
     force = args.force
     if force:
-        logger.info("Force mode enabled — re-associating all days")
+        logger.info("Force mode enabled -- re-associating all days")
 
     # Build station DataFrame and projection (once)
     stations_df, proj = build_station_dataframe(stations, config, logger)
@@ -545,7 +521,7 @@ def main():
     gamma_config = build_gamma_config(config, logger)
 
     # Iterate days
-    totals = {"days": 0, "skipped": 0, "events": 0, "picks_associated": 0, "failed": 0}
+    totals: dict[str, int] = {"days": 0, "skipped": 0, "events": 0, "picks_associated": 0, "failed": 0}
 
     day = UTCDateTime(start_time.year, start_time.month, start_time.day)
     # Subtract 1 second so midnight end times stay on the previous day
@@ -566,6 +542,7 @@ def main():
             continue
 
         logger.info("=== Day %s/%s ===", year, jday)
+        day_t0 = time.monotonic()
 
         # Load picks
         picks_path = get_daily_picks_path(config["input_dir"], year, jday)
@@ -580,8 +557,9 @@ def main():
 
         try:
             picks_df = load_daily_picks(picks_path, config, logger)
-        except Exception as exc:
-            logger.error("Failed to load picks for %s/%s: %s", year, jday, exc)
+        except (ValueError, KeyError) as exc:
+            logger.error("Failed to load picks for %s/%s: %s: %s",
+                         year, jday, type(exc).__name__, exc)
             totals["failed"] += 1
             day += 86400
             continue
@@ -635,10 +613,24 @@ def main():
             totals["events"] += n_events
             totals["picks_associated"] += n_assigned
         except Exception as exc:
-            logger.error("Failed to write results for %s/%s: %s", year, jday, exc)
+            logger.error("Failed to write results for %s/%s: %s: %s",
+                         year, jday, type(exc).__name__, exc)
             totals["failed"] += 1
 
+        day_elapsed = time.monotonic() - day_t0
+        metrics.record(
+            "associate",
+            day=f"{year}/{jday}",
+            events=n_events,
+            picks_associated=n_assigned,
+            duration_s=round(day_elapsed, 1),
+        )
+
         totals["days"] += 1
+
+        # Explicit cleanup after each day
+        gc.collect()
+
         day += 86400
 
     # Summary

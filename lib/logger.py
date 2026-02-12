@@ -1,11 +1,23 @@
 """Shared logging setup for the El Paso seismic pipeline."""
 
+from __future__ import annotations
+
+import json
 import logging
+import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+# Standardised log format: timestamp [LEVEL] logger_name | message
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s | %(message)s"
+LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
-def setup_logging(name, config, debug=False):
+
+def setup_logging(
+    name: str,
+    config: dict,
+    debug: bool = False,
+) -> logging.Logger:
     """Set up console + rotating-file logging.
 
     Parameters
@@ -21,9 +33,7 @@ def setup_logging(name, config, debug=False):
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
     logger.handlers.clear()
 
-    fmt = logging.Formatter(
-        "%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    fmt = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT)
 
     # Console
     console = logging.StreamHandler()
@@ -44,3 +54,27 @@ def setup_logging(name, config, debug=False):
     logger.addHandler(file_handler)
 
     return logger
+
+
+class MetricsWriter:
+    """Append structured metrics as JSON lines to a metrics file.
+
+    Usage::
+
+        metrics = MetricsWriter("logs/metrics.jsonl")
+        metrics.record("ingest", station="AM.R0F2D", duration_s=12.3, chunks=24)
+    """
+
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def record(self, step: str, **kwargs) -> None:
+        """Write one metric line with timestamp, step, and arbitrary fields."""
+        entry = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.gmtime()),
+            "step": step,
+            **kwargs,
+        }
+        with open(self.path, "a") as f:
+            f.write(json.dumps(entry, default=str) + "\n")

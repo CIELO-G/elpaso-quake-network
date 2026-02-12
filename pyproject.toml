@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "elpaso-quake-network"
+version = "0.1.0"
+description = "Automated seismic detection pipeline for the El Paso region using Raspberry Shake citizen-science stations and PhaseNet ML picking."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10,<3.13"
+authors = [
+    {name = "Marc Garcia"},
+]
+
+dependencies = [
+    "obspy>=1.4.0",
+    "pyyaml>=6.0",
+    "torch>=2.0.0",
+    "seisbench>=0.7.0",
+    "pyproj>=3.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.8.0",
+    "mypy>=1.0",
+    "types-PyYAML",
+    "types-requests",
+    "pre-commit>=3.0",
+    "httpx>=0.24.0",
+]
+desktop = [
+    "pywebview>=5.0",
+]
+
+[project.scripts]
+elpaso-pipeline = "run_pipeline:main"
+
+[tool.setuptools.packages.find]
+include = ["lib*", "dashboard*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",   # line length handled by formatter
+    "SIM108", # ternary not always clearer
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

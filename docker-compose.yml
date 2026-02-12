@@ -1,0 +1,62 @@
+# =============================================================================
+# El Paso Seismic Pipeline — Docker Compose
+#
+# Services:
+#   pipeline   — Continuous data processing (default)
+#   dashboard  — FastAPI dashboard on port 8050
+#
+# Usage:
+#   docker compose up -d               # start all services
+#   docker compose up pipeline          # pipeline only
+#   docker compose up dashboard         # dashboard only
+#   docker compose --profile gpu up     # pipeline with NVIDIA GPU
+#   docker compose logs -f pipeline     # follow pipeline logs
+# =============================================================================
+
+x-common: &common
+  build: .
+  volumes:
+    - ./output:/app/output
+    - ./logs:/app/logs
+    - ./stations.json:/app/stations.json:ro
+  env_file:
+    - .env
+  restart: unless-stopped
+
+services:
+  pipeline:
+    <<: *common
+    container_name: elpaso-pipeline
+    command: ["--continuous"]
+
+  dashboard:
+    <<: *common
+    container_name: elpaso-dashboard
+    ports:
+      - "8050:8050"
+    entrypoint: ["python", "-m", "uvicorn"]
+    command:
+      - "dashboard.app:app"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8050"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8050/api/status')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # GPU variant — activate with: docker compose --profile gpu up pipeline-gpu
+  pipeline-gpu:
+    <<: *common
+    container_name: elpaso-pipeline-gpu
+    profiles: ["gpu"]
+    command: ["--continuous"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

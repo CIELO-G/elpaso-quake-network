@@ -4,15 +4,20 @@ channels:
   - defaults
 dependencies:
   - python>=3.10,<3.13
-  - obspy>=1.4.0
-  - pyyaml>=6.0
-  - pytorch>=2.0.0
-  - pyproj>=3.0
+  - obspy=1.4.1
+  - pyyaml=6.0.2
+  - pytorch=2.5.1
+  - pyproj=3.7.0
+  - numpy=1.26.4
+  - scipy=1.14.1
+  - matplotlib=3.9.4
+  - pandas=2.2.3
   - pip
   - pip:
-      - seisbench>=0.7.0
+      - seisbench==0.8.0
       - xdas>=0.2.0
       - gmma @ git+https://github.com/AI4EPS/GaMMA.git
-      - fastapi>=0.100.0
-      - uvicorn[standard]>=0.20.0
+      - fastapi==0.115.6
+      - uvicorn[standard]==0.34.0
       - pywebview>=5.0
+      - httpx>=0.24.0

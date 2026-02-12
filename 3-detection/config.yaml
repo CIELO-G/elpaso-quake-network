@@ -32,10 +32,17 @@ s_threshold: 0.3
 classify_overlap: 1500
 classify_batch_size: 256
 
+# Highpass pre-filter applied before PhaseNet inference (Hz).
+# Removes microseism and tilt noise. Set to 0 or remove to disable.
+highpass_freq: 3.0
+
 # Amplitude measurement window around each pick (seconds)
 # Peak absolute velocity (m/s) is measured in [pick - before, pick + after]
-amp_window_before: 0.5
-amp_window_after: 2.0
+# Phase-dependent: S-waves need a wider window for coda peak (SCIENCE_AUDIT.md Issue 7)
+amp_window_p_before: 0.5
+amp_window_p_after: 2.0
+amp_window_s_before: 0.5
+amp_window_s_after: 5.0
 
 # Default time window when --start/--end are not provided
 detect_window_hours: 24

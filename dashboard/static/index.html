@@ -36,8 +36,15 @@
     justify-content: space-between;
     align-items: baseline;
     padding: .75rem 1rem .25rem;
+    flex-wrap: wrap;
+    gap: .5rem;
   }
   .header h1 { font-size: 1.15rem; font-weight: 600; }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
   .badge {
     font-size: .7rem;
     padding: .15rem .5rem;
@@ -53,6 +60,15 @@
   .badge-waiting  { background: var(--amber); color: #000; }
   .badge-stopped  { background: var(--gray);  color: #e2e8f0; }
 
+  .ws-indicator {
+    font-size: .6rem;
+    padding: .1rem .4rem;
+    border-radius: 9999px;
+    background: var(--gray);
+    color: var(--muted);
+  }
+  .ws-indicator.ws-connected { background: #166534; color: var(--green); }
+
   .subheader { color: var(--muted); font-size: .75rem; padding: 0 1rem .5rem; }
 
   /* step strip */
@@ -61,6 +77,7 @@
     gap: .35rem;
     align-items: center;
     padding: 0 1rem .6rem;
+    flex-wrap: wrap;
   }
   .arrow { color: var(--muted); font-size: .9rem; user-select: none; }
   .step-chip {
@@ -81,6 +98,47 @@
   @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:.5 } }
   .step-chip.st-running { animation: pulse 2s ease-in-out infinite; }
 
+  /* date filter bar */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: 0 1rem .5rem;
+    flex-wrap: wrap;
+  }
+  .filter-bar label {
+    font-size: .7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .filter-bar input[type="date"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: .35rem;
+    padding: .2rem .4rem;
+    font-size: .7rem;
+    font-family: inherit;
+  }
+  .filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+  }
+  .btn-sm {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: .35rem;
+    padding: .2rem .6rem;
+    font-size: .7rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-sm:hover { background: var(--border); }
+  .btn-sm.btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn-sm.btn-primary:hover { background: #2563eb; }
+
   /* main layout */
   .main {
     flex: 1;
@@ -97,8 +155,75 @@
     border-radius: .5rem;
     overflow: hidden;
     border: 1px solid var(--border);
+    position: relative;
   }
   #map { height: 100%; width: 100%; }
+
+  /* event detail overlay */
+  .event-detail-overlay {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: .5rem;
+    padding: .75rem;
+    max-width: 320px;
+    max-height: 80%;
+    overflow-y: auto;
+    font-size: .7rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  }
+  .event-detail-overlay.visible { display: block; }
+  .event-detail-overlay .detail-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .event-detail-overlay .detail-close:hover { color: var(--text); }
+  .event-detail-overlay h3 {
+    font-size: .8rem;
+    margin-bottom: .4rem;
+    color: var(--text);
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: .15rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--muted); }
+  .detail-value { font-weight: 600; }
+  .detail-section {
+    margin-top: .5rem;
+    padding-top: .4rem;
+    border-top: 1px solid var(--border);
+  }
+  .detail-section h4 {
+    font-size: .7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: .3rem;
+  }
+  .station-contrib {
+    display: flex;
+    gap: .4rem;
+    flex-wrap: wrap;
+  }
+  .station-contrib .sc-chip {
+    background: var(--bg);
+    border-radius: .25rem;
+    padding: .1rem .4rem;
+    font-size: .65rem;
+  }
 
   /* sidebar */
   .sidebar {
@@ -116,6 +241,7 @@
     border: 1px solid var(--border);
     border-radius: .5rem;
     padding: .6rem .75rem;
+    position: relative;
   }
   .panel-title {
     font-size: .7rem;
@@ -124,6 +250,46 @@
     letter-spacing: .06em;
     color: var(--muted);
     margin-bottom: .4rem;
+  }
+
+  /* loading spinner */
+  .panel-loading {
+    display: none;
+    position: absolute;
+    top: .6rem;
+    right: .75rem;
+  }
+  .panel-loading.active { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: inline-block;
+  }
+
+  /* error banner */
+  .error-banner {
+    display: none;
+    background: #7f1d1d;
+    border: 1px solid var(--red);
+    border-radius: .35rem;
+    padding: .4rem .75rem;
+    margin: 0 1rem .5rem;
+    font-size: .7rem;
+    color: #fecaca;
+  }
+  .error-banner.visible { display: flex; align-items: center; gap: .5rem; }
+  .error-banner .eb-dismiss {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #fecaca;
+    cursor: pointer;
+    font-size: .85rem;
   }
 
   /* stats grid */
@@ -230,6 +396,28 @@
     background: linear-gradient(90deg, #1e293b, #3b82f6, #22c55e);
   }
 
+  /* data completeness calendar */
+  .completeness-wrap { margin-top: .1rem; overflow-x: auto; }
+  .completeness-wrap svg { display: block; }
+  .completeness-label {
+    font-size: .6rem;
+    color: var(--muted);
+    margin-top: .25rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .completeness-label .cmp-grad {
+    height: 6px;
+    width: 80px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #1e293b, #166534, #22c55e);
+  }
+
+  /* pick quality histogram */
+  .pick-hist { margin-top: .1rem; }
+  .pick-hist svg { display: block; }
+
   /* disk panel */
   .disk-text {
     font-size: .7rem;
@@ -270,28 +458,93 @@
     margin-left: .4em;
   }
 
+  /* empty state */
+  .empty-state {
+    color: var(--muted);
+    font-size: .65rem;
+    padding: .5rem 0;
+    text-align: center;
+  }
+
   /* leaflet overrides for dark theme */
   .leaflet-container { background: #0f172a; }
   .leaflet-control-attribution { font-size: .55rem !important; opacity: .5; }
+
+  /* Responsive: tablet */
+  @media (max-width: 1024px) {
+    .main {
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .map-wrap {
+      flex: none;
+      height: 45vh;
+      min-height: 280px;
+    }
+    .sidebar {
+      flex: none;
+      padding-left: 0;
+      padding-top: .5rem;
+      min-width: 0;
+    }
+  }
+
+  /* Responsive: mobile */
+  @media (max-width: 640px) {
+    .header { padding: .5rem .5rem .2rem; }
+    .header h1 { font-size: 1rem; }
+    .subheader { font-size: .65rem; padding: 0 .5rem .3rem; }
+    .steps { padding: 0 .5rem .4rem; }
+    .filter-bar { padding: 0 .5rem .4rem; }
+    .main { padding: 0 .5rem .5rem; }
+    .map-wrap { height: 40vh; min-height: 220px; }
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: .25rem .5rem; }
+    .stat-item .stat-value { font-size: .9rem; }
+    .event-detail-overlay { max-width: calc(100% - 20px); }
+  }
 </style>
 </head>
 <body>
 
 <div class="header">
   <h1>El Paso Seismic Pipeline</h1>
-  <span class="badge badge-idle" id="pipeline-badge">idle</span>
+  <div class="header-right">
+    <span class="ws-indicator" id="ws-indicator">polling</span>
+    <span class="badge badge-idle" id="pipeline-badge">idle</span>
+  </div>
 </div>
 <div class="subheader" id="subheader"></div>
 <div class="steps" id="step-strip"></div>
 
+<div class="error-banner" id="error-banner">
+  <span id="error-banner-text">Cannot reach API server.</span>
+  <button class="eb-dismiss" id="error-banner-dismiss">&times;</button>
+</div>
+
+<div class="filter-bar">
+  <label>From</label>
+  <input type="date" id="filter-start" />
+  <label>To</label>
+  <input type="date" id="filter-end" />
+  <button class="btn-sm btn-primary" id="filter-apply">Apply</button>
+  <button class="btn-sm" id="filter-clear">Clear</button>
+  <button class="btn-sm" id="export-csv">Export CSV</button>
+</div>
+
 <div class="main">
   <div class="map-wrap">
     <div id="map"></div>
+    <div class="event-detail-overlay" id="event-detail">
+      <button class="detail-close" id="detail-close">&times;</button>
+      <h3 id="detail-title">Event Detail</h3>
+      <div id="detail-body"></div>
+    </div>
   </div>
   <div class="sidebar">
     <!-- Progress + Throughput -->
     <div class="panel">
       <div class="panel-title">Progress</div>
+      <div class="panel-loading" id="loading-progress"><span class="spinner"></span></div>
       <div class="bar-outer"><div class="bar-inner" id="progress-bar" style="width:0; background:var(--blue)"></div></div>
       <div class="progress-text" id="progress-text">&mdash;</div>
       <div class="progress-steps" id="progress-steps"></div>
@@ -302,6 +555,7 @@
     <!-- Statistics -->
     <div class="panel">
       <div class="panel-title">Statistics</div>
+      <div class="panel-loading" id="loading-stats"><span class="spinner"></span></div>
       <div class="stats-grid" id="stats-grid">
         <div class="stat-item"><div class="stat-value" id="s-events">&mdash;</div><div class="stat-label">Events</div></div>
         <div class="stat-item"><div class="stat-value" id="s-picks">&mdash;</div><div class="stat-label">Picks</div></div>
@@ -314,24 +568,47 @@
     <!-- Event Rate -->
     <div class="panel">
       <div class="panel-title">Events / Day</div>
+      <div class="panel-loading" id="loading-events"><span class="spinner"></span></div>
       <div class="event-chart" id="event-chart">
-        <div style="color:var(--muted);font-size:.65rem">No events yet.</div>
+        <div class="empty-state">No events yet.</div>
       </div>
     </div>
     <!-- Station Activity -->
     <div class="panel">
       <div class="panel-title">Station Activity <span class="error-count" id="heatmap-range"></span></div>
+      <div class="panel-loading" id="loading-heatmap"><span class="spinner"></span></div>
       <div class="heatmap-wrap" id="station-heatmap">
-        <div style="color:var(--muted);font-size:.65rem">No pick data yet.</div>
+        <div class="empty-state">No pick data yet.</div>
       </div>
       <div class="heatmap-label">
         <span>0</span><div class="hm-grad"></div><span id="heatmap-max">max</span>
         <span style="margin-left:auto">picks / station / day</span>
       </div>
     </div>
+    <!-- Data Completeness -->
+    <div class="panel">
+      <div class="panel-title">Data Completeness <span class="error-count" id="completeness-range"></span></div>
+      <div class="panel-loading" id="loading-completeness"><span class="spinner"></span></div>
+      <div class="completeness-wrap" id="completeness-calendar">
+        <div class="empty-state">No raw data yet.</div>
+      </div>
+      <div class="completeness-label">
+        <span>0</span><div class="cmp-grad"></div><span id="completeness-max">max</span>
+        <span style="margin-left:auto">files / station / day</span>
+      </div>
+    </div>
+    <!-- Pick Quality -->
+    <div class="panel">
+      <div class="panel-title">Pick Quality <span class="error-count" id="pick-quality-info"></span></div>
+      <div class="panel-loading" id="loading-picks"><span class="spinner"></span></div>
+      <div class="pick-hist" id="pick-hist">
+        <div class="empty-state">No picks yet.</div>
+      </div>
+    </div>
     <!-- Disk Usage -->
     <div class="panel">
       <div class="panel-title">Disk Usage</div>
+      <div class="panel-loading" id="loading-disk"><span class="spinner"></span></div>
       <div class="bar-outer"><div class="bar-inner" id="disk-bar"></div></div>
       <div class="disk-text" id="disk-text">&mdash;</div>
       <div class="disk-breakdown" id="disk-breakdown"></div>
@@ -339,6 +616,7 @@
     <!-- Error Log -->
     <div class="panel">
       <div class="panel-title">Errors <span class="error-count" id="error-count"></span></div>
+      <div class="panel-loading" id="loading-errors"><span class="spinner"></span></div>
       <div class="error-log" id="error-log">
         <div style="color:var(--muted)">No errors.</div>
       </div>
@@ -365,6 +643,11 @@ const STATUS_ICON = {
 };
 const HEALTH_COLORS = { ok: '#3b82f6', warning: '#f59e0b', error: '#ef4444', unknown: '#475569' };
 
+// ── State ───────────────────────────────────────────────────────
+let filterStartDate = '';
+let filterEndDate = '';
+let apiFailCount = 0;
+
 // ── Map setup ───────────────────────────────────────────────────
 const map = L.map('map', { zoomControl: true }).setView([31.85, -106.40], 10);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -383,18 +666,18 @@ function stationIcon(color) {
     className: '',
     iconSize: [14, 14],
     iconAnchor: [7, 12],
-    html: `<svg width="14" height="14" viewBox="0 0 14 14"><polygon points="7,1 13,13 1,13" fill="${color}" stroke="#fff" stroke-width="1.2"/></svg>`
+    html: '<svg width="14" height="14" viewBox="0 0 14 14"><polygon points="7,1 13,13 1,13" fill="' + esc(color) + '" stroke="#fff" stroke-width="1.2"/></svg>'
   });
 }
 
-// ── Event color interpolation (amber → red by index) ────────────
+// ── Event color interpolation (amber to red by index) ────────────
 function eventColor(idx, total) {
   if (total <= 1) return '#ef4444';
   const t = idx / (total - 1);
   const r = Math.round(245 + (239 - 245) * t);
   const g = Math.round(158 - 158 * t);
   const b = Math.round(11 + (68 - 11) * t);
-  return `rgb(${r},${g},${b})`;
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -415,13 +698,58 @@ function fmtDur(sec) {
 }
 
 function esc(s) {
+  if (s == null) return '';
   const d = document.createElement('div');
-  d.textContent = s;
+  d.textContent = String(s);
   return d.innerHTML;
+}
+
+function showLoading(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+function hideLoading(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('active');
+}
+
+function showErrorBanner(msg) {
+  const banner = document.getElementById('error-banner');
+  document.getElementById('error-banner-text').textContent = msg;
+  banner.classList.add('visible');
+}
+
+function hideErrorBanner() {
+  document.getElementById('error-banner').classList.remove('visible');
+}
+
+document.getElementById('error-banner-dismiss').addEventListener('click', hideErrorBanner);
+
+// ── API fetch with error handling ───────────────────────────────
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const ct = r.headers.get('content-type') || '';
+  if (r.status === 304) return null;
+  return r.json();
+}
+
+function onApiSuccess() {
+  apiFailCount = 0;
+  hideErrorBanner();
+}
+
+function onApiFailure(e) {
+  apiFailCount++;
+  if (apiFailCount >= 3) {
+    showErrorBanner('Cannot reach API server. Retrying...');
+  }
 }
 
 // ── Render pipeline status + step strip ─────────────────────────
 function renderStatus(data) {
+  if (!data) return;
   const p = data.pipeline;
   const steps = data.steps || [];
 
@@ -429,7 +757,7 @@ function renderStatus(data) {
   const mode = p.mode || 'single';
   const label = p.status + (mode === 'continuous' ? ' \u00b7 continuous' : '');
   badge.textContent = label;
-  badge.className = 'badge badge-' + p.status;
+  badge.className = 'badge badge-' + esc(p.status);
 
   const sub = document.getElementById('subheader');
   let parts = [];
@@ -442,9 +770,9 @@ function renderStatus(data) {
   sub.textContent = parts.join(' \u00b7 ');
 
   const strip = document.getElementById('step-strip');
-  strip.innerHTML = steps.map((s, i) => {
-    const icon = STATUS_ICON[s.status] || '';
-    const chip = `<span class="step-chip st-${s.status}">${icon ? icon + ' ' : ''}${STEP_LABELS[s.name] || s.name}</span>`;
+  strip.innerHTML = steps.map(function(s, i) {
+    var icon = STATUS_ICON[s.status] || '';
+    var chip = '<span class="step-chip st-' + esc(s.status) + '">' + (icon ? icon + ' ' : '') + esc(STEP_LABELS[s.name] || s.name) + '</span>';
     return (i > 0 ? '<span class="arrow">\u2192</span>' : '') + chip;
   }).join('');
 }
@@ -456,9 +784,9 @@ const stationMarkers = {};
 function renderStations(stations) {
   if (stationsLoaded) return;
   stationsLoaded = true;
-  stations.forEach(s => {
-    const m = L.marker([s.latitude, s.longitude], { icon: stationIcon() })
-      .bindTooltip(`<b>${s.station}</b><br>${s.network} \u00b7 ${s.model}<br>${s.channels}`, { className: '' })
+  stations.forEach(function(s) {
+    var m = L.marker([s.latitude, s.longitude], { icon: stationIcon() })
+      .bindTooltip('<b>' + esc(s.station) + '</b><br>' + esc(s.network) + ' \u00b7 ' + esc(s.model) + '<br>' + esc(s.channels), { className: '' })
       .addTo(stationLayer);
     stationMarkers[s.station] = { marker: m, data: s };
   });
@@ -466,28 +794,31 @@ function renderStations(stations) {
 
 // ── Update station health on map ────────────────────────────────
 function renderStationHealth(healthData) {
-  const HEALTH_LABEL = { ok: 'OK', warning: 'Intermittent', error: 'Offline', unknown: 'Unknown' };
-  healthData.forEach(h => {
-    const entry = stationMarkers[h.station];
+  var HEALTH_LABEL = { ok: 'OK', warning: 'Intermittent', error: 'Offline', unknown: 'Unknown' };
+  healthData.forEach(function(h) {
+    var entry = stationMarkers[h.station];
     if (!entry) return;
-    const color = HEALTH_COLORS[h.status] || HEALTH_COLORS.unknown;
+    var color = HEALTH_COLORS[h.status] || HEALTH_COLORS.unknown;
     entry.marker.setIcon(stationIcon(color));
-    const s = entry.data;
+    var s = entry.data;
     entry.marker.setTooltipContent(
-      `<b>${s.station}</b><br>${s.network} \u00b7 ${s.model}<br>${s.channels}<br>Health: <b>${HEALTH_LABEL[h.status] || h.status}</b>`
+      '<b>' + esc(s.station) + '</b><br>' + esc(s.network) + ' \u00b7 ' + esc(s.model) + '<br>' + esc(s.channels) + '<br>Health: <b>' + esc(HEALTH_LABEL[h.status] || h.status) + '</b>'
     );
   });
 }
 
-// ── Render events on map ────────────────────────────────────────
+// ── Render events on map (click for detail) ─────────────────────
 let lastEventCount = -1;
+let allEvents = [];
 function renderEvents(events) {
+  allEvents = events;
   if (events.length === lastEventCount) return;
   lastEventCount = events.length;
   eventLayer.clearLayers();
-  events.forEach((e, i) => {
+  if (events.length === 0) return;
+  events.forEach(function(e, i) {
     if (e.latitude == null || e.longitude == null) return;
-    const radius = 3 + (e.magnitude || 0) * 3;
+    var radius = 3 + (e.magnitude || 0) * 3;
     L.circleMarker([e.latitude, e.longitude], {
       radius: radius,
       fillColor: eventColor(i, events.length),
@@ -496,12 +827,56 @@ function renderEvents(events) {
       fillOpacity: 0.8
     })
     .bindTooltip(
-      `<b>${e.event_id}</b><br>${e.time}<br>M ${e.magnitude != null ? e.magnitude.toFixed(1) : '?'} \u00b7 ${e.depth_km != null ? e.depth_km.toFixed(1) : '?'} km<br>${e.num_picks || 0} picks`,
+      '<b>' + esc(e.event_id) + '</b><br>' + esc(e.time) + '<br>M ' + (e.magnitude != null ? e.magnitude.toFixed(1) : '?') + ' \u00b7 ' + (e.depth_km != null ? e.depth_km.toFixed(1) : '?') + ' km<br>' + (e.num_picks || 0) + ' picks',
       { className: '' }
     )
+    .on('click', function() { showEventDetail(e.event_id); })
     .addTo(eventLayer);
   });
 }
+
+// ── Event detail overlay ────────────────────────────────────────
+function showEventDetail(eventId) {
+  var overlay = document.getElementById('event-detail');
+  var body = document.getElementById('detail-body');
+  var title = document.getElementById('detail-title');
+  title.textContent = 'Loading...';
+  body.innerHTML = '<div class="spinner" style="margin:.5rem auto;display:block"></div>';
+  overlay.classList.add('visible');
+
+  fetchJSON('/api/event/' + encodeURIComponent(eventId))
+    .then(function(data) {
+      if (!data) return;
+      var ev = data.event;
+      title.textContent = esc(ev.event_id);
+      var html = '';
+      html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Magnitude</span><span class="detail-value">' + (ev.magnitude != null ? ev.magnitude.toFixed(2) : '-') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Depth</span><span class="detail-value">' + (ev.depth_km != null ? ev.depth_km.toFixed(1) + ' km' : '-') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Location</span><span class="detail-value">' + (ev.latitude != null ? ev.latitude.toFixed(4) + ', ' + ev.longitude.toFixed(4) : '-') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Picks</span><span class="detail-value">' + (ev.num_picks || 0) + '</span></div>';
+
+      var contribs = data.station_contributions || {};
+      var staKeys = Object.keys(contribs);
+      if (staKeys.length > 0) {
+        html += '<div class="detail-section"><h4>Station Contributions</h4><div class="station-contrib">';
+        staKeys.forEach(function(sta) {
+          var c = contribs[sta];
+          html += '<span class="sc-chip">' + esc(sta) + ' P:' + c.P + ' S:' + c.S + '</span>';
+        });
+        html += '</div></div>';
+      }
+
+      body.innerHTML = html;
+    })
+    .catch(function() {
+      body.innerHTML = '<div class="empty-state">Failed to load event details.</div>';
+    });
+}
+
+document.getElementById('detail-close').addEventListener('click', function() {
+  document.getElementById('event-detail').classList.remove('visible');
+});
 
 // ── Render stats panel ──────────────────────────────────────────
 function renderStats(s) {
@@ -511,15 +886,15 @@ function renderStats(s) {
   document.getElementById('s-stations').textContent = s.station_count || '0';
 
   if (s.magnitude_min != null && s.magnitude_max != null) {
-    const mn = s.magnitude_min.toFixed(1);
-    const mx = s.magnitude_max.toFixed(1);
+    var mn = s.magnitude_min.toFixed(1);
+    var mx = s.magnitude_max.toFixed(1);
     document.getElementById('s-mag').textContent = mn === mx ? mn : mn + ' \u2013 ' + mx;
   } else {
     document.getElementById('s-mag').textContent = '\u2014';
   }
 
   if (s.latest_event_time) {
-    const d = new Date(s.latest_event_time);
+    var d = new Date(s.latest_event_time);
     document.getElementById('s-latest').textContent = d.toISOString().slice(0, 16).replace('T', ' ');
   } else {
     document.getElementById('s-latest').textContent = '\u2014';
@@ -528,50 +903,50 @@ function renderStats(s) {
 
 // ── Render progress panel ───────────────────────────────────────
 function renderProgress(p) {
-  const bar = document.getElementById('progress-bar');
-  const pct = p.percent || 0;
+  var bar = document.getElementById('progress-bar');
+  var pct = p.percent || 0;
   bar.style.width = pct + '%';
 
-  const isWaiting = p.waiting;
-  const isContinuous = p.mode === 'continuous';
+  var isWaiting = p.waiting;
+  var isContinuous = p.mode === 'continuous';
 
   bar.style.background = (isWaiting || pct >= 95) ? 'var(--green)' : 'var(--blue)';
 
-  const txt = document.getElementById('progress-text');
-  let line = `<b>${p.days_complete}</b> / ${p.total_days} days (${pct}%)`;
-  line += ` &nbsp;\u00b7&nbsp; ${p.start_date} \u2192 ${p.target_date}`;
+  var txt = document.getElementById('progress-text');
+  var line = '<b>' + p.days_complete + '</b> / ' + p.total_days + ' days (' + pct + '%)';
+  line += ' &nbsp;\u00b7&nbsp; ' + esc(p.start_date) + ' \u2192 ' + esc(p.target_date);
 
   if (isWaiting && p.next_run_at) {
-    const diffSec = Math.max(0, Math.floor((new Date(p.next_run_at).getTime() - Date.now()) / 1000));
-    const hh = Math.floor(diffSec / 3600), mm = Math.floor((diffSec % 3600) / 60);
-    const wait = hh > 0 ? hh + 'h ' + String(mm).padStart(2, '0') + 'm' : mm + 'm';
-    line += ` &nbsp;\u00b7&nbsp; <span style="color:var(--green)">Live</span> \u2014 next: <b>${p.current_day}</b> in ~${wait}`;
+    var diffSec = Math.max(0, Math.floor((new Date(p.next_run_at).getTime() - Date.now()) / 1000));
+    var hh = Math.floor(diffSec / 3600), mm = Math.floor((diffSec % 3600) / 60);
+    var wait = hh > 0 ? hh + 'h ' + String(mm).padStart(2, '0') + 'm' : mm + 'm';
+    line += ' &nbsp;\u00b7&nbsp; <span style="color:var(--green)">Live</span> \u2014 next: <b>' + esc(p.current_day) + '</b> in ~' + wait;
   } else if (p.current_day && p.pipeline_status === 'running') {
     line += isContinuous
-      ? ` &nbsp;\u00b7&nbsp; <span style="color:var(--blue)">Catching up</span> \u2014 <b>${p.current_day}</b>`
-      : ` &nbsp;\u00b7&nbsp; Processing: <b>${p.current_day}</b>`;
+      ? ' &nbsp;\u00b7&nbsp; <span style="color:var(--blue)">Catching up</span> \u2014 <b>' + esc(p.current_day) + '</b>'
+      : ' &nbsp;\u00b7&nbsp; Processing: <b>' + esc(p.current_day) + '</b>';
   } else if (p.pipeline_status === 'stopped') {
-    line += ` &nbsp;\u00b7&nbsp; <span style="color:var(--muted)">Stopped</span>`;
+    line += ' &nbsp;\u00b7&nbsp; <span style="color:var(--muted)">Stopped</span>';
   }
   txt.innerHTML = line;
 
-  const steps = document.getElementById('progress-steps');
-  let items = [
+  var steps = document.getElementById('progress-steps');
+  var items = [
     ['Ingested', p.days_ingested], ['Processed', p.days_processed],
     ['Detected', p.days_detected], ['Associated', p.days_associated],
   ];
   if (isContinuous && p.days_skipped && p.days_skipped.length > 0)
     items.push(['Skipped', p.days_skipped.length]);
-  steps.innerHTML = items.map(([label, n]) =>
-    `<span class="ps-item">${label}: <span class="ps-val">${n}</span></span>`
-  ).join('');
+  steps.innerHTML = items.map(function(pair) {
+    return '<span class="ps-item">' + pair[0] + ': <span class="ps-val">' + pair[1] + '</span></span>';
+  }).join('');
 }
 
 // ── Render throughput + step timing ─────────────────────────────
 function renderThroughput(t) {
-  const el = document.getElementById('throughput-text');
-  const barEl = document.getElementById('step-timing-bar');
-  const legEl = document.getElementById('step-timing-legend');
+  var el = document.getElementById('throughput-text');
+  var barEl = document.getElementById('step-timing-bar');
+  var legEl = document.getElementById('step-timing-legend');
 
   if (!t.avg_day_sec) {
     el.innerHTML = '';
@@ -580,82 +955,76 @@ function renderThroughput(t) {
     return;
   }
 
-  // Summary line
-  let line = `Avg/day: <b>${fmtDur(t.avg_day_sec)}</b>`;
-  line += ` &nbsp;\u00b7&nbsp; Last: <b>${fmtDur(t.last_day_sec)}</b>`;
+  var line = 'Avg/day: <b>' + fmtDur(t.avg_day_sec) + '</b>';
+  line += ' &nbsp;\u00b7&nbsp; Last: <b>' + fmtDur(t.last_day_sec) + '</b>';
   if (t.eta_sec != null && t.remaining_days > 0) {
-    line += ` &nbsp;\u00b7&nbsp; ETA: <b>~${fmtDur(t.eta_sec)}</b> (${t.remaining_days}d)`;
+    line += ' &nbsp;\u00b7&nbsp; ETA: <b>~' + fmtDur(t.eta_sec) + '</b> (' + t.remaining_days + 'd)';
   }
-  if (t.sample_size) line += ` &nbsp;\u00b7&nbsp; n=${t.sample_size}`;
+  if (t.sample_size) line += ' &nbsp;\u00b7&nbsp; n=' + t.sample_size;
   el.innerHTML = line;
 
-  // Stacked bar
-  const stepAvg = t.step_avg_sec || {};
-  const total = Object.values(stepAvg).reduce((a, b) => a + b, 0) || 1;
-  const order = ['ingest', 'process', 'detect', 'associate', 'catalog'];
-  barEl.innerHTML = order.map(name => {
-    const sec = stepAvg[name] || 0;
-    const pct = (sec / total) * 100;
-    return `<div style="flex:${Math.max(pct, 0.5)};background:${STEP_COLORS[name]}" title="${STEP_SHORT[name]}: ${fmtDur(sec)} (${Math.round(pct)}%)"></div>`;
+  var stepAvg = t.step_avg_sec || {};
+  var total = Object.values(stepAvg).reduce(function(a, b) { return a + b; }, 0) || 1;
+  var order = ['ingest', 'process', 'detect', 'associate', 'catalog'];
+  barEl.innerHTML = order.map(function(name) {
+    var sec = stepAvg[name] || 0;
+    var pct = (sec / total) * 100;
+    return '<div style="flex:' + Math.max(pct, 0.5) + ';background:' + STEP_COLORS[name] + '" title="' + esc(STEP_SHORT[name]) + ': ' + fmtDur(sec) + ' (' + Math.round(pct) + '%)"></div>';
   }).join('');
 
-  // Legend
-  legEl.innerHTML = order.filter(n => stepAvg[n]).map(name =>
-    `<span><span class="stl-dot" style="background:${STEP_COLORS[name]}"></span>${STEP_SHORT[name]} ${fmtDur(stepAvg[name])}</span>`
-  ).join('');
+  legEl.innerHTML = order.filter(function(n) { return stepAvg[n]; }).map(function(name) {
+    return '<span><span class="stl-dot" style="background:' + STEP_COLORS[name] + '"></span>' + esc(STEP_SHORT[name]) + ' ' + fmtDur(stepAvg[name]) + '</span>';
+  }).join('');
 }
 
 // ── Render event rate chart ─────────────────────────────────────
 function renderEventRate(data) {
-  const days = data.days || [];
-  const el = document.getElementById('event-chart');
+  var days = data.days || [];
+  var el = document.getElementById('event-chart');
   if (days.length === 0) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:.65rem">No events yet.</div>';
+    el.innerHTML = '<div class="empty-state">No events yet.</div>';
     return;
   }
 
-  const W = el.clientWidth || 280;
-  const H = 80;
-  const PAD_LEFT = 28;
-  const PAD_BOTTOM = 16;
-  const PAD_TOP = 4;
-  const chartW = W - PAD_LEFT;
-  const chartH = H - PAD_BOTTOM - PAD_TOP;
-  const maxCount = Math.max(...days.map(d => d.count), 1);
-  const gap = days.length > 200 ? 0 : 1;
-  const barW = Math.max(1, Math.floor((chartW - gap * days.length) / Math.max(days.length, 1)));
+  var W = el.clientWidth || 280;
+  var H = 80;
+  var PAD_LEFT = 28;
+  var PAD_BOTTOM = 16;
+  var PAD_TOP = 4;
+  var chartW = W - PAD_LEFT;
+  var chartH = H - PAD_BOTTOM - PAD_TOP;
+  var maxCount = Math.max.apply(null, days.map(function(d) { return d.count; }).concat([1]));
+  var gap = days.length > 200 ? 0 : 1;
+  var barW = Math.max(1, Math.floor((chartW - gap * days.length) / Math.max(days.length, 1)));
 
-  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
-  // Y-axis gridlines + labels
-  const yTicks = maxCount <= 5 ? maxCount : Math.min(4, maxCount);
-  for (let i = 0; i <= yTicks; i++) {
-    const val = Math.round((i / yTicks) * maxCount);
-    const y = PAD_TOP + chartH - (i / yTicks) * chartH;
-    svg += `<line x1="${PAD_LEFT}" y1="${y}" x2="${W}" y2="${y}" stroke="#334155" stroke-width="0.5"/>`;
-    svg += `<text x="${PAD_LEFT - 4}" y="${y + 3}" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">${val}</text>`;
+  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+  var yTicks = maxCount <= 5 ? maxCount : Math.min(4, maxCount);
+  for (var i = 0; i <= yTicks; i++) {
+    var val = Math.round((i / yTicks) * maxCount);
+    var y = PAD_TOP + chartH - (i / yTicks) * chartH;
+    svg += '<line x1="' + PAD_LEFT + '" y1="' + y + '" x2="' + W + '" y2="' + y + '" stroke="#334155" stroke-width="0.5"/>';
+    svg += '<text x="' + (PAD_LEFT - 4) + '" y="' + (y + 3) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + val + '</text>';
   }
-  // Bars
-  days.forEach((d, i) => {
-    const x = PAD_LEFT + i * (barW + gap);
-    const h = Math.max(1, (d.count / maxCount) * chartH);
-    const y = PAD_TOP + chartH - h;
-    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="var(--amber)" rx="${barW > 2 ? 1 : 0}"><title>${d.date}: ${d.count} event(s)</title></rect>`;
+  days.forEach(function(d, i) {
+    var x = PAD_LEFT + i * (barW + gap);
+    var h = Math.max(1, (d.count / maxCount) * chartH);
+    var yb = PAD_TOP + chartH - h;
+    svg += '<rect x="' + x + '" y="' + yb + '" width="' + barW + '" height="' + h + '" fill="var(--amber)" rx="' + (barW > 2 ? 1 : 0) + '"><title>' + esc(d.date) + ': ' + d.count + ' event(s)</title></rect>';
   });
-  // X-axis labels — show first, last, and monthly ticks
-  const xLabels = [];
+  var xLabels = [];
   xLabels.push({ i: 0, label: days[0].date.slice(5) });
-  let prevMonth = days[0].date.slice(0, 7);
-  for (let i = 1; i < days.length; i++) {
-    const mo = days[i].date.slice(0, 7);
+  var prevMonth = days[0].date.slice(0, 7);
+  for (var j = 1; j < days.length; j++) {
+    var mo = days[j].date.slice(0, 7);
     if (mo !== prevMonth) {
-      xLabels.push({ i, label: days[i].date.slice(5) });
+      xLabels.push({ i: j, label: days[j].date.slice(5) });
       prevMonth = mo;
     }
   }
   if (days.length > 1) xLabels.push({ i: days.length - 1, label: days[days.length - 1].date.slice(5) });
-  xLabels.forEach(({ i, label }) => {
-    const x = PAD_LEFT + i * (barW + gap) + barW / 2;
-    svg += `<text x="${x}" y="${H - 1}" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">${label}</text>`;
+  xLabels.forEach(function(item) {
+    var x = PAD_LEFT + item.i * (barW + gap) + barW / 2;
+    svg += '<text x="' + x + '" y="' + (H - 1) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
   });
   svg += '</svg>';
   el.innerHTML = svg;
@@ -663,98 +1032,209 @@ function renderEventRate(data) {
 
 // ── Render station activity heatmap ─────────────────────────────
 function renderStationHeatmap(data) {
-  const { stations, days, matrix } = data;
-  const el = document.getElementById('station-heatmap');
-  const rangeEl = document.getElementById('heatmap-range');
-  const maxEl = document.getElementById('heatmap-max');
+  var stations = data.stations, days = data.days, matrix = data.matrix;
+  var el = document.getElementById('station-heatmap');
+  var rangeEl = document.getElementById('heatmap-range');
+  var maxEl = document.getElementById('heatmap-max');
 
   if (!days || days.length === 0 || !stations || stations.length === 0) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:.65rem">No pick data yet.</div>';
+    el.innerHTML = '<div class="empty-state">No pick data yet.</div>';
     rangeEl.textContent = '';
     maxEl.textContent = 'max';
     return;
   }
 
-  const globalMax = Math.max(1, ...matrix.flat());
+  var globalMax = Math.max.apply(null, [1].concat(matrix.reduce(function(a, b) { return a.concat(b); }, [])));
   maxEl.textContent = globalMax;
   rangeEl.textContent = days.length + ' days';
 
-  const LABEL_W = 52;
-  const W = el.clientWidth || 280;
-  const chartW = W - LABEL_W;
-  const ROW_H = 16;
-  const PAD_BOTTOM = 16;
-  const cellW = Math.max(1, chartW / days.length);
-  const svgW = LABEL_W + cellW * days.length;
-  const svgH = ROW_H * stations.length + PAD_BOTTOM;
+  var LABEL_W = 52;
+  var W = el.clientWidth || 280;
+  var chartW = W - LABEL_W;
+  var ROW_H = 16;
+  var PAD_BOTTOM = 16;
+  var cellW = Math.max(1, chartW / days.length);
+  var svgW = LABEL_W + cellW * days.length;
+  var svgH = ROW_H * stations.length + PAD_BOTTOM;
 
-  let svg = `<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
-
-  // Rows
-  stations.forEach((sta, si) => {
-    const y = si * ROW_H;
-    // Station label
-    svg += `<text x="${LABEL_W - 4}" y="${y + ROW_H - 4}" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">${sta}</text>`;
-    // Cells
-    const row = matrix[si];
-    row.forEach((count, di) => {
-      const x = LABEL_W + di * cellW;
-      const color = heatColor(count, globalMax);
-      svg += `<rect x="${x}" y="${y + 1}" width="${Math.max(cellW - 0.5, 0.5)}" height="${ROW_H - 2}" fill="${color}" rx="1"><title>${sta} ${days[di]}: ${count} picks</title></rect>`;
+  var svg = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
+  stations.forEach(function(sta, si) {
+    var y = si * ROW_H;
+    svg += '<text x="' + (LABEL_W - 4) + '" y="' + (y + ROW_H - 4) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + esc(sta) + '</text>';
+    var row = matrix[si];
+    row.forEach(function(count, di) {
+      var x = LABEL_W + di * cellW;
+      var color = heatColor(count, globalMax);
+      svg += '<rect x="' + x + '" y="' + (y + 1) + '" width="' + Math.max(cellW - 0.5, 0.5) + '" height="' + (ROW_H - 2) + '" fill="' + color + '" rx="1"><title>' + esc(sta) + ' ' + esc(days[di]) + ': ' + count + ' picks</title></rect>';
     });
   });
-
-  // X-axis labels — monthly ticks
-  const baseY = ROW_H * stations.length;
-  let prevMonth = days[0].slice(0, 7);
-  const ticks = [{ i: 0, label: days[0].slice(5) }];
-  for (let i = 1; i < days.length; i++) {
-    const mo = days[i].slice(0, 7);
-    if (mo !== prevMonth) {
-      ticks.push({ i, label: days[i].slice(5) });
-      prevMonth = mo;
+  var baseY = ROW_H * stations.length;
+  var pm = days[0].slice(0, 7);
+  var ticks = [{ i: 0, label: days[0].slice(5) }];
+  for (var i = 1; i < days.length; i++) {
+    var mo2 = days[i].slice(0, 7);
+    if (mo2 !== pm) {
+      ticks.push({ i: i, label: days[i].slice(5) });
+      pm = mo2;
     }
   }
   if (days.length > 1) ticks.push({ i: days.length - 1, label: days[days.length - 1].slice(5) });
-  ticks.forEach(({ i, label }) => {
-    const x = LABEL_W + i * cellW + cellW / 2;
-    svg += `<text x="${x}" y="${baseY + PAD_BOTTOM - 3}" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">${label}</text>`;
+  ticks.forEach(function(item) {
+    var x = LABEL_W + item.i * cellW + cellW / 2;
+    svg += '<text x="' + x + '" y="' + (baseY + PAD_BOTTOM - 3) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
   });
-
   svg += '</svg>';
   el.innerHTML = svg;
 }
 
 function heatColor(val, max) {
   if (val === 0) return '#1e293b';
-  const t = Math.min(val / max, 1);
-  // 0→blue (#3b82f6), 1→green (#22c55e)
-  const r = Math.round(59 + (34 - 59) * t);
-  const g = Math.round(130 + (197 - 130) * t);
-  const b = Math.round(246 + (94 - 246) * t);
-  return `rgb(${r},${g},${b})`;
+  var t = Math.min(val / max, 1);
+  var r = Math.round(59 + (34 - 59) * t);
+  var g = Math.round(130 + (197 - 130) * t);
+  var b = Math.round(246 + (94 - 246) * t);
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+// ── Completeness color (dark to green) ────────────────────────────
+function completenessColor(val, max) {
+  if (val === 0) return '#1e293b';
+  var t = Math.min(val / max, 1);
+  var r = Math.round(22 + (34 - 22) * t);
+  var g = Math.round(101 + (197 - 101) * t);
+  var b = Math.round(52 + (94 - 52) * t);
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+// ── Render data completeness calendar ────────────────────────────
+function renderCompleteness(data) {
+  var stations = data.stations, days = data.days, matrix = data.matrix;
+  var el = document.getElementById('completeness-calendar');
+  var rangeEl = document.getElementById('completeness-range');
+  var maxEl = document.getElementById('completeness-max');
+
+  if (!days || days.length === 0 || !stations || stations.length === 0) {
+    el.innerHTML = '<div class="empty-state">No raw data yet.</div>';
+    rangeEl.textContent = '';
+    maxEl.textContent = 'max';
+    return;
+  }
+
+  var globalMax = Math.max.apply(null, [1].concat(matrix.reduce(function(a, b) { return a.concat(b); }, [])));
+  maxEl.textContent = globalMax;
+  rangeEl.textContent = days.length + ' days';
+
+  var LABEL_W = 52;
+  var W = el.clientWidth || 280;
+  var chartW = W - LABEL_W;
+  var ROW_H = 16;
+  var PAD_BOTTOM = 16;
+  var cellW = Math.max(1, chartW / days.length);
+  var svgW = LABEL_W + cellW * days.length;
+  var svgH = ROW_H * stations.length + PAD_BOTTOM;
+
+  var svg = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
+  stations.forEach(function(sta, si) {
+    var y = si * ROW_H;
+    svg += '<text x="' + (LABEL_W - 4) + '" y="' + (y + ROW_H - 4) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + esc(sta) + '</text>';
+    var row = matrix[si];
+    row.forEach(function(count, di) {
+      var x = LABEL_W + di * cellW;
+      var color = completenessColor(count, globalMax);
+      svg += '<rect x="' + x + '" y="' + (y + 1) + '" width="' + Math.max(cellW - 0.5, 0.5) + '" height="' + (ROW_H - 2) + '" fill="' + color + '" rx="1"><title>' + esc(sta) + ' ' + esc(days[di]) + ': ' + count + ' files</title></rect>';
+    });
+  });
+  var baseY = ROW_H * stations.length;
+  var pm2 = days[0].slice(0, 7);
+  var ticks2 = [{ i: 0, label: days[0].slice(5) }];
+  for (var k = 1; k < days.length; k++) {
+    var mo3 = days[k].slice(0, 7);
+    if (mo3 !== pm2) {
+      ticks2.push({ i: k, label: days[k].slice(5) });
+      pm2 = mo3;
+    }
+  }
+  if (days.length > 1) ticks2.push({ i: days.length - 1, label: days[days.length - 1].slice(5) });
+  ticks2.forEach(function(item) {
+    var x = LABEL_W + item.i * cellW + cellW / 2;
+    svg += '<text x="' + x + '" y="' + (baseY + PAD_BOTTOM - 3) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
+  });
+  svg += '</svg>';
+  el.innerHTML = svg;
+}
+
+// ── Render pick quality histogram ────────────────────────────────
+function renderPickQuality(data) {
+  var bins = data.bins, bin_edges = data.bin_edges, total = data.total, p_count = data.p_count, s_count = data.s_count;
+  var el = document.getElementById('pick-hist');
+  var infoEl = document.getElementById('pick-quality-info');
+
+  if (!total) {
+    el.innerHTML = '<div class="empty-state">No picks yet.</div>';
+    infoEl.textContent = '';
+    return;
+  }
+
+  infoEl.textContent = '(' + total.toLocaleString() + ' picks \u00b7 P=' + p_count.toLocaleString() + ' S=' + s_count.toLocaleString() + ')';
+
+  var W = el.clientWidth || 280;
+  var H = 90;
+  var PAD_LEFT = 34;
+  var PAD_BOTTOM = 18;
+  var PAD_TOP = 4;
+  var PAD_RIGHT = 4;
+  var chartW = W - PAD_LEFT - PAD_RIGHT;
+  var chartH = H - PAD_BOTTOM - PAD_TOP;
+  var maxBin = Math.max.apply(null, [1].concat(bins));
+  var barW = chartW / bins.length;
+  var gap2 = Math.max(1, barW * 0.15);
+
+  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+  var yTicks = Math.min(4, maxBin);
+  for (var i = 0; i <= yTicks; i++) {
+    var val = Math.round((i / yTicks) * maxBin);
+    var y = PAD_TOP + chartH - (i / yTicks) * chartH;
+    svg += '<line x1="' + PAD_LEFT + '" y1="' + y + '" x2="' + (W - PAD_RIGHT) + '" y2="' + y + '" stroke="#334155" stroke-width="0.5"/>';
+    svg += '<text x="' + (PAD_LEFT - 4) + '" y="' + (y + 3) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + val + '</text>';
+  }
+  bins.forEach(function(count, i) {
+    var x = PAD_LEFT + i * barW + gap2 / 2;
+    var w = barW - gap2;
+    var h = Math.max(count > 0 ? 1 : 0, (count / maxBin) * chartH);
+    var y = PAD_TOP + chartH - h;
+    svg += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="var(--blue)" rx="1"><title>' + bin_edges[i].toFixed(1) + '\u2013' + bin_edges[i + 1].toFixed(1) + ': ' + count + ' picks</title></rect>';
+  });
+  for (var j = 0; j <= bins.length; j++) {
+    var x2 = PAD_LEFT + j * barW;
+    svg += '<text x="' + x2 + '" y="' + (H - 2) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + bin_edges[j].toFixed(1) + '</text>';
+  }
+  svg += '</svg>';
+  el.innerHTML = svg;
 }
 
 // ── Render disk panel ───────────────────────────────────────────
 function renderDisk(d) {
-  const bar = document.getElementById('disk-bar');
-  const pct = d.usage_percent || 0;
+  var bar = document.getElementById('disk-bar');
+  var pct = d.usage_percent || 0;
   bar.style.width = pct + '%';
   bar.style.background = pct >= 85 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : 'var(--green)';
 
   document.getElementById('disk-text').innerHTML =
-    `<b>${d.used_gb} GB</b> / ${d.total_gb} GB used \u00b7 ${d.free_gb} GB free \u00b7 Pipeline: <b>${d.output_size_gb} GB</b>`;
+    '<b>' + d.used_gb + ' GB</b> / ' + d.total_gb + ' GB used \u00b7 ' + d.free_gb + ' GB free \u00b7 Pipeline: <b>' + d.output_size_gb + ' GB</b>';
 
-  const bd = d.breakdown || {};
-  const parts = Object.entries(bd).map(([k, v]) => `${k}: <span>${v >= 0.01 ? v.toFixed(2) : '<0.01'} GB</span>`);
+  var bd = d.breakdown || {};
+  var parts = Object.keys(bd).map(function(k) {
+    var v = bd[k];
+    return esc(k) + ': <span>' + (v >= 0.01 ? v.toFixed(2) : '&lt;0.01') + ' GB</span>';
+  });
   document.getElementById('disk-breakdown').innerHTML = parts.join(' &nbsp;\u00b7&nbsp; ');
 }
 
 // ── Render error log panel ──────────────────────────────────────
 function renderErrors(data) {
-  const errs = data.errors || [];
-  const el = document.getElementById('error-log');
-  const countEl = document.getElementById('error-count');
+  var errs = data.errors || [];
+  var el = document.getElementById('error-log');
+  var countEl = document.getElementById('error-count');
 
   if (errs.length === 0) {
     el.innerHTML = '<div style="color:var(--muted)">No errors.</div>';
@@ -763,59 +1243,176 @@ function renderErrors(data) {
   }
 
   countEl.textContent = '(' + errs.length + ')';
-  el.innerHTML = errs.map(e =>
-    `<div class="el-row"><span class="el-time">${esc(e.timestamp)}</span><span class="el-step">[${esc(e.step)}]</span><span class="el-${e.level}">${esc(e.message)}</span></div>`
-  ).join('');
+  el.innerHTML = errs.map(function(e) {
+    return '<div class="el-row"><span class="el-time">' + esc(e.timestamp) + '</span><span class="el-step">[' + esc(e.step) + ']</span><span class="el-' + esc(e.level) + '">' + esc(e.message) + '</span></div>';
+  }).join('');
+}
+
+// ── Date filter & export ────────────────────────────────────────
+document.getElementById('filter-apply').addEventListener('click', function() {
+  filterStartDate = document.getElementById('filter-start').value || '';
+  filterEndDate = document.getElementById('filter-end').value || '';
+  pollData();
+  pollSlow();
+});
+
+document.getElementById('filter-clear').addEventListener('click', function() {
+  document.getElementById('filter-start').value = '';
+  document.getElementById('filter-end').value = '';
+  filterStartDate = '';
+  filterEndDate = '';
+  pollData();
+  pollSlow();
+});
+
+document.getElementById('export-csv').addEventListener('click', function() {
+  var url = '/api/catalog/export';
+  var params = [];
+  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
+  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
+  if (params.length > 0) url += '?' + params.join('&');
+  window.open(url, '_blank');
+});
+
+// ── Build query string from date filters ────────────────────────
+function dateParams() {
+  var params = [];
+  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
+  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
+  return params.length > 0 ? '?' + params.join('&') : '';
+}
+
+function catalogParams() {
+  var params = ['per_page=500'];
+  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
+  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
+  return '?' + params.join('&');
+}
+
+// ── WebSocket for real-time status ──────────────────────────────
+let wsConn = null;
+let wsRetryTimer = null;
+let useWebSocket = true;
+
+function connectWebSocket() {
+  if (!useWebSocket) return;
+  try {
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsConn = new WebSocket(proto + '//' + location.host + '/ws/status');
+
+    wsConn.onopen = function() {
+      var ind = document.getElementById('ws-indicator');
+      ind.textContent = 'live';
+      ind.classList.add('ws-connected');
+    };
+
+    wsConn.onmessage = function(evt) {
+      try {
+        var data = JSON.parse(evt.data);
+        renderStatus(data);
+        onApiSuccess();
+      } catch(e) {}
+    };
+
+    wsConn.onclose = function() {
+      var ind = document.getElementById('ws-indicator');
+      ind.textContent = 'polling';
+      ind.classList.remove('ws-connected');
+      wsConn = null;
+      // Retry after 5s
+      if (useWebSocket) {
+        wsRetryTimer = setTimeout(connectWebSocket, 5000);
+      }
+    };
+
+    wsConn.onerror = function() {
+      // Will trigger onclose
+    };
+  } catch(e) {
+    useWebSocket = false;
+    var ind = document.getElementById('ws-indicator');
+    ind.textContent = 'polling';
+    ind.classList.remove('ws-connected');
+  }
 }
 
 // ── Polling ─────────────────────────────────────────────────────
-async function fetchJSON(url) {
-  const r = await fetch(url);
-  return r.json();
-}
-
 async function pollStatus() {
-  try { renderStatus(await fetchJSON('/api/status')); } catch(e) {}
+  // Skip HTTP polling if WebSocket is connected
+  if (wsConn && wsConn.readyState === WebSocket.OPEN) return;
+  try {
+    renderStatus(await fetchJSON('/api/status'));
+    onApiSuccess();
+  } catch(e) { onApiFailure(e); }
 }
 
 async function pollData() {
+  showLoading('loading-progress');
+  showLoading('loading-stats');
   try {
-    const [stats, catalog, progress, throughput] = await Promise.all([
+    var results = await Promise.all([
       fetchJSON('/api/stats'),
-      fetchJSON('/api/catalog'),
+      fetchJSON('/api/catalog' + catalogParams()),
       fetchJSON('/api/progress'),
       fetchJSON('/api/throughput')
     ]);
-    renderStats(stats);
-    renderEvents(catalog.events || []);
-    renderProgress(progress);
-    renderThroughput(throughput);
-  } catch(e) {}
+    renderStats(results[0]);
+    renderEvents((results[1] && results[1].events) || []);
+    renderProgress(results[2]);
+    renderThroughput(results[3]);
+    onApiSuccess();
+  } catch(e) { onApiFailure(e); }
+  hideLoading('loading-progress');
+  hideLoading('loading-stats');
 }
 
 async function pollDisk() {
-  try { renderDisk(await fetchJSON('/api/disk')); } catch(e) {}
+  showLoading('loading-disk');
+  try {
+    renderDisk(await fetchJSON('/api/disk'));
+    onApiSuccess();
+  } catch(e) { onApiFailure(e); }
+  hideLoading('loading-disk');
 }
 
 async function pollErrors() {
-  try { renderErrors(await fetchJSON('/api/errors')); } catch(e) {}
+  showLoading('loading-errors');
+  try {
+    renderErrors(await fetchJSON('/api/errors'));
+    onApiSuccess();
+  } catch(e) { onApiFailure(e); }
+  hideLoading('loading-errors');
 }
 
 async function pollSlow() {
+  showLoading('loading-events');
+  showLoading('loading-heatmap');
+  showLoading('loading-completeness');
+  showLoading('loading-picks');
   try {
-    const [health, rate, picks] = await Promise.all([
+    var results = await Promise.all([
       fetchJSON('/api/station_health'),
-      fetchJSON('/api/event_rate'),
-      fetchJSON('/api/station_picks')
+      fetchJSON('/api/event_rate' + dateParams()),
+      fetchJSON('/api/station_picks'),
+      fetchJSON('/api/data_completeness'),
+      fetchJSON('/api/pick_quality')
     ]);
-    renderStationHealth(health);
-    renderEventRate(rate);
-    renderStationHeatmap(picks);
-  } catch(e) {}
+    renderStationHealth(results[0]);
+    renderEventRate(results[1]);
+    renderStationHeatmap(results[2]);
+    renderCompleteness(results[3]);
+    renderPickQuality(results[4]);
+    onApiSuccess();
+  } catch(e) { onApiFailure(e); }
+  hideLoading('loading-events');
+  hideLoading('loading-heatmap');
+  hideLoading('loading-completeness');
+  hideLoading('loading-picks');
 }
 
 // Initial loads
-fetchJSON('/api/stations').then(renderStations).catch(() => {});
+connectWebSocket();
+fetchJSON('/api/stations').then(renderStations).catch(function() {});
 pollStatus();
 pollData();
 pollDisk();
@@ -829,7 +1426,8 @@ setInterval(pollErrors, 10000);
 setInterval(pollSlow, 30000);
 
 // Fix map size after layout settles
-setTimeout(() => map.invalidateSize(), 200);
+setTimeout(function() { map.invalidateSize(); }, 200);
+window.addEventListener('resize', function() { map.invalidateSize(); });
 </script>
 </body>
 </html>

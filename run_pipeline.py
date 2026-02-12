@@ -179,6 +179,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--continuous", action="store_true",
                    help="Run continuously — process one day at a time, "
                         "then wait for new data (Ctrl+C to stop)")
+    p.add_argument("--validate", action="store_true",
+                   help="Validate environment (FDSNWS, disk, GPU, config) and exit")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print commands that would be run, without executing them")
     return p.parse_args()
 
 
@@ -271,6 +275,15 @@ def single_run(args: argparse.Namespace) -> None:
 
         # execute
         cmd = build_command(step, args)
+
+        if getattr(args, "dry_run", False):
+            print(f"  [dry-run] {' '.join(cmd)}")
+            step_statuses[n - 1]["status"] = "completed"
+            step_statuses[n - 1]["finished_at"] = _now()
+            step_statuses[n - 1]["return_code"] = 0
+            _write_status(status_data)
+            continue
+
         t0 = datetime.now(timezone.utc)
         result = subprocess.run(cmd)
         t1 = datetime.now(timezone.utc)
@@ -490,6 +503,15 @@ def continuous_run(args: argparse.Namespace) -> None:
                 cont["day_times"].append(timing)
                 cont["day_times"] = cont["day_times"][-100:]
                 current_day += timedelta(days=1)
+
+                # Run monitoring checks every 10 days
+                if days_completed % 10 == 0:
+                    try:
+                        from lib.monitoring import run_monitoring_checks
+                        run_monitoring_checks(send_alert_fn=_send_alert)
+                    except Exception as exc:
+                        print(f"  WARNING: monitoring checks failed: {exc}")
+
                 print()
             else:
                 # ── persistent failure — stop pipeline and alert ─────
@@ -502,18 +524,22 @@ def continuous_run(args: argparse.Namespace) -> None:
                 cont["next_run_at"] = None
                 _write_status(status_data)
 
-                _send_alert(
-                    subject=f"[El Paso Pipeline] STOPPED — {day_str} failed",
-                    body=(
-                        f"The seismic pipeline shut down after {MAX_RETRIES} "
-                        f"consecutive failures processing {day_str}.\n\n"
-                        f"Days completed so far: {days_completed}\n"
-                        f"Pipeline started: {pipeline_started}\n"
-                        f"Stopped at: {_now()}\n\n"
-                        f"Check the dashboard or logs for details.\n"
-                        f"Restart with:  python run_pipeline.py --continuous\n"
-                    ),
+                alert_subject = f"[El Paso Pipeline] STOPPED — {day_str} failed"
+                alert_body = (
+                    f"The seismic pipeline shut down after {MAX_RETRIES} "
+                    f"consecutive failures processing {day_str}.\n\n"
+                    f"Days completed so far: {days_completed}\n"
+                    f"Pipeline started: {pipeline_started}\n"
+                    f"Stopped at: {_now()}\n\n"
+                    f"Check the dashboard or logs for details.\n"
+                    f"Restart with:  python run_pipeline.py --continuous\n"
                 )
+                _send_alert(subject=alert_subject, body=alert_body)
+                try:
+                    from lib.monitoring import send_webhook
+                    send_webhook(alert_subject, alert_body)
+                except Exception:
+                    pass
                 return
 
             _write_status(status_data)
@@ -535,6 +561,10 @@ def continuous_run(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = parse_args()
+    if args.validate:
+        from lib.monitoring import validate_environment
+        ok = validate_environment()
+        sys.exit(0 if ok else 1)
     if args.continuous:
         continuous_run(args)
     else:

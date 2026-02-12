@@ -12,8 +12,12 @@ Usage (run from project root):
     python 2-processing/process.py --config 2-processing/config.yaml --force --debug
 """
 
+from __future__ import annotations
+
 import argparse
+import gc
 import sys
+import time
 from pathlib import Path
 
 from obspy import UTCDateTime, read
@@ -23,7 +27,7 @@ from obspy import read_inventory
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.config import load_config, load_stations
-from lib.logger import setup_logging
+from lib.logger import MetricsWriter, setup_logging
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +43,7 @@ DEFAULTS = {
     "log_backup_count": 5,
     "filter_freqmin": 1.0,
     "filter_freqmax": 45.0,
-    "pre_filt": [0.5, 1.0, 45.0, 49.0],
+    "pre_filt": [0.5, 1.0, 40.0, 45.0],
     "response_output": "VEL",
     "water_level": 60,
     "taper_fraction": 0.05,
@@ -57,28 +61,18 @@ DEFAULTS = {
 # File discovery
 # ---------------------------------------------------------------------------
 
-def find_raw_files(station_cfg, input_dir, start_time, end_time):
-    """Walk julian-day directories and return raw miniSEED paths in the time range.
-
-    Parameters
-    ----------
-    station_cfg : dict
-        Station entry from stations.json.
-    input_dir : str
-        Base data directory (contains ``raw/``).
-    start_time, end_time : UTCDateTime
-        Inclusive time range to search.
-
-    Returns
-    -------
-    list of Path
-        Sorted list of matching miniSEED file paths.
-    """
+def find_raw_files(
+    station_cfg: dict,
+    input_dir: str,
+    start_time: UTCDateTime,
+    end_time: UTCDateTime,
+) -> list[Path]:
+    """Walk julian-day directories and return raw miniSEED paths in the time range."""
     raw_dir = Path(input_dir) / "1-raw"
     network = station_cfg["network"]
     station = station_cfg["station"]
 
-    matched = []
+    matched: list[Path] = []
 
     day = UTCDateTime(start_time.year, start_time.month, start_time.day)
     # Subtract 1 second so midnight end times stay on the previous day
@@ -100,13 +94,8 @@ def find_raw_files(station_cfg, input_dir, start_time, end_time):
     return matched
 
 
-def get_output_path(raw_path, input_dir, output_dir):
-    """Map a raw file path to its processed counterpart.
-
-    ``output/1-raw/2026/029/AM.R0F2D.00.EHZ.2026.029.mseed``
-    becomes
-    ``output/2-processed/2026/029/AM.R0F2D.00.EHZ.2026.029.mseed``
-    """
+def get_output_path(raw_path: Path, input_dir: str, output_dir: str) -> Path:
+    """Map a raw file path to its processed counterpart."""
     raw_path = Path(raw_path)
     input_raw = Path(input_dir) / "1-raw"
     rel = raw_path.relative_to(input_raw)
@@ -117,36 +106,46 @@ def get_output_path(raw_path, input_dir, output_dir):
 # Core ObsPy processing pipeline
 # ---------------------------------------------------------------------------
 
-def process_file(raw_path, inventory, output_path, config, logger):
+def process_file(
+    raw_path: Path,
+    inventory,
+    output_path: Path,
+    config: dict,
+    logger,
+) -> bool:
     """Read a raw miniSEED file, apply instrument-response removal and
     bandpass filtering, then write the processed result.
 
-    Parameters
-    ----------
-    raw_path : Path
-        Input miniSEED file.
-    inventory : Inventory
-        StationXML inventory with response information.
-    output_path : Path
-        Destination miniSEED file.
-    config : dict
-        Processing parameters.
-    logger : logging.Logger
-
-    Returns
-    -------
-    bool
-        True if processing succeeded, False otherwise.
+    Returns True if processing succeeded, False otherwise.
     """
     try:
         st = read(str(raw_path))
     except Exception as exc:
-        logger.error("Cannot read %s: %s", raw_path, exc)
+        logger.error("Cannot read %s: %s: %s", raw_path, type(exc).__name__, exc)
+        return False
+
+    # Guard against empty or single-sample streams
+    if len(st) == 0:
+        logger.warning("Empty stream from %s, skipping", raw_path)
         return False
 
     try:
         # 1. Merge overlapping/adjacent traces from chunked ingestion
         st.merge(method=1, fill_value=0)
+
+        # Guard: after merge, check for traces with too few samples
+        st_filtered = st.select()
+        for tr in list(st_filtered):
+            if tr.stats.npts < 10:
+                logger.warning(
+                    "Removing trace %s with only %d samples from %s",
+                    tr.id, tr.stats.npts, raw_path.name,
+                )
+                st_filtered.remove(tr)
+        if len(st_filtered) == 0:
+            logger.warning("No usable traces after merge in %s", raw_path)
+            return False
+        st = st_filtered
 
         # 2. Detrend
         for method in config["detrend_methods"]:
@@ -167,14 +166,10 @@ def process_file(raw_path, inventory, output_path, config, logger):
             water_level=config["water_level"],
         )
 
-        # 5. Bandpass filter
-        st.filter(
-            "bandpass",
-            freqmin=config["filter_freqmin"],
-            freqmax=config["filter_freqmax"],
-            corners=config["filter_order"],
-            zerophase=config["filter_zerophase"],
-        )
+        # 5. Bandpass filter removed — the pre_filt cosine taper in
+        # remove_response() already band-limits the signal. A separate
+        # bandpass caused redundant double-filtering at band edges,
+        # distorting amplitudes. See SCIENCE_AUDIT.md Issue 2.
 
         # 6. Write output
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -184,8 +179,17 @@ def process_file(raw_path, inventory, output_path, config, logger):
         logger.info("Processed %s -> %s (%d samples)", raw_path.name, output_path, npts)
         return True
 
+    except ValueError as exc:
+        logger.error(
+            "Processing value error for %s: %s: %s",
+            raw_path, type(exc).__name__, exc,
+        )
+        return False
     except Exception as exc:
-        logger.error("Processing failed for %s: %s", raw_path, exc)
+        logger.error(
+            "Processing failed for %s: %s: %s",
+            raw_path, type(exc).__name__, exc,
+        )
         return False
 
 
@@ -193,26 +197,15 @@ def process_file(raw_path, inventory, output_path, config, logger):
 # Per-station processing
 # ---------------------------------------------------------------------------
 
-def process_station(station_cfg, config, logger, start_time, end_time, force):
-    """Load metadata once per station, then iterate over raw files.
-
-    Parameters
-    ----------
-    station_cfg : dict
-        Station entry from stations.json.
-    config : dict
-        Full configuration.
-    logger : logging.Logger
-    start_time, end_time : UTCDateTime
-        Time range to process.
-    force : bool
-        If True, reprocess files even if output already exists.
-
-    Returns
-    -------
-    dict
-        Counters: ``{"processed": int, "skipped": int, "failed": int}``.
-    """
+def process_station(
+    station_cfg: dict,
+    config: dict,
+    logger,
+    start_time: UTCDateTime,
+    end_time: UTCDateTime,
+    force: bool,
+) -> dict[str, int]:
+    """Load metadata once per station, then iterate over raw files."""
     network = station_cfg["network"]
     station = station_cfg["station"]
 
@@ -221,7 +214,7 @@ def process_station(station_cfg, config, logger, start_time, end_time, force):
         network, station, start_time, end_time,
     )
 
-    counts = {"processed": 0, "skipped": 0, "failed": 0}
+    counts: dict[str, int] = {"processed": 0, "skipped": 0, "failed": 0}
 
     # Load StationXML metadata
     metadata_dir = Path(config["input_dir"]) / "1-metadata"
@@ -229,7 +222,7 @@ def process_station(station_cfg, config, logger, start_time, end_time, force):
 
     if not xml_path.exists():
         logger.error(
-            "No metadata file for %s.%s at %s — skipping station",
+            "No metadata file for %s.%s at %s -- skipping station",
             network, station, xml_path,
         )
         return counts
@@ -238,8 +231,8 @@ def process_station(station_cfg, config, logger, start_time, end_time, force):
         inventory = read_inventory(str(xml_path))
     except Exception as exc:
         logger.error(
-            "Cannot read metadata for %s.%s: %s — skipping station",
-            network, station, exc,
+            "Cannot read metadata for %s.%s: %s: %s -- skipping station",
+            network, station, type(exc).__name__, exc,
         )
         return counts
 
@@ -267,6 +260,9 @@ def process_station(station_cfg, config, logger, start_time, end_time, force):
         else:
             counts["failed"] += 1
 
+    # Explicit cleanup after each station
+    gc.collect()
+
     return counts
 
 
@@ -274,7 +270,7 @@ def process_station(station_cfg, config, logger, start_time, end_time, force):
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Preprocess seismic waveforms (instrument response removal, filtering)",
     )
@@ -291,15 +287,16 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     config = load_config(args.config, defaults=DEFAULTS)
     stations = load_stations(config["stations_file"])
     logger = setup_logging("process", config, debug=args.debug)
+    metrics = MetricsWriter(Path(config["log_dir"]) / "metrics.jsonl")
 
     logger.info("=" * 60)
-    logger.info("Waveform preprocessing — %d station(s)", len(stations))
+    logger.info("Waveform preprocessing -- %d station(s)", len(stations))
     logger.info("=" * 60)
 
     # Determine time window
@@ -317,12 +314,13 @@ def main():
 
     force = args.force
     if force:
-        logger.info("Force mode enabled — reprocessing all files")
+        logger.info("Force mode enabled -- reprocessing all files")
 
     # Process each station
-    totals = {"processed": 0, "skipped": 0, "failed": 0}
+    totals: dict[str, int] = {"processed": 0, "skipped": 0, "failed": 0}
 
     for station_cfg in stations:
+        t0 = time.monotonic()
         try:
             counts = process_station(
                 station_cfg, config, logger, start_time, end_time, force,
@@ -331,9 +329,16 @@ def main():
                 totals[k] += counts[k]
         except Exception as exc:
             logger.error(
-                "Unexpected error processing %s.%s: %s",
-                station_cfg["network"], station_cfg["station"], exc,
+                "Unexpected error processing %s.%s: %s: %s",
+                station_cfg["network"], station_cfg["station"],
+                type(exc).__name__, exc,
             )
+        elapsed = time.monotonic() - t0
+        metrics.record(
+            "process",
+            station=f"{station_cfg['network']}.{station_cfg['station']}",
+            duration_s=round(elapsed, 1),
+        )
 
     # Summary
     logger.info("=" * 60)

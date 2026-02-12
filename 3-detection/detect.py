@@ -12,9 +12,13 @@ Usage (run from project root):
     python 3-detection/detect.py --config 3-detection/config.yaml --force --debug
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
+import gc
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -24,7 +28,7 @@ from obspy import UTCDateTime, Stream, read
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.config import load_config, load_stations
-from lib.logger import setup_logging
+from lib.logger import MetricsWriter, setup_logging
 
 DEFAULTS = {
     "stations_file": "stations.json",
@@ -40,8 +44,13 @@ DEFAULTS = {
     "classify_batch_size": 256,
     "detect_window_hours": 24,
     "detect_latency_hours": 6,
-    "amp_window_before": 0.5,
-    "amp_window_after": 2.0,
+    # Highpass pre-filter before PhaseNet (Hz); set to 0 or null to disable
+    "highpass_freq": 3.0,
+    # Phase-dependent amplitude windows (SCIENCE_AUDIT.md Issue 7)
+    "amp_window_p_before": 0.5,
+    "amp_window_p_after": 2.0,
+    "amp_window_s_before": 0.5,
+    "amp_window_s_after": 5.0,
 }
 
 CSV_COLUMNS = [
@@ -55,7 +64,7 @@ CSV_COLUMNS = [
 # CLI
 # ---------------------------------------------------------------------------
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Detect and pick seismic phases from preprocessed waveforms",
     )
@@ -76,7 +85,7 @@ def parse_args():
 # Model loading
 # ---------------------------------------------------------------------------
 
-def load_phasenet_model(config, logger):
+def load_phasenet_model(config: dict, logger):
     """Load PhaseNet once via SeisBench.  Imports torch/seisbench here
     so that ``--help`` stays fast without torch installed."""
     try:
@@ -96,7 +105,8 @@ def load_phasenet_model(config, logger):
         logger.info("PhaseNet loaded successfully")
         return model
     except Exception as exc:
-        logger.critical("Failed to load PhaseNet model: %s", exc)
+        logger.critical("Failed to load PhaseNet model: %s: %s",
+                        type(exc).__name__, exc)
         sys.exit(1)
 
 
@@ -104,14 +114,8 @@ def load_phasenet_model(config, logger):
 # Channel logic
 # ---------------------------------------------------------------------------
 
-def get_detection_channels(station_cfg):
-    """Return ``(channel_pattern, is_3c, fallback_pattern)`` for a station.
-
-    - RS3D (model "RS3D", channels "EH?"): ("EH?", True, None) -- 3C geophone
-    - RS4D (model "RS4D", channels "E??"): ("EN?", True, "EHZ") -- 3C accelerometer,
-      fallback to vertical geophone if EN? not available
-    - Broadband (channels "HH?"): ("HH?", True, None) -- 3C
-    """
+def get_detection_channels(station_cfg: dict) -> tuple[str, bool, str | None]:
+    """Return ``(channel_pattern, is_3c, fallback_pattern)`` for a station."""
     model = station_cfg.get("model", "")
     channels = station_cfg.get("channels", "")
 
@@ -129,11 +133,14 @@ def get_detection_channels(station_cfg):
 # File discovery
 # ---------------------------------------------------------------------------
 
-def find_processed_files(station_cfg, input_dir, year, jday, channel_pattern):
-    """Glob for processed miniSEED files matching a station/day/channel pattern.
-
-    Returns a sorted list of Path objects.
-    """
+def find_processed_files(
+    station_cfg: dict,
+    input_dir: str,
+    year: str,
+    jday: str,
+    channel_pattern: str,
+) -> list[Path]:
+    """Glob for processed miniSEED files matching a station/day/channel pattern."""
     proc_dir = Path(input_dir) / "2-processed" / year / jday
     if not proc_dir.is_dir():
         return []
@@ -146,8 +153,8 @@ def find_processed_files(station_cfg, input_dir, year, jday, channel_pattern):
     return sorted(proc_dir.glob(pattern))
 
 
-def get_daily_picks_path(output_dir, year, jday):
-    """Return the CSV path for a day's picks: ``output/3-picks/{year}/{jday}/{year}.{jday}.picks.csv``."""
+def get_daily_picks_path(output_dir: str, year: str, jday: str) -> Path:
+    """Return the CSV path for a day's picks."""
     return Path(output_dir) / "3-picks" / year / jday / f"{year}.{jday}.picks.csv"
 
 
@@ -155,14 +162,14 @@ def get_daily_picks_path(output_dir, year, jday):
 # Waveform I/O
 # ---------------------------------------------------------------------------
 
-def load_waveforms(file_paths, logger):
+def load_waveforms(file_paths: list[Path], logger) -> Stream:
     """Read miniSEED files into a single merged Stream."""
     st = Stream()
     for fp in file_paths:
         try:
             st += read(str(fp))
         except Exception as exc:
-            logger.warning("Cannot read %s: %s", fp, exc)
+            logger.warning("Cannot read %s: %s: %s", fp, type(exc).__name__, exc)
     if len(st) > 0:
         st.merge(method=1, fill_value=0)
     return st
@@ -172,7 +179,7 @@ def load_waveforms(file_paths, logger):
 # Pick extraction
 # ---------------------------------------------------------------------------
 
-def extract_picks(model, stream, config, logger):
+def extract_picks(model, stream: Stream, config: dict, logger) -> list[dict]:
     """Run PhaseNet classification and return a list of pick dicts."""
     model_tag = f"PhaseNet:{config['phasenet_model']}"
 
@@ -184,14 +191,17 @@ def extract_picks(model, stream, config, logger):
             overlap=config["classify_overlap"],
             batch_size=config["classify_batch_size"],
         )
+    except RuntimeError as exc:
+        logger.error("model.classify() runtime error: %s: %s",
+                      type(exc).__name__, exc)
+        return []
     except Exception as exc:
-        logger.error("model.classify() failed: %s", exc)
+        logger.error("model.classify() failed: %s: %s",
+                      type(exc).__name__, exc)
         return []
 
-    results = []
+    results: list[dict] = []
     for pick in picks.picks:
-        # SeisBench returns trace_id as "NET.STA.LOC" (no channel)
-        # since PhaseNet picks are station-level, not channel-level
         parts = pick.trace_id.split(".")
         net = parts[0] if len(parts) > 0 else ""
         sta = parts[1] if len(parts) > 1 else ""
@@ -214,21 +224,26 @@ def extract_picks(model, stream, config, logger):
 # Amplitude measurement
 # ---------------------------------------------------------------------------
 
-def measure_amplitudes(picks_list, stream, config, logger):
+def measure_amplitudes(
+    picks_list: list[dict],
+    stream: Stream,
+    config: dict,
+    logger,
+) -> None:
     """Measure peak absolute amplitude on the velocity trace for each pick.
 
-    For each pick, finds the best matching trace (preferring the vertical Z
-    component) and extracts a window from ``pick_time - amp_window_before``
-    to ``pick_time + amp_window_after``.  The peak absolute value (m/s) is
-    stored in the pick dict.
+    Uses phase-dependent windows: P-waves get a shorter window,
+    S-waves get a longer window to capture coda peak (SCIENCE_AUDIT.md Issue 7).
 
     Modifies *picks_list* in place.
     """
-    before = config["amp_window_before"]
-    after = config["amp_window_after"]
+    p_before = config["amp_window_p_before"]
+    p_after = config["amp_window_p_after"]
+    s_before = config["amp_window_s_before"]
+    s_after = config["amp_window_s_after"]
 
     # Build a lookup from station prefix (NET.STA.LOC) -> list of Traces
-    station_traces = {}
+    station_traces: dict[str, list] = {}
     for tr in stream:
         prefix = f"{tr.stats.network}.{tr.stats.station}.{tr.stats.location}"
         station_traces.setdefault(prefix, []).append(tr)
@@ -247,6 +262,13 @@ def measure_amplitudes(picks_list, stream, config, logger):
         tr = next((t for t in traces if t.stats.channel.endswith("Z")), traces[0])
         pick["channel"] = tr.stats.channel
 
+        # Phase-dependent amplitude window
+        phase = pick.get("phase", "P")
+        if phase == "S":
+            before, after = s_before, s_after
+        else:
+            before, after = p_before, p_after
+
         pick_time = UTCDateTime(pick["time"])
         t1 = pick_time - before
         t2 = pick_time + after
@@ -262,7 +284,8 @@ def measure_amplitudes(picks_list, stream, config, logger):
             pick["amplitude"] = f"{peak:.6e}"
             pick["amplitude_channel"] = tr.stats.channel
         except Exception as exc:
-            logger.debug("Amplitude measurement failed for %s at %s: %s", prefix, pick["time"], exc)
+            logger.debug("Amplitude measurement failed for %s at %s: %s: %s",
+                         prefix, pick["time"], type(exc).__name__, exc)
             pick["amplitude"] = ""
             pick["amplitude_channel"] = ""
 
@@ -271,7 +294,7 @@ def measure_amplitudes(picks_list, stream, config, logger):
 # CSV output
 # ---------------------------------------------------------------------------
 
-def write_picks_csv(picks_list, output_path, logger):
+def write_picks_csv(picks_list: list[dict], output_path: Path, logger) -> None:
     """Write picks to CSV.  Always writes header even if no picks."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", newline="") as f:
@@ -286,7 +309,14 @@ def write_picks_csv(picks_list, output_path, logger):
 # Per-station detection (returns picks, does not write)
 # ---------------------------------------------------------------------------
 
-def detect_station(station_cfg, year, jday, model, config, logger):
+def detect_station(
+    station_cfg: dict,
+    year: str,
+    jday: str,
+    model,
+    config: dict,
+    logger,
+) -> tuple[list[dict], str]:
     """Run detection for one station on one julian day.
 
     Returns a tuple ``(picks_list, status)`` where status is one of
@@ -313,10 +343,10 @@ def detect_station(station_cfg, year, jday, model, config, logger):
         logger.debug("No processed files for %s.%s %s/%s (pattern=%s)", net, sta, year, jday, channel_pattern)
         return [], "no_data"
 
-    # 3C graceful degradation: if expecting 3C but got fewer, log warning
+    # 3C graceful degradation
     if is_3c and len(files) < 3:
         logger.warning(
-            "%s.%s %s/%s: expected 3C but found %d file(s) — running with available data",
+            "%s.%s %s/%s: expected 3C but found %d file(s) -- running with available data",
             net, sta, year, jday, len(files),
         )
 
@@ -327,18 +357,30 @@ def detect_station(station_cfg, year, jday, model, config, logger):
         return [], "detected"
 
     logger.info(
-        "Detecting %s.%s %s/%s — %d trace(s), %d file(s)",
+        "Detecting %s.%s %s/%s -- %d trace(s), %d file(s)",
         net, sta, year, jday, len(stream), len(files),
     )
+
+    # Apply highpass pre-filter before PhaseNet
+    hp_freq = config.get("highpass_freq")
+    if hp_freq:
+        stream.filter("highpass", freq=hp_freq, corners=4, zerophase=True)
+        logger.debug("%s.%s %s/%s: applied %.1f Hz highpass pre-filter",
+                     net, sta, year, jday, hp_freq)
 
     # Run detection and measure amplitudes
     try:
         picks_list = extract_picks(model, stream, config, logger)
         measure_amplitudes(picks_list, stream, config, logger)
-        logger.info("%s.%s %s/%s — %d pick(s)", net, sta, year, jday, len(picks_list))
+        logger.info("%s.%s %s/%s -- %d pick(s)", net, sta, year, jday, len(picks_list))
         return picks_list, "detected"
+    except RuntimeError as exc:
+        logger.error("Detection runtime error for %s.%s %s/%s: %s: %s",
+                      net, sta, year, jday, type(exc).__name__, exc)
+        return [], "failed"
     except Exception as exc:
-        logger.error("Detection failed for %s.%s %s/%s: %s", net, sta, year, jday, exc)
+        logger.error("Detection failed for %s.%s %s/%s: %s: %s",
+                      net, sta, year, jday, type(exc).__name__, exc)
         return [], "failed"
 
 
@@ -346,15 +388,16 @@ def detect_station(station_cfg, year, jday, model, config, logger):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
+def main() -> None:
     args = parse_args()
 
     config = load_config(args.config, defaults=DEFAULTS)
     stations = load_stations(config["stations_file"])
     logger = setup_logging("detect", config, debug=args.debug)
+    metrics = MetricsWriter(Path(config["log_dir"]) / "metrics.jsonl")
 
     logger.info("=" * 60)
-    logger.info("Phase detection & picking — %d station(s)", len(stations))
+    logger.info("Phase detection & picking -- %d station(s)", len(stations))
     logger.info("=" * 60)
 
     # Determine time window
@@ -372,13 +415,13 @@ def main():
 
     force = args.force
     if force:
-        logger.info("Force mode enabled — redetecting all days")
+        logger.info("Force mode enabled -- redetecting all days")
 
     # Load model once
     model = load_phasenet_model(config, logger)
 
     # Iterate: days (outer) x stations (inner)
-    totals = {"days": 0, "skipped": 0, "picks": 0, "failed_stations": 0}
+    totals: dict[str, int] = {"days": 0, "skipped": 0, "picks": 0, "failed_stations": 0}
 
     day = UTCDateTime(start_time.year, start_time.month, start_time.day)
     # Subtract 1 second so midnight end times stay on the previous day
@@ -398,7 +441,8 @@ def main():
             continue
 
         logger.info("=== Day %s/%s ===", year, jday)
-        day_picks = []
+        day_picks: list[dict] = []
+        day_t0 = time.monotonic()
 
         for station_cfg in stations:
             net = station_cfg["network"]
@@ -413,8 +457,8 @@ def main():
                     totals["failed_stations"] += 1
             except Exception as exc:
                 logger.error(
-                    "Unexpected error detecting %s.%s %s/%s: %s",
-                    net, sta, year, jday, exc,
+                    "Unexpected error detecting %s.%s %s/%s: %s: %s",
+                    net, sta, year, jday, type(exc).__name__, exc,
                 )
                 totals["failed_stations"] += 1
 
@@ -423,8 +467,19 @@ def main():
             write_picks_csv(day_picks, daily_csv, logger)
             totals["days"] += 1
             totals["picks"] += len(day_picks)
-        except Exception as exc:
+        except OSError as exc:
             logger.error("Cannot write daily picks for %s/%s: %s", year, jday, exc)
+
+        day_elapsed = time.monotonic() - day_t0
+        metrics.record(
+            "detect",
+            day=f"{year}/{jday}",
+            picks=len(day_picks),
+            duration_s=round(day_elapsed, 1),
+        )
+
+        # Explicit cleanup after each day
+        gc.collect()
 
         day += 86400
 

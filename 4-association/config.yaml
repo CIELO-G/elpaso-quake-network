@@ -24,8 +24,8 @@ center_lon: -106.40
 # -----------------------------------------------------------------------------
 # Search region (degrees from center)
 # -----------------------------------------------------------------------------
-xlim_degree: 0.5
-ylim_degree: 0.5
+xlim_degree: 0.7
+ylim_degree: 0.7
 zlim_km: [0, 30]
 
 # Degrees-to-km conversion at this latitude
@@ -35,8 +35,8 @@ degree2km: 111.19
 # 1D velocity model (km/s)
 # -----------------------------------------------------------------------------
 vel:
-  P: 5.5
-  S: 3.18
+  P: 6.0
+  S: 3.47
 
 # -----------------------------------------------------------------------------
 # Association method: BGMM (Bayesian) or GMM
@@ -47,13 +47,13 @@ method: "BGMM"
 # DBSCAN pre-clustering
 # -----------------------------------------------------------------------------
 use_dbscan: true
-dbscan_eps: 50            # seconds
+dbscan_eps: 25            # seconds (max travel time + max P-S + margin)
 dbscan_min_samples: 3
 
 # -----------------------------------------------------------------------------
 # Event quality filters
 # -----------------------------------------------------------------------------
-min_picks_per_eq: 3
+min_picks_per_eq: 6          # At least 6 phase picks (3P + 3S minimum)
 min_stations_per_eq: 3        # minimum unique stations per event (post-association QC)
 max_sigma11: 2.0          # max time residual std (s)
 max_sigma22: 2.0          # max amplitude residual std (log10)
@@ -62,7 +62,7 @@ oversample_factor: 5
 # -----------------------------------------------------------------------------
 # Pick quality filter
 # -----------------------------------------------------------------------------
-min_pick_probability: 0.4
+min_pick_probability: 0.5     # Raised from 0.4 per SCIENCE_AUDIT.md Issue 6
 
 # -----------------------------------------------------------------------------
 # Default time window (scheduled mode)
@@ -74,8 +74,8 @@ assoc_latency_hours: 6
 # Local magnitude (ML) — Hutton & Boore (1987)
 # -----------------------------------------------------------------------------
 ml_freq_hz: 5.0              # Dominant frequency for vel->disp conversion (Hz)
-ml_wa_gain: 2080              # Wood-Anderson static magnification
-ml_min_distance: 1.0          # Minimum hypocentral distance (km)
+ml_wa_gain: 2800              # Wood-Anderson static magnification (Uhrhammer & Collins 1990)
+ml_min_distance: 10.0         # Minimum hypocentral distance (km), per Hutton & Boore calibration range
 
 # Attenuation coefficients:
 #   ML = log10(A_wa) + a*log10(r/ref) + b*(r-ref) + c

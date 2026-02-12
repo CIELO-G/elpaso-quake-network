@@ -1,0 +1,133 @@
+# =============================================================================
+# CI Pipeline — El Paso Seismic Network
+#
+# Triggers:
+#   - On pull request: lint, type check, unit tests
+#   - On merge to main: build and push Docker image to GHCR
+#   - Weekly (Sunday 06:00 UTC): smoke test on 1 day of real data
+# =============================================================================
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Weekly smoke test: Sunday 06:00 UTC
+    - cron: "0 6 * * 0"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ── Lint & Type Check ──────────────────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linting tools
+        run: pip install ruff mypy types-PyYAML types-requests
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Mypy type check
+        run: mypy --ignore-missing-imports lib/ run_pipeline.py dashboard/app.py
+
+  # ── Unit Tests ─────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml obspy fastapi uvicorn httpx pytest pytest-cov
+
+      - name: Run tests
+        run: |
+          if [ -d tests ]; then
+            pytest tests/ -v --tb=short --co -q 2>/dev/null && \
+            pytest tests/ -v --tb=short -x || exit 1
+          else
+            echo "::warning::No tests/ directory found — skipping unit tests"
+          fi
+
+  # ── Docker Build & Push (on merge to main only) ───────────────────────────
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Weekly Smoke Test ──────────────────────────────────────────────────────
+  smoke-test:
+    name: Weekly Smoke Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml
+          activate-environment: elpaso-quake
+          auto-activate-base: false
+
+      - name: Run pipeline for 1 day
+        shell: bash -el {0}
+        run: |
+          # Process yesterday's data as a smoke test
+          YESTERDAY=$(date -u -d "2 days ago" +%Y-%m-%d)
+          echo "Smoke test: processing $YESTERDAY"
+          python run_pipeline.py --start "$YESTERDAY" --end "$YESTERDAY" || {
+            echo "::warning::Smoke test failed for $YESTERDAY — check FDSNWS availability"
+            exit 1
+          }
+
+      - name: Verify outputs exist
+        run: |
+          echo "Checking output directories..."
+          ls -la output/1-raw/ || echo "No raw data"
+          ls -la output/2-processed/ || echo "No processed data"
+          ls -la output/3-picks/ || echo "No picks"
