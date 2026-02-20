@@ -3,6 +3,9 @@ data/
 output/
 logs/
 
+# PhaseNet model weights (copy from Mexico project or download separately)
+3-detection/model/
+
 # Python
 __pycache__/
 *.pyc

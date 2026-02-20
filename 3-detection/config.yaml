@@ -9,40 +9,34 @@ stations_file: "stations.json"
 # I/O directories
 # -----------------------------------------------------------------------------
 
-# Where preprocessed waveforms live (output of processing)
+# Where raw waveforms live (output of ingestion)
 input_dir: "output"
 
 # Where detection results will be written
 output_dir: "output"
 
 # -----------------------------------------------------------------------------
-# PhaseNet model
+# PhaseNet standalone model
 # -----------------------------------------------------------------------------
 
-# SeisBench pretrained model name
-phasenet_model: "original"
+# Path to pretrained model checkpoint directory
+phasenet_model_dir: "3-detection/model/190703-214543"
+
+# Python interpreter with TensorFlow installed.
+# Uses the "phasenet" conda env to isolate TF from the main env.
+# Adjust this path for your machine, or set to null to use the current interpreter.
+phasenet_python: "phasenet"  # resolved via `conda run -n phasenet`
 
 # Pick probability thresholds
-p_threshold: 0.3
-s_threshold: 0.3
-
-# SeisBench classify() parameters
-# Overlap between sliding windows (samples). PhaseNet uses 3001-sample windows;
-# 1500 = 50% overlap (SeisBench default).
-classify_overlap: 1500
-classify_batch_size: 256
+p_threshold: 0.4
+s_threshold: 0.4
 
 # Highpass pre-filter applied before PhaseNet inference (Hz).
-# Removes microseism and tilt noise. Set to 0 or remove to disable.
+# Removes microseism and tilt noise.
 highpass_freq: 3.0
 
-# Amplitude measurement window around each pick (seconds)
-# Peak absolute velocity (m/s) is measured in [pick - before, pick + after]
-# Phase-dependent: S-waves need a wider window for coda peak (SCIENCE_AUDIT.md Issue 7)
-amp_window_p_before: 0.5
-amp_window_p_after: 2.0
-amp_window_s_before: 0.5
-amp_window_s_after: 5.0
+# Minimum peak distance in samples (0.5s at 100Hz)
+min_peak_distance: 50
 
 # Default time window when --start/--end are not provided
 detect_window_hours: 24
