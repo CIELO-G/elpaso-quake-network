@@ -224,13 +224,19 @@ def fetch_waveforms(
             return Stream()
 
         except FDSNException as exc:
-            # Track 503s for circuit breaker
+            # Track 503s and 429s for circuit breaker
             exc_str = str(exc)
             if "503" in exc_str or "Service Unavailable" in exc_str:
                 _circuit_breaker.record_failure(host, logger)
+            if "429" in exc_str or "Too Many Requests" in exc_str:
+                _circuit_breaker.record_failure(host, logger)
 
             if attempt < max_retries:
-                delay = base_delay * (2 ** attempt)
+                # Use longer backoff for rate limiting (429)
+                if "429" in exc_str or "Too Many Requests" in exc_str:
+                    delay = base_delay * (4 ** attempt)
+                else:
+                    delay = base_delay * (2 ** attempt)
                 logger.warning(
                     "Attempt %d/%d failed for %s.%s (%s: %s). Retrying in %ds...",
                     attempt + 1, max_retries + 1, network, station,

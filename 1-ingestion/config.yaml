@@ -30,11 +30,12 @@ data_latency_hours: 6
 # Already-downloaded chunks are skipped automatically.
 fetch_window_hours: 24
 
-# Polite delay between stations (seconds) to avoid hammering the server
-station_delay_seconds: 2
+# Polite delay between chunks (seconds) to avoid rate limiting (429s)
+station_delay_seconds: 5
 
-# Maximum concurrent station fetches
-max_workers: 2
+# Maximum concurrent station fetches — use 1 to serialize all requests
+# and avoid 429 rate limits from Raspberry Shake
+max_workers: 1
 
 # -----------------------------------------------------------------------------
 # Retry settings
