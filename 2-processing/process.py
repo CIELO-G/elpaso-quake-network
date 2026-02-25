@@ -20,6 +20,14 @@ import sys
 import time
 from pathlib import Path
 
+# scipy >=1.15 moved window functions from scipy.signal to scipy.signal.windows;
+# ObsPy 1.4 still references the old location.  Shim them back so that
+# st.taper(type="hann") keeps working without pinning scipy.
+import scipy.signal
+for _wf in ("hann", "hamming", "blackman"):
+    if not hasattr(scipy.signal, _wf) and hasattr(scipy.signal.windows, _wf):
+        setattr(scipy.signal, _wf, getattr(scipy.signal.windows, _wf))
+
 from obspy import UTCDateTime, read
 from obspy import read_inventory
 
@@ -131,7 +139,7 @@ def process_file(
 
     try:
         # 1. Merge overlapping/adjacent traces from chunked ingestion
-        st.merge(method=1, fill_value=0)
+        st.merge(method=1, fill_value="interpolate")
 
         # Guard: after merge, check for traces with too few samples
         st_filtered = st.select()
@@ -171,9 +179,11 @@ def process_file(
         # bandpass caused redundant double-filtering at band edges,
         # distorting amplitudes. See SCIENCE_AUDIT.md Issue 2.
 
-        # 6. Write output
+        # 6. Write output (float32 keeps ~7 sig figs; halves size vs float64)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        st.write(str(output_path), format="MSEED")
+        for tr in st:
+            tr.data = tr.data.astype("float32")
+        st.write(str(output_path), format="MSEED", encoding="FLOAT32")
 
         npts = sum(tr.stats.npts for tr in st)
         logger.info("Processed %s -> %s (%d samples)", raw_path.name, output_path, npts)

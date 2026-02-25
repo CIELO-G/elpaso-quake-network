@@ -470,6 +470,221 @@
   .leaflet-container { background: #0f172a; }
   .leaflet-control-attribution { font-size: .55rem !important; opacity: .5; }
 
+  /* tab bar */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 1rem .5rem;
+  }
+  .tab-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    color: var(--muted);
+    padding: .35rem 1.2rem;
+    font-size: .72rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    transition: background .15s, color .15s;
+    border-radius: .35rem .35rem 0 0;
+    margin-right: -1px;
+    position: relative;
+  }
+  .tab-btn:hover { color: var(--text); background: var(--border); }
+  .tab-btn.active {
+    color: var(--text);
+    background: var(--bg);
+    border-bottom: 2px solid var(--blue);
+    z-index: 1;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: flex; }
+  .tab-content-full { display: none; flex-direction: column; flex: 1; min-height: 0; padding: 0 1rem 1rem; }
+  .tab-content-full.active { display: flex; }
+
+  /* catalog table */
+  .catalog-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .25rem 0 .5rem;
+    flex-wrap: wrap;
+  }
+  .catalog-toolbar label {
+    font-size: .65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .catalog-toolbar input, .catalog-toolbar select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: .35rem;
+    padding: .2rem .4rem;
+    font-size: .68rem;
+    font-family: inherit;
+    width: 5.5rem;
+  }
+  .catalog-table-wrap {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: .5rem;
+  }
+  .catalog-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .7rem;
+  }
+  .catalog-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-size: .62rem;
+    font-weight: 700;
+    padding: .4rem .5rem;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--border);
+  }
+  .catalog-table th:hover { color: var(--text); }
+  .catalog-table th .sort-arrow { margin-left: .2rem; font-size: .55rem; }
+  .catalog-table td {
+    padding: .3rem .5rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .catalog-table tr { cursor: pointer; transition: background .1s; }
+  .catalog-table tr:hover { background: rgba(59,130,246,.08); }
+  .mag-green { color: var(--green); font-weight: 700; }
+  .mag-amber { color: var(--amber); font-weight: 700; }
+  .mag-red { color: var(--red); font-weight: 700; }
+  .catalog-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+    padding: .5rem 0 0;
+    font-size: .7rem;
+    color: var(--muted);
+  }
+  .catalog-pagination button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: .35rem;
+    padding: .2rem .6rem;
+    font-size: .68rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .catalog-pagination button:disabled { opacity: .4; cursor: default; }
+  .catalog-pagination button:hover:not(:disabled) { background: var(--border); }
+
+  /* analysis tab */
+  .analysis-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: .75rem;
+    min-height: 0;
+  }
+  .analysis-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: .5rem;
+    padding: .6rem .75rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .analysis-panel .panel-title { margin-bottom: .3rem; }
+  .analysis-chart { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .analysis-chart svg { max-width: 100%; max-height: 100%; }
+  .analysis-annotation {
+    font-size: .62rem;
+    color: var(--muted);
+    margin-top: .25rem;
+    line-height: 1.5;
+  }
+
+  /* waveform panel */
+  .waveform-overlay {
+    display: none;
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 60%;
+    min-width: 400px;
+    max-width: 900px;
+    background: var(--bg);
+    border-left: 2px solid var(--border);
+    z-index: 2000;
+    flex-direction: column;
+    box-shadow: -4px 0 24px rgba(0,0,0,.5);
+    overflow: hidden;
+  }
+  .waveform-overlay.visible { display: flex; }
+  .waveform-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .6rem .75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .waveform-header h3 { font-size: .85rem; }
+  .waveform-controls {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem .75rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: .68rem;
+  }
+  .waveform-controls label { color: var(--muted); font-size: .62rem; text-transform: uppercase; }
+  .waveform-controls select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: .35rem;
+    padding: .15rem .3rem;
+    font-size: .68rem;
+    font-family: inherit;
+  }
+  .waveform-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: .5rem .75rem;
+  }
+  .waveform-trace {
+    margin-bottom: .5rem;
+  }
+  .waveform-trace-label {
+    font-size: .65rem;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: .15rem;
+  }
+  .waveform-trace canvas {
+    width: 100%;
+    height: 80px;
+    border: 1px solid var(--border);
+    border-radius: .25rem;
+    background: #020617;
+  }
+
   /* Responsive: tablet */
   @media (max-width: 1024px) {
     .main {
@@ -489,6 +704,11 @@
     }
   }
 
+  @media (max-width: 1024px) {
+    .analysis-grid { grid-template-columns: 1fr; }
+    .waveform-overlay { width: 100%; min-width: 0; }
+  }
+
   /* Responsive: mobile */
   @media (max-width: 640px) {
     .header { padding: .5rem .5rem .2rem; }
@@ -497,10 +717,12 @@
     .steps { padding: 0 .5rem .4rem; }
     .filter-bar { padding: 0 .5rem .4rem; }
     .main { padding: 0 .5rem .5rem; }
+    .tab-content-full { padding: 0 .5rem .5rem; }
     .map-wrap { height: 40vh; min-height: 220px; }
     .stats-grid { grid-template-columns: 1fr 1fr; gap: .25rem .5rem; }
     .stat-item .stat-value { font-size: .9rem; }
     .event-detail-overlay { max-width: calc(100% - 20px); }
+    .tab-btn { padding: .3rem .7rem; font-size: .65rem; }
   }
 </style>
 </head>
@@ -529,9 +751,17 @@
   <button class="btn-sm btn-primary" id="filter-apply">Apply</button>
   <button class="btn-sm" id="filter-clear">Clear</button>
   <button class="btn-sm" id="export-csv">Export CSV</button>
+  <button class="btn-sm" id="export-quakeml">Export QuakeML</button>
 </div>
 
-<div class="main">
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="catalog">Catalog</button>
+  <button class="tab-btn" data-tab="analysis">Analysis</button>
+</div>
+
+<!-- Tab: Overview (existing layout) -->
+<div class="main tab-content active" id="tab-overview">
   <div class="map-wrap">
     <div id="map"></div>
     <div class="event-detail-overlay" id="event-detail">
@@ -621,6 +851,88 @@
         <div style="color:var(--muted)">No errors.</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Tab: Catalog -->
+<div class="tab-content-full" id="tab-catalog">
+  <div class="catalog-toolbar">
+    <label>Min Mag</label>
+    <input type="number" id="cat-min-mag" step="0.1" placeholder="0.0" />
+    <label>Max Depth</label>
+    <input type="number" id="cat-max-depth" step="1" placeholder="km" />
+    <label>Min Picks</label>
+    <input type="number" id="cat-min-picks" step="1" placeholder="0" />
+    <button class="btn-sm btn-primary" id="cat-filter-apply">Filter</button>
+    <button class="btn-sm" id="cat-filter-clear">Clear</button>
+    <span style="margin-left:auto;font-size:.65rem;color:var(--muted)" id="cat-summary"></span>
+  </div>
+  <div class="catalog-table-wrap">
+    <table class="catalog-table">
+      <thead id="cat-thead"></thead>
+      <tbody id="cat-tbody"></tbody>
+    </table>
+  </div>
+  <div class="catalog-pagination">
+    <button id="cat-prev">Previous</button>
+    <span id="cat-page-info">Page 1 of 1</span>
+    <button id="cat-next">Next</button>
+  </div>
+</div>
+
+<!-- Tab: Analysis -->
+<div class="tab-content-full" id="tab-analysis">
+  <div class="analysis-grid">
+    <div class="analysis-panel">
+      <div class="panel-title">Gutenberg-Richter (Magnitude-Frequency)</div>
+      <div class="analysis-chart" id="gr-chart"><div class="empty-state">Loading...</div></div>
+      <div class="analysis-annotation" id="gr-annotation"></div>
+    </div>
+    <div class="analysis-panel">
+      <div class="panel-title">Depth Distribution</div>
+      <div class="analysis-chart" id="depth-chart"><div class="empty-state">Loading...</div></div>
+      <div class="analysis-annotation" id="depth-annotation"></div>
+    </div>
+    <div class="analysis-panel">
+      <div class="panel-title">Latitude vs Depth Cross-Section</div>
+      <div class="analysis-chart" id="cross-lat-chart"><div class="empty-state">Loading...</div></div>
+    </div>
+    <div class="analysis-panel">
+      <div class="panel-title">Longitude vs Depth Cross-Section</div>
+      <div class="analysis-chart" id="cross-lon-chart"><div class="empty-state">Loading...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Waveform overlay panel -->
+<div class="waveform-overlay" id="waveform-overlay">
+  <div class="waveform-header">
+    <h3 id="wf-title">Waveforms</h3>
+    <button class="detail-close" id="wf-close">&times;</button>
+  </div>
+  <div class="waveform-controls">
+    <label>Channel</label>
+    <select id="wf-channel">
+      <option value="EHZ">EHZ (Vertical)</option>
+      <option value="EHN">EHN (North)</option>
+      <option value="EHE">EHE (East)</option>
+    </select>
+    <label>Before</label>
+    <select id="wf-before">
+      <option value="2">2s</option>
+      <option value="5" selected>5s</option>
+      <option value="10">10s</option>
+    </select>
+    <label>After</label>
+    <select id="wf-after">
+      <option value="15">15s</option>
+      <option value="30" selected>30s</option>
+      <option value="60">60s</option>
+    </select>
+    <button class="btn-sm btn-primary" id="wf-reload">Reload</button>
+  </div>
+  <div class="waveform-body" id="wf-body">
+    <div class="empty-state">Select an event to view waveforms.</div>
   </div>
 </div>
 
@@ -1428,6 +1740,612 @@ setInterval(pollSlow, 30000);
 // Fix map size after layout settles
 setTimeout(function() { map.invalidateSize(); }, 200);
 window.addEventListener('resize', function() { map.invalidateSize(); });
+
+// ── Tab Navigation ──────────────────────────────────────────────
+var activeTab = 'overview';
+var tabDataLoaded = { overview: true, catalog: false, analysis: false };
+
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tab = btn.getAttribute('data-tab');
+    if (tab === activeTab) return;
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('tab-' + activeTab).classList.remove('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    activeTab = tab;
+    if (tab === 'overview') {
+      setTimeout(function() { map.invalidateSize(); }, 50);
+    }
+    if (!tabDataLoaded[tab]) {
+      tabDataLoaded[tab] = true;
+      if (tab === 'catalog') loadCatalogTable();
+      if (tab === 'analysis') loadAnalysis();
+    }
+  });
+});
+
+// ── QuakeML Export ──────────────────────────────────────────────
+document.getElementById('export-quakeml').addEventListener('click', function() {
+  var url = '/api/catalog/export/quakeml';
+  var params = [];
+  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
+  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
+  if (params.length > 0) url += '?' + params.join('&');
+  window.open(url, '_blank');
+});
+
+// ── Catalog Table ───────────────────────────────────────────────
+var catPage = 1;
+var catPerPage = 50;
+var catSortBy = 'time';
+var catSortOrder = 'desc';
+var catMinMag = null;
+var catMaxDepth = null;
+var catMinPicks = null;
+
+var CAT_COLUMNS = [
+  { key: 'event_id', label: 'ID', sortable: false },
+  { key: 'time', label: 'Time', sortable: true },
+  { key: 'magnitude', label: 'Mag', sortable: true },
+  { key: 'magnitude_type', label: 'Type', sortable: false },
+  { key: 'depth_km', label: 'Depth (km)', sortable: true },
+  { key: 'latitude', label: 'Lat', sortable: false },
+  { key: 'longitude', label: 'Lon', sortable: false },
+  { key: 'num_picks', label: 'Picks', sortable: true },
+  { key: 'sigma_time', label: '\u03c3 T', sortable: false },
+  { key: 'sigma_amp', label: '\u03c3 A', sortable: false },
+];
+
+function renderCatalogHeader() {
+  var thead = document.getElementById('cat-thead');
+  var html = '<tr>';
+  CAT_COLUMNS.forEach(function(col) {
+    var arrow = '';
+    if (col.sortable) {
+      if (catSortBy === col.key) {
+        arrow = '<span class="sort-arrow">' + (catSortOrder === 'asc' ? '\u25b2' : '\u25bc') + '</span>';
+      } else {
+        arrow = '<span class="sort-arrow" style="opacity:.3">\u25bc</span>';
+      }
+    }
+    html += '<th data-sort="' + (col.sortable ? col.key : '') + '">' + esc(col.label) + arrow + '</th>';
+  });
+  html += '</tr>';
+  thead.innerHTML = html;
+
+  thead.querySelectorAll('th[data-sort]').forEach(function(th) {
+    th.addEventListener('click', function() {
+      var sortKey = th.getAttribute('data-sort');
+      if (!sortKey) return;
+      if (catSortBy === sortKey) {
+        catSortOrder = catSortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        catSortBy = sortKey;
+        catSortOrder = 'desc';
+      }
+      catPage = 1;
+      loadCatalogTable();
+    });
+  });
+}
+
+function magClass(m) {
+  if (m == null) return '';
+  if (m < 1.0) return 'mag-green';
+  if (m < 2.0) return 'mag-amber';
+  return 'mag-red';
+}
+
+function loadCatalogTable() {
+  var params = ['page=' + catPage, 'per_page=' + catPerPage, 'sort_by=' + catSortBy, 'sort_order=' + catSortOrder];
+  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
+  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
+  if (catMinMag != null) params.push('min_magnitude=' + catMinMag);
+  if (catMaxDepth != null) params.push('max_depth=' + catMaxDepth);
+  if (catMinPicks != null) params.push('min_picks=' + catMinPicks);
+
+  fetchJSON('/api/catalog?' + params.join('&')).then(function(data) {
+    renderCatalogHeader();
+    var tbody = document.getElementById('cat-tbody');
+    if (!data.events || data.events.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="' + CAT_COLUMNS.length + '" style="text-align:center;color:var(--muted);padding:2rem">No events found.</td></tr>';
+    } else {
+      tbody.innerHTML = data.events.map(function(e) {
+        return '<tr data-eid="' + esc(e.event_id) + '">' +
+          '<td>' + esc(e.event_id) + '</td>' +
+          '<td>' + esc(e.time || '') + '</td>' +
+          '<td class="' + magClass(e.magnitude) + '">' + (e.magnitude != null ? e.magnitude.toFixed(2) : '-') + '</td>' +
+          '<td>' + esc(e.magnitude_type || '') + '</td>' +
+          '<td>' + (e.depth_km != null ? e.depth_km.toFixed(1) : '-') + '</td>' +
+          '<td>' + (e.latitude != null ? e.latitude.toFixed(4) : '-') + '</td>' +
+          '<td>' + (e.longitude != null ? e.longitude.toFixed(4) : '-') + '</td>' +
+          '<td>' + (e.num_picks || 0) + '</td>' +
+          '<td>' + (e.sigma_time != null ? e.sigma_time.toFixed(3) : '-') + '</td>' +
+          '<td>' + (e.sigma_amp != null ? e.sigma_amp.toFixed(3) : '-') + '</td>' +
+          '</tr>';
+      }).join('');
+
+      tbody.querySelectorAll('tr').forEach(function(row) {
+        row.addEventListener('click', function() {
+          var eid = row.getAttribute('data-eid');
+          // Switch to overview tab and show event
+          document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+          document.querySelector('.tab-btn[data-tab="overview"]').classList.add('active');
+          document.getElementById('tab-' + activeTab).classList.remove('active');
+          activeTab = 'overview';
+          document.getElementById('tab-overview').classList.add('active');
+          setTimeout(function() { map.invalidateSize(); }, 50);
+          // Fly to event on map
+          var ev = data.events.find(function(x) { return x.event_id === eid; });
+          if (ev && ev.latitude != null && ev.longitude != null) {
+            map.flyTo([ev.latitude, ev.longitude], 13);
+          }
+          showEventDetail(eid);
+        });
+      });
+    }
+
+    document.getElementById('cat-page-info').textContent = 'Page ' + data.page + ' of ' + data.total_pages;
+    document.getElementById('cat-summary').textContent = data.total + ' event' + (data.total !== 1 ? 's' : '');
+    document.getElementById('cat-prev').disabled = data.page <= 1;
+    document.getElementById('cat-next').disabled = data.page >= data.total_pages;
+  }).catch(function() {
+    document.getElementById('cat-tbody').innerHTML = '<tr><td colspan="' + CAT_COLUMNS.length + '" style="text-align:center;color:var(--red);padding:2rem">Failed to load catalog.</td></tr>';
+  });
+}
+
+document.getElementById('cat-prev').addEventListener('click', function() { if (catPage > 1) { catPage--; loadCatalogTable(); } });
+document.getElementById('cat-next').addEventListener('click', function() { catPage++; loadCatalogTable(); });
+document.getElementById('cat-filter-apply').addEventListener('click', function() {
+  var v = document.getElementById('cat-min-mag').value;
+  catMinMag = v ? parseFloat(v) : null;
+  v = document.getElementById('cat-max-depth').value;
+  catMaxDepth = v ? parseFloat(v) : null;
+  v = document.getElementById('cat-min-picks').value;
+  catMinPicks = v ? parseInt(v, 10) : null;
+  catPage = 1;
+  loadCatalogTable();
+});
+document.getElementById('cat-filter-clear').addEventListener('click', function() {
+  document.getElementById('cat-min-mag').value = '';
+  document.getElementById('cat-max-depth').value = '';
+  document.getElementById('cat-min-picks').value = '';
+  catMinMag = null; catMaxDepth = null; catMinPicks = null;
+  catPage = 1;
+  loadCatalogTable();
+});
+
+// ── Analysis Tab ────────────────────────────────────────────────
+function loadAnalysis() {
+  loadMagFreq();
+  loadDepthDist();
+}
+
+// Gutenberg-Richter plot
+function loadMagFreq() {
+  var params = [];
+  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
+  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
+  var url = '/api/magnitude_frequency' + (params.length ? '?' + params.join('&') : '');
+  fetchJSON(url).then(function(d) {
+    renderMagFreq(d);
+  }).catch(function() {
+    document.getElementById('gr-chart').innerHTML = '<div class="empty-state">Failed to load.</div>';
+  });
+}
+
+function renderMagFreq(d) {
+  var el = document.getElementById('gr-chart');
+  var annEl = document.getElementById('gr-annotation');
+
+  if (!d.bins || d.bins.length === 0 || d.total_events < 2) {
+    el.innerHTML = '<div class="empty-state">Not enough events for analysis.</div>';
+    annEl.textContent = '';
+    return;
+  }
+
+  var W = el.clientWidth || 350;
+  var H = el.clientHeight || 250;
+  var PAD = { top: 10, right: 15, bottom: 30, left: 42 };
+  var cW = W - PAD.left - PAD.right;
+  var cH = H - PAD.top - PAD.bottom;
+
+  var bins = d.bins, cum = d.cumulative, log10n = d.log10_n;
+  var minM = Math.min.apply(null, bins);
+  var maxM = Math.max.apply(null, bins);
+  var validLog = log10n.filter(function(v) { return v != null; });
+  var minLog = Math.min.apply(null, validLog);
+  var maxLog = Math.max.apply(null, validLog);
+
+  if (maxM === minM) maxM = minM + 1;
+  if (maxLog === minLog) maxLog = minLog + 1;
+
+  function xScale(m) { return PAD.left + ((m - minM) / (maxM - minM)) * cW; }
+  function yScale(logn) { return PAD.top + cH - ((logn - minLog) / (maxLog - minLog)) * cH; }
+
+  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+
+  // Grid lines
+  var nYTicks = 4;
+  for (var i = 0; i <= nYTicks; i++) {
+    var yVal = minLog + (i / nYTicks) * (maxLog - minLog);
+    var yy = yScale(yVal);
+    svg += '<line x1="' + PAD.left + '" y1="' + yy + '" x2="' + (W - PAD.right) + '" y2="' + yy + '" stroke="#334155" stroke-width="0.5"/>';
+    svg += '<text x="' + (PAD.left - 4) + '" y="' + (yy + 3) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + yVal.toFixed(1) + '</text>';
+  }
+
+  // X axis labels
+  var nXTicks = Math.min(8, bins.length);
+  var xStep = Math.max(1, Math.floor(bins.length / nXTicks));
+  for (var j = 0; j < bins.length; j += xStep) {
+    var xx = xScale(bins[j]);
+    svg += '<text x="' + xx + '" y="' + (H - 5) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="middle">' + bins[j].toFixed(1) + '</text>';
+  }
+
+  // Axis labels
+  svg += '<text x="' + (W / 2) + '" y="' + (H - 0) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="middle">Magnitude</text>';
+  svg += '<text x="12" y="' + (H / 2) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="middle" transform="rotate(-90,12,' + (H / 2) + ')">log10(N)</text>';
+
+  // Data points
+  for (var k = 0; k < bins.length; k++) {
+    if (log10n[k] == null) continue;
+    var cx = xScale(bins[k]);
+    var cy = yScale(log10n[k]);
+    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="var(--blue)" opacity="0.8"><title>M=' + bins[k].toFixed(1) + ' N=' + cum[k] + ' log10(N)=' + log10n[k].toFixed(2) + '</title></circle>';
+  }
+
+  // Mc vertical line
+  if (d.mc != null) {
+    var xMc = xScale(d.mc);
+    svg += '<line x1="' + xMc + '" y1="' + PAD.top + '" x2="' + xMc + '" y2="' + (H - PAD.bottom) + '" stroke="var(--amber)" stroke-width="1" stroke-dasharray="4,3"/>';
+    svg += '<text x="' + (xMc + 3) + '" y="' + (PAD.top + 10) + '" fill="var(--amber)" font-size="8" font-family="monospace">Mc=' + d.mc.toFixed(1) + '</text>';
+  }
+
+  // b-value fit line
+  if (d.b_value != null && d.a_value != null) {
+    var fitM1 = d.mc || minM;
+    var fitM2 = maxM;
+    var fitY1 = d.a_value - d.b_value * fitM1;
+    var fitY2 = d.a_value - d.b_value * fitM2;
+    if (fitY1 >= minLog && fitY2 <= maxLog) {
+      svg += '<line x1="' + xScale(fitM1) + '" y1="' + yScale(fitY1) + '" x2="' + xScale(fitM2) + '" y2="' + yScale(fitY2) + '" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="6,3"/>';
+    }
+  }
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+
+  var ann = [];
+  ann.push('Events: ' + d.total_events);
+  if (d.b_value != null) ann.push('b = ' + d.b_value.toFixed(2));
+  if (d.a_value != null) ann.push('a = ' + d.a_value.toFixed(2));
+  if (d.mc != null) ann.push('Mc = ' + d.mc.toFixed(1));
+  if (d.r_squared != null) ann.push('R\u00b2 = ' + d.r_squared.toFixed(3));
+  annEl.textContent = ann.join('  \u00b7  ');
+}
+
+// Depth distribution
+function loadDepthDist() {
+  var params = [];
+  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
+  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
+  var url = '/api/depth_distribution' + (params.length ? '?' + params.join('&') : '');
+  fetchJSON(url).then(function(d) {
+    renderDepthHist(d);
+    renderCrossSection(d.scatter, 'latitude', 'cross-lat-chart');
+    renderCrossSection(d.scatter, 'longitude', 'cross-lon-chart');
+  }).catch(function() {
+    document.getElementById('depth-chart').innerHTML = '<div class="empty-state">Failed to load.</div>';
+  });
+}
+
+function renderDepthHist(d) {
+  var el = document.getElementById('depth-chart');
+  var annEl = document.getElementById('depth-annotation');
+  var hist = d.histogram;
+
+  if (!hist.bins || hist.bins.length === 0) {
+    el.innerHTML = '<div class="empty-state">No depth data available.</div>';
+    annEl.textContent = '';
+    return;
+  }
+
+  var W = el.clientWidth || 350;
+  var H = el.clientHeight || 250;
+  var PAD = { top: 15, right: 10, bottom: 15, left: 42 };
+  var cW = W - PAD.left - PAD.right;
+  var cH = H - PAD.top - PAD.bottom;
+
+  var bins = hist.bins, counts = hist.counts;
+  var maxCount = Math.max.apply(null, [1].concat(counts));
+  var minD = Math.min.apply(null, bins) - hist.bin_size / 2;
+  var maxD = Math.max.apply(null, bins) + hist.bin_size / 2;
+  if (maxD === minD) maxD = minD + 1;
+
+  // Depth axis points DOWN (seismological convention)
+  function yScale(depth) { return PAD.top + ((depth - minD) / (maxD - minD)) * cH; }
+  function xScale(count) { return PAD.left + (count / maxCount) * cW; }
+
+  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+
+  // Depth axis labels
+  var nTicks = Math.min(6, bins.length);
+  var dStep = Math.max(1, Math.floor(bins.length / nTicks));
+  for (var i = 0; i < bins.length; i += dStep) {
+    var yy = yScale(bins[i]);
+    svg += '<line x1="' + PAD.left + '" y1="' + yy + '" x2="' + (W - PAD.right) + '" y2="' + yy + '" stroke="#334155" stroke-width="0.5"/>';
+    svg += '<text x="' + (PAD.left - 4) + '" y="' + (yy + 3) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + bins[i].toFixed(0) + 'km</text>';
+  }
+
+  // Horizontal bars
+  var barH = Math.max(1, (cH / bins.length) * 0.8);
+  for (var j = 0; j < bins.length; j++) {
+    var y = yScale(bins[j]) - barH / 2;
+    var w = (counts[j] / maxCount) * cW;
+    svg += '<rect x="' + PAD.left + '" y="' + y + '" width="' + Math.max(counts[j] > 0 ? 1 : 0, w) + '" height="' + barH + '" fill="var(--blue)" rx="1" opacity="0.8"><title>' + bins[j].toFixed(1) + ' km: ' + counts[j] + ' events</title></rect>';
+  }
+
+  // Median depth line
+  if (d.median_depth != null) {
+    var yMed = yScale(d.median_depth);
+    svg += '<line x1="' + PAD.left + '" y1="' + yMed + '" x2="' + (W - PAD.right) + '" y2="' + yMed + '" stroke="var(--amber)" stroke-width="1" stroke-dasharray="4,3"/>';
+    svg += '<text x="' + (W - PAD.right - 2) + '" y="' + (yMed - 3) + '" fill="var(--amber)" font-size="7" font-family="monospace" text-anchor="end">median ' + d.median_depth.toFixed(1) + 'km</text>';
+  }
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+
+  var ann = [];
+  ann.push('Median: ' + (d.median_depth != null ? d.median_depth.toFixed(1) + ' km' : '-'));
+  ann.push('Mean: ' + (d.mean_depth != null ? d.mean_depth.toFixed(1) + ' km' : '-'));
+  ann.push('Events: ' + (d.scatter ? d.scatter.length : 0));
+  annEl.textContent = ann.join('  \u00b7  ');
+}
+
+function renderCrossSection(scatter, coordKey, elId) {
+  var el = document.getElementById(elId);
+  if (!scatter || scatter.length === 0) {
+    el.innerHTML = '<div class="empty-state">No data.</div>';
+    return;
+  }
+
+  var W = el.clientWidth || 350;
+  var H = el.clientHeight || 250;
+  var PAD = { top: 10, right: 10, bottom: 28, left: 42 };
+  var cW = W - PAD.left - PAD.right;
+  var cH = H - PAD.top - PAD.bottom;
+
+  var coords = scatter.map(function(e) { return e[coordKey]; });
+  var depths = scatter.map(function(e) { return e.depth_km; });
+  var minC = Math.min.apply(null, coords);
+  var maxC = Math.max.apply(null, coords);
+  var minD = Math.min.apply(null, depths);
+  var maxD = Math.max.apply(null, depths);
+  if (maxC === minC) maxC = minC + 0.1;
+  if (maxD === minD) maxD = minD + 1;
+
+  function xScale(c) { return PAD.left + ((c - minC) / (maxC - minC)) * cW; }
+  // Depth axis points DOWN
+  function yScale(d) { return PAD.top + ((d - minD) / (maxD - minD)) * cH; }
+
+  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+
+  // Grid
+  for (var i = 0; i <= 4; i++) {
+    var dVal = minD + (i / 4) * (maxD - minD);
+    var yy = yScale(dVal);
+    svg += '<line x1="' + PAD.left + '" y1="' + yy + '" x2="' + (W - PAD.right) + '" y2="' + yy + '" stroke="#334155" stroke-width="0.5"/>';
+    svg += '<text x="' + (PAD.left - 4) + '" y="' + (yy + 3) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="end">' + dVal.toFixed(1) + '</text>';
+  }
+  for (var j = 0; j <= 4; j++) {
+    var cVal = minC + (j / 4) * (maxC - minC);
+    var xx = xScale(cVal);
+    svg += '<text x="' + xx + '" y="' + (H - 5) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + cVal.toFixed(2) + '</text>';
+  }
+
+  // Axis labels
+  var axisLabel = coordKey === 'latitude' ? 'Latitude' : 'Longitude';
+  svg += '<text x="' + (W / 2) + '" y="' + (H - 0) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + axisLabel + '</text>';
+  svg += '<text x="10" y="' + (H / 2) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle" transform="rotate(-90,10,' + (H / 2) + ')">Depth (km)</text>';
+
+  // Scatter circles, size proportional to magnitude
+  scatter.forEach(function(e) {
+    var cx = xScale(e[coordKey]);
+    var cy = yScale(e.depth_km);
+    var r = 2 + (e.magnitude || 0) * 2;
+    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + Math.min(r, 10) + '" fill="var(--blue)" opacity="0.5" stroke="var(--blue)" stroke-width="0.5"><title>' + esc(e.event_id) + '\nM ' + (e.magnitude != null ? e.magnitude.toFixed(1) : '?') + ' \u00b7 ' + e.depth_km.toFixed(1) + ' km\n' + axisLabel + ': ' + e[coordKey].toFixed(4) + '</title></circle>';
+  });
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+}
+
+// ── Enhanced Event Detail (with waveform button + extra fields) ──
+var _origShowEventDetail = showEventDetail;
+showEventDetail = function(eventId) {
+  var overlay = document.getElementById('event-detail');
+  var body = document.getElementById('detail-body');
+  var title = document.getElementById('detail-title');
+  title.textContent = 'Loading...';
+  body.innerHTML = '<div class="spinner" style="margin:.5rem auto;display:block"></div>';
+  overlay.classList.add('visible');
+
+  fetchJSON('/api/event/' + encodeURIComponent(eventId))
+    .then(function(data) {
+      if (!data) return;
+      var ev = data.event;
+      title.textContent = esc(ev.event_id);
+      var html = '';
+      html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Magnitude</span><span class="detail-value">' + (ev.magnitude != null ? ev.magnitude.toFixed(2) : '-') + (ev.magnitude_type ? ' (' + esc(ev.magnitude_type) + ')' : '') + '</span></div>';
+      if (ev.ml_err != null) {
+        html += '<div class="detail-row"><span class="detail-label">ML Error</span><span class="detail-value">\u00b1' + ev.ml_err.toFixed(3) + '</span></div>';
+      }
+      html += '<div class="detail-row"><span class="detail-label">Depth</span><span class="detail-value">' + (ev.depth_km != null ? ev.depth_km.toFixed(1) + ' km' : '-') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Location</span><span class="detail-value">' + (ev.latitude != null ? ev.latitude.toFixed(4) + ', ' + ev.longitude.toFixed(4) : '-') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Picks</span><span class="detail-value">' + (ev.num_picks || 0) + '</span></div>';
+      if (ev.sigma_time != null) {
+        html += '<div class="detail-row"><span class="detail-label">\u03c3 Time</span><span class="detail-value">' + ev.sigma_time.toFixed(3) + ' s</span></div>';
+      }
+      if (ev.sigma_amp != null) {
+        html += '<div class="detail-row"><span class="detail-label">\u03c3 Amp</span><span class="detail-value">' + ev.sigma_amp.toFixed(3) + '</span></div>';
+      }
+      if (ev.num_ml_sta) {
+        html += '<div class="detail-row"><span class="detail-label">ML Stations</span><span class="detail-value">' + ev.num_ml_sta + '</span></div>';
+      }
+
+      var contribs = data.station_contributions || {};
+      var staKeys = Object.keys(contribs);
+      if (staKeys.length > 0) {
+        html += '<div class="detail-section"><h4>Station Contributions</h4><div class="station-contrib">';
+        staKeys.forEach(function(sta) {
+          var c = contribs[sta];
+          html += '<span class="sc-chip">' + esc(sta) + ' P:' + c.P + ' S:' + c.S + '</span>';
+        });
+        html += '</div></div>';
+      }
+
+      // Waveform button
+      html += '<div style="margin-top:.5rem;text-align:center"><button class="btn-sm btn-primary" id="btn-view-waveforms" style="width:100%">View Waveforms</button></div>';
+
+      body.innerHTML = html;
+
+      document.getElementById('btn-view-waveforms').addEventListener('click', function() {
+        showEventWaveforms(ev.event_id);
+      });
+    })
+    .catch(function() {
+      body.innerHTML = '<div class="empty-state">Failed to load event details.</div>';
+    });
+};
+
+// ── Waveform Viewer ─────────────────────────────────────────────
+var currentWaveformEventId = null;
+
+function showEventWaveforms(eventId) {
+  currentWaveformEventId = eventId;
+  var overlay = document.getElementById('waveform-overlay');
+  var body = document.getElementById('wf-body');
+  var title = document.getElementById('wf-title');
+  title.textContent = 'Waveforms \u2014 ' + eventId;
+  body.innerHTML = '<div class="empty-state">Loading waveforms...</div>';
+  overlay.classList.add('visible');
+
+  var channel = document.getElementById('wf-channel').value;
+  var before = document.getElementById('wf-before').value;
+  var after = document.getElementById('wf-after').value;
+
+  fetchJSON('/api/event/' + encodeURIComponent(eventId) + '/waveforms?channel=' + channel + '&window_before=' + before + '&window_after=' + after)
+    .then(function(data) {
+      if (!data.traces || data.traces.length === 0) {
+        body.innerHTML = '<div class="empty-state">No waveform data available.</div>';
+        return;
+      }
+      body.innerHTML = '';
+      data.traces.forEach(function(tr) {
+        var div = document.createElement('div');
+        div.className = 'waveform-trace';
+        var label = document.createElement('div');
+        label.className = 'waveform-trace-label';
+        label.textContent = tr.network + '.' + tr.station + '.' + tr.channel + (tr.error ? ' \u2014 ' + tr.error : '');
+        div.appendChild(label);
+
+        if (tr.data && tr.data.length > 0) {
+          var canvas = document.createElement('canvas');
+          canvas.width = 800;
+          canvas.height = 80;
+          div.appendChild(canvas);
+          body.appendChild(div);
+          renderWaveformCanvas(canvas, tr, data.event_time);
+        } else {
+          var nodata = document.createElement('div');
+          nodata.className = 'empty-state';
+          nodata.textContent = tr.error || 'No data';
+          nodata.style.height = '80px';
+          nodata.style.lineHeight = '80px';
+          div.appendChild(nodata);
+          body.appendChild(div);
+        }
+      });
+    })
+    .catch(function() {
+      body.innerHTML = '<div class="empty-state">Failed to load waveforms.</div>';
+    });
+}
+
+function renderWaveformCanvas(canvas, trace, eventTime) {
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width;
+  var H = canvas.height;
+  var data = trace.data;
+  var n = data.length;
+  if (n === 0) return;
+
+  // Clear
+  ctx.fillStyle = '#020617';
+  ctx.fillRect(0, 0, W, H);
+
+  // Normalize data
+  var maxAbs = 0;
+  for (var i = 0; i < n; i++) {
+    var a = Math.abs(data[i]);
+    if (a > maxAbs) maxAbs = a;
+  }
+  if (maxAbs === 0) maxAbs = 1;
+
+  // Draw waveform
+  ctx.strokeStyle = '#60a5fa';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  var mid = H / 2;
+  var amp = (H / 2) * 0.85;
+  for (var j = 0; j < n; j++) {
+    var x = (j / (n - 1)) * W;
+    var y = mid - (data[j] / maxAbs) * amp;
+    if (j === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Draw pick markers
+  if (trace.picks && trace.starttime) {
+    var tStart = new Date(trace.starttime.replace('T', ' ').replace('Z', '')).getTime() / 1000;
+    var tEnd = tStart + n / (trace.sampling_rate || 100);
+    var dur = tEnd - tStart;
+
+    trace.picks.forEach(function(pick) {
+      if (!pick.time) return;
+      var pickT = new Date(pick.time.replace('T', ' ').replace('Z', '')).getTime() / 1000;
+      var frac = (pickT - tStart) / dur;
+      if (frac < 0 || frac > 1) return;
+      var px = frac * W;
+
+      var color = pick.phase === 'P' ? '#ef4444' : '#22c55e';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Label
+      ctx.fillStyle = color;
+      ctx.font = '9px monospace';
+      var label = pick.phase + (pick.probability != null ? ' ' + (pick.probability * 100).toFixed(0) + '%' : '');
+      ctx.fillText(label, px + 2, 10);
+    });
+  }
+}
+
+document.getElementById('wf-close').addEventListener('click', function() {
+  document.getElementById('waveform-overlay').classList.remove('visible');
+});
+document.getElementById('wf-reload').addEventListener('click', function() {
+  if (currentWaveformEventId) showEventWaveforms(currentWaveformEventId);
+});
 </script>
 </body>
 </html>

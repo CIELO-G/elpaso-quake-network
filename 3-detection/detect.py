@@ -18,6 +18,7 @@ import argparse
 import csv
 import gc
 import json
+import math
 import os
 import subprocess
 import sys
@@ -160,7 +161,7 @@ def merge_raw_data(raw_files: list[Path], output_path: Path, logger) -> bool:
     if len(st) == 0:
         return False
     try:
-        st.merge(method=1, fill_value=0)
+        st.merge(method=1, fill_value="interpolate")
     except Exception as exc:
         logger.warning("Merge warning: %s", exc)
     st.write(str(output_path), format="MSEED")
@@ -212,7 +213,11 @@ def run_phasenet(config: dict, tmp_dir: str, logger) -> bool:
     ]
 
     logger.info("Running PhaseNet: %s", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    except subprocess.TimeoutExpired:
+        logger.error("PhaseNet timed out after 3600s")
+        return False
 
     if result.returncode != 0:
         logger.error(
@@ -268,8 +273,11 @@ def parse_phasenet_picks(picks_csv: str, logger) -> list[dict]:
         amplitude = ""
         amplitude_channel = ""
         if has_amplitude and pd.notna(row.get("phase_amplitude")):
-            amp_val = float(row["phase_amplitude"])
-            if amp_val != 0:
+            try:
+                amp_val = float(row["phase_amplitude"])
+            except (ValueError, TypeError):
+                amp_val = 0.0
+            if amp_val != 0 and not math.isnan(amp_val):
                 amplitude = f"{amp_val:.6e}"
                 amplitude_channel = chan_prefix + "Z"
 

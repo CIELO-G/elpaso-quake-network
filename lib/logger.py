@@ -57,7 +57,7 @@ def setup_logging(
 
 
 class MetricsWriter:
-    """Append structured metrics as JSON lines to a metrics file.
+    """Append structured metrics as JSON lines to a rotating metrics file.
 
     Usage::
 
@@ -65,16 +65,29 @@ class MetricsWriter:
         metrics.record("ingest", station="AM.R0F2D", duration_s=12.3, chunks=24)
     """
 
+    MAX_BYTES = 10 * 1024 * 1024   # 10 MB per file
+    BACKUP_COUNT = 5               # keep 5 rotated files
+
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._handler = RotatingFileHandler(
+            self.path,
+            maxBytes=self.MAX_BYTES,
+            backupCount=self.BACKUP_COUNT,
+        )
+        self._handler.setFormatter(logging.Formatter("%(message)s"))
+        self._logger = logging.getLogger(f"metrics.{self.path.stem}")
+        self._logger.handlers.clear()
+        self._logger.addHandler(self._handler)
+        self._logger.setLevel(logging.INFO)
+        self._logger.propagate = False
 
     def record(self, step: str, **kwargs) -> None:
         """Write one metric line with timestamp, step, and arbitrary fields."""
         entry = {
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.gmtime()),
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "step": step,
             **kwargs,
         }
-        with open(self.path, "a") as f:
-            f.write(json.dumps(entry, default=str) + "\n")
+        self._logger.info(json.dumps(entry, default=str))

@@ -47,13 +47,15 @@ method: "BGMM"
 # DBSCAN pre-clustering
 # -----------------------------------------------------------------------------
 use_dbscan: true
-dbscan_eps: 25            # seconds (max travel time + max P-S + margin)
+dbscan_eps: 60            # seconds (max travel time + max P-S + margin)
 dbscan_min_samples: 3
 
 # -----------------------------------------------------------------------------
 # Event quality filters
 # -----------------------------------------------------------------------------
-min_picks_per_eq: 6          # At least 6 phase picks (3P + 3S minimum)
+min_picks_per_eq: 4          # At least 4 phase picks total (3P + 1S minimum)
+min_p_picks: 3                # minimum P-phase picks per event
+min_s_picks: 1                # minimum S-phase picks per event
 min_stations_per_eq: 3        # minimum unique stations per event (post-association QC)
 max_sigma11: 2.0          # max time residual std (s)
 max_sigma22: 2.0          # max amplitude residual std (log10)

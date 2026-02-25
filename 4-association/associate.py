@@ -22,6 +22,17 @@ import sys
 import time
 from pathlib import Path
 
+# sklearn >=1.4 removed _check_n_features from estimator base classes;
+# GaMMA's vendored mixture code still calls it.  Add a no-op shim so
+# the association step works without pinning sklearn.
+import sklearn.base
+if not hasattr(sklearn.base.BaseEstimator, "_check_n_features"):
+    def _check_n_features(self, X, reset=False):
+        n_features = X.shape[1] if hasattr(X, "shape") and X.ndim > 1 else 1
+        if reset or not hasattr(self, "n_features_in_"):
+            self.n_features_in_ = n_features
+    sklearn.base.BaseEstimator._check_n_features = _check_n_features
+
 from obspy import UTCDateTime
 
 # Allow imports from project root
@@ -54,7 +65,9 @@ DEFAULTS = {
     "use_dbscan": True,
     "dbscan_eps": 25,
     "dbscan_min_samples": 3,
-    "min_picks_per_eq": 6,
+    "min_picks_per_eq": 4,
+    "min_p_picks": 3,
+    "min_s_picks": 1,
     "min_stations_per_eq": 3,
     "max_sigma11": 2.0,
     "max_sigma22": 2.0,
@@ -303,6 +316,46 @@ def filter_events_by_station_count(
     dropped = len(events_list) - len(filtered_events)
     if dropped:
         logger.info("Station-count filter: kept %d, dropped %d event(s)",
+                    len(filtered_events), dropped)
+    return filtered_events, filtered_assignments
+
+
+def filter_events_by_phase_count(
+    events_list: list,
+    assignments_list: list,
+    picks_df,
+    config: dict,
+    logger,
+) -> tuple[list, list]:
+    """Drop events that don't meet minimum P-pick and S-pick requirements."""
+    min_p = config.get("min_p_picks", 0)
+    min_s = config.get("min_s_picks", 0)
+    if min_p == 0 and min_s == 0:
+        return events_list, assignments_list
+
+    # Count P and S picks per event
+    event_phases: dict[int, dict[str, int]] = {}
+    for pick_idx, event_idx, _score in assignments_list:
+        pick = picks_df.iloc[pick_idx]
+        phase = pick.get("type", pick.get("phase", ""))
+        counts = event_phases.setdefault(event_idx, {"P": 0, "S": 0})
+        if phase in ("P", "S"):
+            counts[phase] += 1
+
+    keep: set[int] = set()
+    for event_idx, counts in event_phases.items():
+        if counts["P"] >= min_p and counts["S"] >= min_s:
+            keep.add(event_idx)
+        else:
+            logger.info("Dropping event %d: %dP + %dS picks, need >= %dP + %dS",
+                        event_idx, counts["P"], counts["S"], min_p, min_s)
+
+    filtered_events = [ev for ev in events_list if ev.get("event_index", 0) in keep]
+    filtered_assignments = [(pi, ei, sc) for pi, ei, sc in assignments_list if ei in keep]
+
+    dropped = len(events_list) - len(filtered_events)
+    if dropped:
+        logger.info("Phase-count filter: kept %d, dropped %d event(s)",
                     len(filtered_events), dropped)
     return filtered_events, filtered_assignments
 
@@ -588,6 +641,11 @@ def main() -> None:
 
         # Drop events that don't span enough stations
         events_list, assignments_list = filter_events_by_station_count(
+            events_list, assignments_list, picks_df, config, logger,
+        )
+
+        # Drop events that don't meet P/S phase requirements
+        events_list, assignments_list = filter_events_by_phase_count(
             events_list, assignments_list, picks_df, config, logger,
         )
 

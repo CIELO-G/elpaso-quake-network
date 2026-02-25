@@ -59,9 +59,13 @@ _app_start_time = time.monotonic()
 app = FastAPI(title="El Paso Seismic Pipeline Dashboard")
 
 # ── CORS ──────────────────────────────────────────────────────────
+_CORS_ORIGINS = os.environ.get(
+    "CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -172,7 +176,8 @@ def _set_cached(key: str, data, watch_file: Optional[Path] = None):
 def _make_etag_response(data, etag: str, request: Request):
     if_none_match = request.headers.get("if-none-match", "")
     if if_none_match == etag:
-        return JSONResponse(status_code=304, content=None, headers={"ETag": etag})
+        from starlette.responses import Response
+        return Response(status_code=304, headers={"ETag": etag})
     return JSONResponse(content=data, headers={"ETag": etag})
 
 
@@ -225,16 +230,33 @@ def _dir_size(path: Path) -> int:
     return total
 
 
+ASSIGNMENTS_FILE = ROOT / "output" / "5-catalog" / "assignments.csv"
+
+
 def _parse_catalog_row(r: dict) -> dict:
     return {
         "event_id": r.get("event_id", ""),
         "time": r.get("time", ""),
         "magnitude": float(r["magnitude"]) if r.get("magnitude") else None,
+        "magnitude_type": r.get("magnitude_type", ""),
+        "ml_err": float(r["ml_err"]) if r.get("ml_err") else None,
         "latitude": float(r["latitude"]) if r.get("latitude") else None,
         "longitude": float(r["longitude"]) if r.get("longitude") else None,
         "depth_km": float(r["depth_km"]) if r.get("depth_km") else None,
+        "sigma_time": float(r["sigma_time"]) if r.get("sigma_time") else None,
+        "sigma_amp": float(r["sigma_amp"]) if r.get("sigma_amp") else None,
         "num_picks": int(r["num_picks"]) if r.get("num_picks") else None,
+        "num_ml_sta": int(r["num_ml_sta"]) if r.get("num_ml_sta") else None,
+        "event_index": int(r["event_index"]) if r.get("event_index") else None,
     }
+
+
+def _read_assignments() -> list[dict]:
+    if not ASSIGNMENTS_FILE.exists():
+        return []
+    with open(ASSIGNMENTS_FILE, newline="") as f:
+        reader = csv.DictReader(f)
+        return list(reader)
 
 
 def _filter_by_date(rows: list[dict], start_date: Optional[str], end_date: Optional[str]) -> list[dict]:
@@ -398,6 +420,11 @@ async def catalog(
     per_page: int = Query(default=50, ge=1, le=500),
     start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    sort_by: Optional[str] = Query(default=None, pattern=r"^(time|magnitude|depth_km|num_picks)$"),
+    sort_order: Optional[str] = Query(default="desc", pattern=r"^(asc|desc)$"),
+    min_magnitude: Optional[float] = Query(default=None),
+    max_depth: Optional[float] = Query(default=None),
+    min_picks: Optional[int] = Query(default=None),
 ):
     entry = _get_cached("catalog", ttl=30.0, watch_file=CATALOG_FILE)
     if entry:
@@ -410,6 +437,23 @@ async def catalog(
     # Date filtering
     if start_date or end_date:
         all_events = _filter_by_date(all_events, start_date, end_date)
+
+    # Science filters
+    if min_magnitude is not None:
+        all_events = [e for e in all_events if e["magnitude"] is not None and e["magnitude"] >= min_magnitude]
+    if max_depth is not None:
+        all_events = [e for e in all_events if e["depth_km"] is not None and e["depth_km"] <= max_depth]
+    if min_picks is not None:
+        all_events = [e for e in all_events if e["num_picks"] is not None and e["num_picks"] >= min_picks]
+
+    # Sorting
+    if sort_by:
+        reverse = sort_order == "desc"
+        all_events = sorted(
+            all_events,
+            key=lambda e: (e[sort_by] is None, e[sort_by] if e[sort_by] is not None else 0),
+            reverse=reverse,
+        )
 
     total = len(all_events)
     total_pages = max(1, (total + per_page - 1) // per_page)
@@ -452,7 +496,8 @@ async def stats(request: Request):
     pick_files = list(PICKS_DIR.rglob("*.picks.csv"))
     for pf in pick_files:
         try:
-            count = sum(1 for _ in open(pf)) - 1
+            with open(pf) as fh:
+                count = sum(1 for _ in fh) - 1
             total_picks += count
             if count > 0:
                 days_with_picks += 1
@@ -463,8 +508,9 @@ async def stats(request: Request):
     days_with_events = 0
     for ef in EVENTS_DIR.rglob("*.events.csv"):
         try:
-            if sum(1 for _ in open(ef)) > 1:
-                days_with_events += 1
+            with open(ef) as fh:
+                if sum(1 for _ in fh) > 1:
+                    days_with_events += 1
         except OSError:
             pass
 
@@ -555,8 +601,9 @@ def _count_days_with_data(base: Path, glob_pattern: str) -> int:
     count = 0
     for csv_file in base.rglob(glob_pattern):
         try:
-            if sum(1 for _ in open(csv_file)) > 1:
-                count += 1
+            with open(csv_file) as fh:
+                if sum(1 for _ in fh) > 1:
+                    count += 1
         except OSError:
             pass
     return count
@@ -920,27 +967,21 @@ async def event_detail(event_id: str):
 
     event = _parse_catalog_row(event_row)
 
-    # Find picks for this event's date
+    # Find picks via assignments CSV (authoritative event-to-pick linkage)
     event_picks = []
-    t = event_row.get("time", "")
-    if len(t) >= 10:
-        event_date = t[:10]
-        # Search pick files for matching picks
-        for pf in PICKS_DIR.rglob("*.picks.csv"):
-            try:
-                with open(pf, newline="") as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        pick_time = row.get("time", "")
-                        if pick_time.startswith(event_date):
-                            event_picks.append({
-                                "station": row.get("station", ""),
-                                "phase": row.get("phase", ""),
-                                "time": pick_time,
-                                "probability": float(row.get("probability", 0)) if row.get("probability") else None,
-                            })
-            except (OSError, ValueError):
-                pass
+    assignments = _read_assignments()
+    for a in assignments:
+        if a.get("event_id") == event_id:
+            event_picks.append({
+                "network": a.get("network", ""),
+                "station": a.get("station", ""),
+                "location": a.get("location", ""),
+                "channel": a.get("channel", ""),
+                "phase": a.get("phase", ""),
+                "time": a.get("time", ""),
+                "probability": float(a["probability"]) if a.get("probability") else None,
+                "amplitude": float(a["amplitude"]) if a.get("amplitude") else None,
+            })
 
     # Station contributions
     station_counts: dict[str, dict[str, int]] = {}
@@ -975,7 +1016,11 @@ async def catalog_export(
 
     import io
     output = io.StringIO()
-    fieldnames = ["event_id", "time", "magnitude", "latitude", "longitude", "depth_km", "num_picks"]
+    fieldnames = [
+        "event_id", "time", "magnitude", "magnitude_type", "ml_err",
+        "latitude", "longitude", "depth_km", "sigma_time", "sigma_amp",
+        "num_picks", "num_ml_sta",
+    ]
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
     for r in rows:
@@ -985,4 +1030,451 @@ async def catalog_export(
         content=output.getvalue(),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=catalog_export.csv"},
+    )
+
+
+# ── Magnitude-Frequency (Gutenberg-Richter) ──────────────────────
+@app.get("/api/magnitude_frequency")
+async def magnitude_frequency(
+    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    bin_width: float = Query(default=0.1, ge=0.01, le=1.0),
+):
+    """Gutenberg-Richter magnitude-frequency analysis with b-value estimation."""
+    import math
+
+    rows = _read_catalog()
+    if start_date or end_date:
+        rows = _filter_by_date(rows, start_date, end_date)
+
+    magnitudes = [float(r["magnitude"]) for r in rows if r.get("magnitude")]
+    if len(magnitudes) < 2:
+        return {"bins": [], "cumulative": [], "b_value": None, "a_value": None,
+                "mc": None, "r_squared": None, "total_events": len(magnitudes)}
+
+    mag_min = math.floor(min(magnitudes) / bin_width) * bin_width
+    mag_max = math.ceil(max(magnitudes) / bin_width) * bin_width
+    n_bins = max(1, int(round((mag_max - mag_min) / bin_width)))
+
+    bins = []
+    counts = []
+    for i in range(n_bins):
+        edge_lo = round(mag_min + i * bin_width, 4)
+        edge_hi = round(edge_lo + bin_width, 4)
+        c = sum(1 for m in magnitudes if edge_lo <= m < edge_hi)
+        bins.append(round(edge_lo + bin_width / 2, 4))
+        counts.append(c)
+    # Include upper edge in last bin
+    if magnitudes:
+        c_last = sum(1 for m in magnitudes if m >= round(mag_min + (n_bins - 1) * bin_width, 4))
+        counts[-1] = c_last
+
+    # Cumulative counts (N >= M)
+    cumulative = []
+    running = 0
+    for i in range(len(counts) - 1, -1, -1):
+        running += counts[i]
+        cumulative.append(running)
+    cumulative.reverse()
+
+    log10_n = [round(math.log10(c), 4) if c > 0 else None for c in cumulative]
+
+    # Mc via maximum curvature (bin with highest non-cumulative count)
+    mc_idx = counts.index(max(counts))
+    mc = bins[mc_idx]
+
+    # b-value regression on M >= Mc using least-squares
+    fit_m = []
+    fit_logn = []
+    for i, b in enumerate(bins):
+        if b >= mc and cumulative[i] > 0:
+            fit_m.append(b)
+            fit_logn.append(math.log10(cumulative[i]))
+
+    b_value = None
+    a_value = None
+    r_squared = None
+    if len(fit_m) >= 2:
+        n = len(fit_m)
+        sx = sum(fit_m)
+        sy = sum(fit_logn)
+        sxx = sum(x * x for x in fit_m)
+        sxy = sum(x * y for x, y in zip(fit_m, fit_logn))
+        denom = n * sxx - sx * sx
+        if abs(denom) > 1e-12:
+            slope = (n * sxy - sx * sy) / denom
+            intercept = (sy - slope * sx) / n
+            b_value = round(-slope, 3)
+            a_value = round(intercept, 3)
+            # R-squared
+            y_mean = sy / n
+            ss_tot = sum((y - y_mean) ** 2 for y in fit_logn)
+            ss_res = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(fit_m, fit_logn))
+            r_squared = round(1 - ss_res / ss_tot, 4) if ss_tot > 0 else None
+
+    return {
+        "bins": bins,
+        "counts": counts,
+        "cumulative": cumulative,
+        "log10_n": log10_n,
+        "b_value": b_value,
+        "a_value": a_value,
+        "mc": round(mc, 4),
+        "r_squared": r_squared,
+        "total_events": len(magnitudes),
+        "bin_width": bin_width,
+    }
+
+
+# ── Depth Distribution ───────────────────────────────────────────
+@app.get("/api/depth_distribution")
+async def depth_distribution(
+    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    bin_size: float = Query(default=1.0, ge=0.1, le=10.0),
+):
+    """Depth distribution histogram and cross-section scatter data."""
+    import math
+
+    rows = _read_catalog()
+    if start_date or end_date:
+        rows = _filter_by_date(rows, start_date, end_date)
+
+    events = [_parse_catalog_row(r) for r in rows]
+    events = [e for e in events if e["depth_km"] is not None]
+
+    if not events:
+        return {"histogram": {"bins": [], "counts": []}, "median_depth": None,
+                "mean_depth": None, "scatter": []}
+
+    depths = [e["depth_km"] for e in events]
+    median_depth = round(sorted(depths)[len(depths) // 2], 2)
+    mean_depth = round(sum(depths) / len(depths), 2)
+
+    d_min = math.floor(min(depths) / bin_size) * bin_size
+    d_max = math.ceil(max(depths) / bin_size) * bin_size
+    n_bins = max(1, int(round((d_max - d_min) / bin_size)))
+
+    hist_bins = []
+    hist_counts = []
+    for i in range(n_bins):
+        edge_lo = round(d_min + i * bin_size, 4)
+        edge_hi = round(edge_lo + bin_size, 4)
+        c = sum(1 for d in depths if edge_lo <= d < edge_hi)
+        hist_bins.append(round(edge_lo + bin_size / 2, 4))
+        hist_counts.append(c)
+    # Include upper edge in last bin
+    last_edge = round(d_min + (n_bins - 1) * bin_size, 4)
+    hist_counts[-1] = sum(1 for d in depths if d >= last_edge)
+
+    scatter = [
+        {
+            "latitude": e["latitude"],
+            "longitude": e["longitude"],
+            "depth_km": e["depth_km"],
+            "magnitude": e["magnitude"],
+            "event_id": e["event_id"],
+        }
+        for e in events if e["latitude"] is not None and e["longitude"] is not None
+    ]
+
+    return {
+        "histogram": {"bins": hist_bins, "counts": hist_counts, "bin_size": bin_size},
+        "median_depth": median_depth,
+        "mean_depth": mean_depth,
+        "scatter": scatter,
+    }
+
+
+# ── Waveform API ─────────────────────────────────────────────────
+_waveform_cache: dict[str, tuple[float, object]] = {}
+_WAVEFORM_CACHE_MAX = 10
+_WAVEFORM_MAX_DURATION = 600  # seconds
+
+
+def _get_obspy_stream(file_path: Path):
+    """Read a miniSEED file with LRU caching."""
+    key = str(file_path)
+    mtime = _file_mtime(file_path)
+    if key in _waveform_cache:
+        cached_mtime, cached_stream = _waveform_cache[key]
+        if cached_mtime == mtime:
+            return cached_stream
+    try:
+        from obspy import read as obspy_read
+        st = obspy_read(str(file_path))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read {file_path.name}: {exc}")
+    # Evict oldest if cache full
+    if len(_waveform_cache) >= _WAVEFORM_CACHE_MAX:
+        oldest_key = next(iter(_waveform_cache))
+        del _waveform_cache[oldest_key]
+    _waveform_cache[key] = (mtime, st)
+    return st
+
+
+@app.get("/api/waveform")
+async def waveform(
+    network: str = Query(...),
+    station: str = Query(...),
+    channel: str = Query(default="EHZ"),
+    location: str = Query(default="00"),
+    start: str = Query(..., description="ISO 8601 start time"),
+    end: str = Query(..., description="ISO 8601 end time"),
+    max_samples: int = Query(default=10000, ge=100, le=100000),
+):
+    """Return waveform data for a single trace from miniSEED files."""
+    from obspy import UTCDateTime
+
+    t_start = UTCDateTime(start)
+    t_end = UTCDateTime(end)
+    duration = t_end - t_start
+    if duration <= 0 or duration > _WAVEFORM_MAX_DURATION:
+        raise HTTPException(status_code=400, detail=f"Duration must be 0-{_WAVEFORM_MAX_DURATION}s, got {duration:.0f}s")
+
+    # Find the appropriate miniSEED file in processed dir
+    jday = t_start.julday
+    year = t_start.year
+    day_dir = PROCESSED_DIR / str(year) / str(jday).zfill(3)
+    if not day_dir.exists():
+        raise HTTPException(status_code=404, detail=f"No data for {year}/{jday:03d}")
+
+    pattern = f"{network}.{station}.{location}.{channel}.{year}.{jday:03d}.mseed"
+    mseed_file = day_dir / pattern
+    if not mseed_file.exists():
+        # Try matching any file for this station
+        candidates = list(day_dir.glob(f"{network}.{station}.*.{channel}.*.mseed"))
+        if not candidates:
+            raise HTTPException(status_code=404, detail=f"No miniSEED for {network}.{station}.{channel}")
+        mseed_file = candidates[0]
+
+    st = _get_obspy_stream(mseed_file)
+    st_sliced = st.copy().trim(t_start, t_end)
+
+    if len(st_sliced) == 0:
+        raise HTTPException(status_code=404, detail="No data in requested time window")
+
+    tr = st_sliced[0]
+    data = tr.data.tolist()
+
+    # Downsample if too many samples
+    if len(data) > max_samples:
+        step = len(data) // max_samples
+        data = data[::step]
+
+    return {
+        "data": data,
+        "sampling_rate": tr.stats.sampling_rate,
+        "starttime": str(tr.stats.starttime),
+        "endtime": str(tr.stats.endtime),
+        "npts": tr.stats.npts,
+        "network": tr.stats.network,
+        "station": tr.stats.station,
+        "channel": tr.stats.channel,
+        "location": tr.stats.location,
+    }
+
+
+@app.get("/api/event/{event_id}/waveforms")
+async def event_waveforms(
+    event_id: str,
+    channel: str = Query(default="EHZ"),
+    window_before: float = Query(default=5.0, ge=0, le=60),
+    window_after: float = Query(default=30.0, ge=5, le=300),
+    max_samples: int = Query(default=5000, ge=100, le=50000),
+):
+    """Return waveform data + picks for all stations contributing to an event."""
+    from obspy import UTCDateTime
+
+    # Get event info
+    rows = _read_catalog()
+    event_row = None
+    for r in rows:
+        if r.get("event_id") == event_id:
+            event_row = r
+            break
+    if event_row is None:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+
+    event_time = event_row.get("time", "")
+    if not event_time:
+        raise HTTPException(status_code=400, detail="Event has no time")
+
+    # Get assignments for this event
+    assignments = _read_assignments()
+    event_assignments = [a for a in assignments if a.get("event_id") == event_id]
+    if not event_assignments:
+        raise HTTPException(status_code=404, detail=f"No pick assignments for {event_id}")
+
+    # Find unique stations
+    stations_seen: dict[str, list[dict]] = {}
+    for a in event_assignments:
+        sta_key = f"{a.get('network', '')}.{a.get('station', '')}"
+        if sta_key not in stations_seen:
+            stations_seen[sta_key] = []
+        stations_seen[sta_key].append({
+            "phase": a.get("phase", ""),
+            "time": a.get("time", ""),
+            "probability": float(a["probability"]) if a.get("probability") else None,
+            "channel": a.get("channel", ""),
+        })
+
+    t_origin = UTCDateTime(event_time)
+    t_start = t_origin - window_before
+    t_end = t_origin + window_after
+    jday = t_origin.julday
+    year = t_origin.year
+    day_dir = PROCESSED_DIR / str(year) / str(jday).zfill(3)
+
+    traces = []
+    for sta_key, picks in stations_seen.items():
+        parts = sta_key.split(".")
+        if len(parts) != 2:
+            continue
+        net, sta = parts
+
+        # Find miniSEED file
+        candidates = list(day_dir.glob(f"{net}.{sta}.*.{channel}.*.mseed")) if day_dir.exists() else []
+        if not candidates:
+            traces.append({
+                "station": sta, "network": net, "channel": channel,
+                "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                "picks": picks, "error": "No miniSEED file found",
+            })
+            continue
+
+        try:
+            st = _get_obspy_stream(candidates[0])
+            st_sliced = st.copy().trim(t_start, t_end)
+            if len(st_sliced) == 0:
+                traces.append({
+                    "station": sta, "network": net, "channel": channel,
+                    "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                    "picks": picks, "error": "No data in time window",
+                })
+                continue
+
+            tr = st_sliced[0]
+            data = tr.data.tolist()
+            if len(data) > max_samples:
+                step = len(data) // max_samples
+                data = data[::step]
+
+            traces.append({
+                "station": sta, "network": net, "channel": channel,
+                "data": data,
+                "sampling_rate": tr.stats.sampling_rate,
+                "starttime": str(tr.stats.starttime),
+                "endtime": str(tr.stats.endtime),
+                "picks": picks,
+            })
+        except Exception as exc:
+            traces.append({
+                "station": sta, "network": net, "channel": channel,
+                "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                "picks": picks, "error": str(exc),
+            })
+
+    return {
+        "event_id": event_id,
+        "event_time": event_time,
+        "window_before": window_before,
+        "window_after": window_after,
+        "traces": traces,
+    }
+
+
+# ── QuakeML Export ───────────────────────────────────────────────
+@app.get("/api/catalog/export/quakeml")
+async def catalog_export_quakeml(
+    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+):
+    """Export catalog as QuakeML using ObsPy."""
+    from obspy import UTCDateTime
+    from obspy.core.event import (
+        Catalog as ObsCatalog,
+        Event as ObsEvent,
+        Magnitude,
+        Origin,
+        Pick as ObsPick,
+        WaveformStreamID,
+    )
+    from starlette.responses import Response
+
+    rows = _read_catalog()
+    if start_date or end_date:
+        rows = _filter_by_date(rows, start_date, end_date)
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="No catalog data for the selected date range")
+
+    assignments = _read_assignments()
+    # Index assignments by event_id
+    assign_by_event: dict[str, list[dict]] = {}
+    for a in assignments:
+        eid = a.get("event_id", "")
+        if eid:
+            if eid not in assign_by_event:
+                assign_by_event[eid] = []
+            assign_by_event[eid].append(a)
+
+    obs_catalog = ObsCatalog()
+    for r in rows:
+        event_id = r.get("event_id", "")
+        t = r.get("time", "")
+        if not t:
+            continue
+
+        origin = Origin(
+            time=UTCDateTime(t),
+            latitude=float(r["latitude"]) if r.get("latitude") else None,
+            longitude=float(r["longitude"]) if r.get("longitude") else None,
+            depth=float(r["depth_km"]) * 1000 if r.get("depth_km") else None,
+        )
+
+        ev = ObsEvent(
+            resource_id=f"smi:elpaso/{event_id}",
+            origins=[origin],
+            preferred_origin_id=origin.resource_id,
+        )
+
+        if r.get("magnitude"):
+            mag = Magnitude(
+                mag=float(r["magnitude"]),
+                magnitude_type=r.get("magnitude_type", "ML") or "ML",
+                origin_id=origin.resource_id,
+            )
+            ev.magnitudes.append(mag)
+            ev.preferred_magnitude_id = mag.resource_id
+
+        # Add picks from assignments
+        for a in assign_by_event.get(event_id, []):
+            pick_time = a.get("time", "")
+            if not pick_time:
+                continue
+            wf_id = WaveformStreamID(
+                network_code=a.get("network", ""),
+                station_code=a.get("station", ""),
+                location_code=a.get("location", ""),
+                channel_code=a.get("channel", ""),
+            )
+            pick = ObsPick(
+                time=UTCDateTime(pick_time),
+                phase_hint=a.get("phase", ""),
+                waveform_id=wf_id,
+            )
+            ev.picks.append(pick)
+
+        obs_catalog.append(ev)
+
+    import io
+    buf = io.BytesIO()
+    obs_catalog.write(buf, format="QUAKEML")
+    xml_bytes = buf.getvalue()
+
+    return Response(
+        content=xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": "attachment; filename=catalog_export.xml"},
     )

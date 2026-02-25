@@ -13,9 +13,11 @@ dependencies:
   - pandas=2.2.3
   - pip
   - pip:
+      - torch==2.2.1
+      - seisbench==0.6.1
       - xdas>=0.2.0
-      - gmma @ git+https://github.com/AI4EPS/GaMMA.git
+      - gmma @ git+https://github.com/wayneweiqiang/GaMMA.git@c156136ed7afe3b585c2da2f6021268aca460808
       - fastapi==0.115.6
       - uvicorn[standard]==0.34.0
       - pywebview>=5.0
-      - httpx>=0.24.0
+      - httpx==0.28.1
