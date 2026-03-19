@@ -35,8 +35,8 @@ degree2km: 111.19
 # 1D velocity model (km/s)
 # -----------------------------------------------------------------------------
 vel:
-  P: 6.0
-  S: 3.47
+  P: 5.0
+  S: 2.89
 
 # -----------------------------------------------------------------------------
 # Association method: BGMM (Bayesian) or GMM
@@ -55,7 +55,7 @@ dbscan_min_samples: 3
 # -----------------------------------------------------------------------------
 min_picks_per_eq: 4          # At least 4 phase picks total (3P + 1S minimum)
 min_p_picks: 3                # minimum P-phase picks per event
-min_s_picks: 1                # minimum S-phase picks per event
+min_s_picks: 2                # minimum S-phase picks per event
 min_stations_per_eq: 3        # minimum unique stations per event (post-association QC)
 max_sigma11: 2.0          # max time residual std (s)
 max_sigma22: 2.0          # max amplitude residual std (log10)

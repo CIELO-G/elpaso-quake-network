@@ -3,10 +3,15 @@
 import csv
 import hashlib
 import json
+import math
 import os
 import re
 import secrets
+import signal
 import shutil
+import subprocess
+import sys
+import tempfile
 import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -26,6 +31,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from starlette.middleware.base import BaseHTTPMiddleware
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))  # allow imports from project root (lib.*)
 STATUS_FILE = ROOT / "output" / "pipeline_status.json"
 LOGS_DIR = ROOT / "logs"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -37,6 +43,11 @@ RAW_DIR = ROOT / "output" / "1-raw"
 OUTPUT_DIR = ROOT / "output"
 
 PROCESSED_DIR = ROOT / "output" / "2-processed"
+
+# ── Pipeline control ─────────────────────────────────────────────
+PIPELINE_SCRIPT = ROOT / "run_pipeline.py"
+PIPELINE_PID_FILE = ROOT / "output" / "pipeline.pid"
+_pipeline_proc: subprocess.Popen | None = None
 
 VALID_STEP_NAMES = {"ingest", "process", "detect", "associate", "catalog"}
 
@@ -56,7 +67,7 @@ AUTH_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
 
 _app_start_time = time.monotonic()
 
-app = FastAPI(title="El Paso Seismic Pipeline Dashboard")
+app = FastAPI(title="El Paso Seismic Monitor")
 
 # ── CORS ──────────────────────────────────────────────────────────
 _CORS_ORIGINS = os.environ.get(
@@ -248,6 +259,9 @@ def _parse_catalog_row(r: dict) -> dict:
         "num_picks": int(r["num_picks"]) if r.get("num_picks") else None,
         "num_ml_sta": int(r["num_ml_sta"]) if r.get("num_ml_sta") else None,
         "event_index": int(r["event_index"]) if r.get("event_index") else None,
+        "reviewed": r.get("reviewed", ""),
+        "review_status": r.get("review_status", ""),
+        "event_type": r.get("event_type", "undetermined"),
     }
 
 
@@ -317,7 +331,7 @@ async def _broadcast_status():
             await ws.send_json(data)
         except Exception:
             dead.add(ws)
-    _ws_clients -= dead
+    _ws_clients.difference_update(dead)
 
 
 # ── Routes ────────────────────────────────────────────────────────
@@ -325,6 +339,16 @@ async def _broadcast_status():
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+
+
+FAULTS_FILE = STATIC_DIR / "faults.geojson"
+
+
+@app.get("/api/faults")
+async def faults():
+    if not FAULTS_FILE.exists():
+        return JSONResponse({"type": "FeatureCollection", "features": []})
+    return FileResponse(FAULTS_FILE, media_type="application/geo+json")
 
 
 @app.get("/api/health")
@@ -425,6 +449,8 @@ async def catalog(
     min_magnitude: Optional[float] = Query(default=None),
     max_depth: Optional[float] = Query(default=None),
     min_picks: Optional[int] = Query(default=None),
+    search: Optional[str] = Query(default=None, min_length=1, max_length=100),
+    review_status: Optional[str] = Query(default=None, pattern=r"^(unreviewed|confirmed|rejected)$"),
 ):
     entry = _get_cached("catalog", ttl=30.0, watch_file=CATALOG_FILE)
     if entry:
@@ -445,6 +471,15 @@ async def catalog(
         all_events = [e for e in all_events if e["depth_km"] is not None and e["depth_km"] <= max_depth]
     if min_picks is not None:
         all_events = [e for e in all_events if e["num_picks"] is not None and e["num_picks"] >= min_picks]
+    if search:
+        search_lower = search.lower()
+        all_events = [e for e in all_events if search_lower in (e.get("event_id") or "").lower()
+                      or search_lower in (e.get("time") or "").lower()]
+    if review_status:
+        if review_status == "unreviewed":
+            all_events = [e for e in all_events if not e.get("review_status")]
+        else:
+            all_events = [e for e in all_events if e.get("review_status") == review_status]
 
     # Sorting
     if sort_by:
@@ -485,10 +520,15 @@ async def stats(request: Request):
 
     latest_event_time = None
     latest_event_id = None
+    latest_event_lat = None
+    latest_event_lon = None
+    reviewed_count = sum(1 for r in rows if r.get("review_status"))
     if rows:
         latest = rows[-1]
         latest_event_time = latest.get("time")
         latest_event_id = latest.get("event_id")
+        latest_event_lat = float(latest["latitude"]) if latest.get("latitude") else None
+        latest_event_lon = float(latest["longitude"]) if latest.get("longitude") else None
 
     # Count picks
     total_picks = 0
@@ -536,6 +576,9 @@ async def stats(request: Request):
         "station_count": station_count,
         "latest_event_time": latest_event_time,
         "latest_event_id": latest_event_id,
+        "latest_event_lat": latest_event_lat,
+        "latest_event_lon": latest_event_lon,
+        "reviewed_count": reviewed_count,
     }
     etag = _set_cached("stats", data, watch_file=CATALOG_FILE)
     return _make_etag_response(data, etag, request)
@@ -597,13 +640,16 @@ def _count_day_dirs(base: Path, min_files: int = 0) -> int:
     return count
 
 
-def _count_days_with_data(base: Path, glob_pattern: str) -> int:
+def _count_days_with_data(base: Path, glob_pattern: str, require_rows: bool = False) -> int:
     count = 0
     for csv_file in base.rglob(glob_pattern):
         try:
-            with open(csv_file) as fh:
-                if sum(1 for _ in fh) > 1:
-                    count += 1
+            if require_rows:
+                with open(csv_file) as fh:
+                    if sum(1 for _ in fh) > 1:
+                        count += 1
+            else:
+                count += 1
         except OSError:
             pass
     return count
@@ -629,6 +675,7 @@ async def progress():
     next_run_at = None
     days_completed_cont = None
     days_skipped = []
+    last_completed_at = None
 
     if STATUS_FILE.exists():
         try:
@@ -637,6 +684,7 @@ async def progress():
             mode = status_data.get("pipeline", {}).get("mode", "single")
             args = status_data.get("pipeline", {}).get("args", {})
             current_day = args.get("start") or args.get("end")
+            last_completed_at = status_data.get("pipeline", {}).get("finished_at")
 
             cont = status_data.get("pipeline", {}).get("continuous")
             if cont:
@@ -668,7 +716,120 @@ async def progress():
         "next_run_at": next_run_at,
         "days_completed_continuous": days_completed_cont,
         "days_skipped": days_skipped,
+        "last_completed_at": last_completed_at,
     }
+
+
+# ── Pipeline control endpoints ────────────────────────────────────
+
+
+def _is_pipeline_running() -> tuple[bool, int | None]:
+    """Check if the pipeline process is running.
+
+    First checks the in-memory subprocess handle, then falls back to the PID
+    file for orphan recovery (e.g. after a dashboard restart).
+    """
+    global _pipeline_proc
+
+    # 1. Check in-memory handle
+    if _pipeline_proc is not None:
+        if _pipeline_proc.poll() is None:
+            return True, _pipeline_proc.pid
+        # Process finished — clean up
+        _pipeline_proc = None
+        PIPELINE_PID_FILE.unlink(missing_ok=True)
+
+    # 2. Fall back to PID file (orphan recovery)
+    if PIPELINE_PID_FILE.exists():
+        try:
+            pid = int(PIPELINE_PID_FILE.read_text().strip())
+            os.kill(pid, 0)  # probe — doesn't actually send a signal
+            return True, pid
+        except (ValueError, ProcessLookupError, PermissionError):
+            # Stale PID file — clean up
+            PIPELINE_PID_FILE.unlink(missing_ok=True)
+
+    return False, None
+
+
+@app.get("/api/pipeline/running")
+async def pipeline_running():
+    running, pid = _is_pipeline_running()
+    return {"running": running, "pid": pid}
+
+
+@app.post("/api/pipeline/start")
+async def pipeline_start(request: Request):
+    global _pipeline_proc
+
+    running, _ = _is_pipeline_running()
+    if running:
+        raise HTTPException(status_code=409, detail="Pipeline is already running")
+
+    body = await request.json()
+    mode = body.get("mode", "continuous")
+    if mode not in ("continuous", "backfill"):
+        raise HTTPException(status_code=400, detail="mode must be 'continuous' or 'backfill'")
+
+    cmd = [sys.executable, str(PIPELINE_SCRIPT)]
+
+    if mode == "continuous":
+        cmd.append("--continuous")
+    else:
+        # backfill = single-run with start/end dates
+        start = body.get("start")
+        end = body.get("end")
+        if not start or not end:
+            raise HTTPException(status_code=400, detail="backfill mode requires start and end dates")
+        # validate dates
+        try:
+            date.fromisoformat(start)
+            date.fromisoformat(end)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid date format (use YYYY-MM-DD)")
+        cmd += ["--start", start, "--end", end]
+
+    if body.get("force"):
+        cmd.append("--force")
+
+    # Open log file for stdout/stderr
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = open(LOGS_DIR / "pipeline_stdout.log", "a")
+
+    _pipeline_proc = subprocess.Popen(
+        cmd,
+        stdout=log_file,
+        stderr=log_file,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+    # Write PID file
+    PIPELINE_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PIPELINE_PID_FILE.write_text(str(_pipeline_proc.pid))
+
+    return {"started": True, "pid": _pipeline_proc.pid, "mode": mode}
+
+
+@app.post("/api/pipeline/stop")
+async def pipeline_stop():
+    global _pipeline_proc
+
+    running, pid = _is_pipeline_running()
+    if not running or pid is None:
+        raise HTTPException(status_code=404, detail="No pipeline process is running")
+
+    # Send SIGTERM — run_pipeline.py already handles this gracefully
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+
+    # Clean up
+    _pipeline_proc = None
+    PIPELINE_PID_FILE.unlink(missing_ok=True)
+
+    return {"stopped": True, "pid": pid}
 
 
 # Regex for standard Python logging lines
@@ -1019,7 +1180,7 @@ async def catalog_export(
     fieldnames = [
         "event_id", "time", "magnitude", "magnitude_type", "ml_err",
         "latitude", "longitude", "depth_km", "sigma_time", "sigma_amp",
-        "num_picks", "num_ml_sta",
+        "num_picks", "num_ml_sta", "reviewed", "review_status",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
@@ -1242,8 +1403,10 @@ async def waveform(
     pattern = f"{network}.{station}.{location}.{channel}.{year}.{jday:03d}.mseed"
     mseed_file = day_dir / pattern
     if not mseed_file.exists():
-        # Try matching any file for this station
+        # Try matching any file for this station (exact channel, then any band code)
         candidates = list(day_dir.glob(f"{network}.{station}.*.{channel}.*.mseed"))
+        if not candidates and len(channel) == 3:
+            candidates = list(day_dir.glob(f"{network}.{station}.*.?{channel[1:]}.*.mseed"))
         if not candidates:
             raise HTTPException(status_code=404, detail=f"No miniSEED for {network}.{station}.{channel}")
         mseed_file = candidates[0]
@@ -1275,6 +1438,199 @@ async def waveform(
     }
 
 
+@app.get("/api/waveforms/all")
+async def waveforms_all(
+    start: str = Query(..., description="ISO 8601 start time"),
+    end: str = Query(..., description="ISO 8601 end time"),
+    channel: str = Query(default="EHZ"),
+    max_samples: int = Query(default=10000, ge=100, le=100000),
+    freqmin: Optional[float] = Query(default=None, ge=0.01, le=50.0),
+    freqmax: Optional[float] = Query(default=None, ge=0.1, le=50.0),
+    spectrogram: bool = Query(default=False),
+):
+    """Return waveforms for ALL stations in an arbitrary time window."""
+    from obspy import UTCDateTime
+
+    t_start = UTCDateTime(start)
+    t_end = UTCDateTime(end)
+    duration = t_end - t_start
+    if duration <= 0 or duration > _WAVEFORM_MAX_DURATION:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Duration must be 0-{_WAVEFORM_MAX_DURATION}s, got {duration:.0f}s",
+        )
+
+    jday = t_start.julday
+    year = t_start.year
+    day_dir = PROCESSED_DIR / str(year) / str(jday).zfill(3)
+
+    # Load raw picks for the day and filter to the requested time window
+    picks_file = PICKS_DIR / str(year) / str(jday).zfill(3) / f"{year}.{jday:03d}.picks.csv"
+    picks_by_station: dict[str, list[dict]] = {}
+    if picks_file.exists():
+        start_iso = str(t_start).replace("T", " ").rstrip("Z")
+        end_iso = str(t_end).replace("T", " ").rstrip("Z")
+        with open(picks_file, newline="") as f:
+            for row in csv.DictReader(f):
+                pick_time = row.get("time", "")
+                if not pick_time:
+                    continue
+                # Quick string comparison for time window filtering
+                pt = pick_time.replace("T", " ")
+                if pt < start_iso or pt > end_iso:
+                    continue
+                sta_key = f"{row.get('network', '')}.{row.get('station', '')}"
+                if sta_key not in picks_by_station:
+                    picks_by_station[sta_key] = []
+                picks_by_station[sta_key].append({
+                    "phase": row.get("phase", ""),
+                    "time": pick_time,
+                    "probability": float(row["probability"]) if row.get("probability") else None,
+                    "channel": row.get("channel", ""),
+                })
+
+    all_stations = _load_stations()
+    traces = []
+
+    channels_to_load = ["EHZ", "EHN", "EHE"] if channel == "3C" else [channel]
+
+    for s in all_stations:
+        net = s["network"]
+        sta = s["station"]
+        sta_lat = s.get("latitude")
+        sta_lon = s.get("longitude")
+        sta_key = f"{net}.{sta}"
+        picks = picks_by_station.get(sta_key, [])
+
+        for chan in channels_to_load:
+            candidates = list(day_dir.glob(f"{net}.{sta}.*.{chan}.*.mseed")) if day_dir.exists() else []
+            if not candidates and day_dir.exists() and len(chan) == 3:
+                candidates = list(day_dir.glob(f"{net}.{sta}.*.?{chan[1:]}.*.mseed"))
+
+            if not candidates:
+                traces.append({
+                    "station": sta, "network": net, "channel": chan,
+                    "latitude": sta_lat, "longitude": sta_lon,
+                    "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                    "picks": picks, "has_data": False, "error": "No miniSEED file found",
+                })
+                continue
+
+            try:
+                stream = _get_obspy_stream(candidates[0])
+                st_sliced = stream.copy().trim(t_start, t_end)
+                if len(st_sliced) == 0:
+                    traces.append({
+                        "station": sta, "network": net, "channel": chan,
+                        "latitude": sta_lat, "longitude": sta_lon,
+                        "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                        "picks": picks, "has_data": False, "error": "No data in time window",
+                    })
+                    continue
+
+                tr = st_sliced[0]
+
+                if freqmin is not None and freqmax is not None:
+                    tr = tr.copy()
+                    tr.detrend("demean")
+                    tr.filter("bandpass", freqmin=freqmin, freqmax=freqmax, corners=4, zerophase=True)
+                elif freqmin is not None:
+                    tr = tr.copy()
+                    tr.detrend("demean")
+                    tr.filter("highpass", freq=freqmin, corners=4, zerophase=True)
+                elif freqmax is not None:
+                    tr = tr.copy()
+                    tr.detrend("demean")
+                    tr.filter("lowpass", freq=freqmax, corners=4, zerophase=True)
+
+                spec_b64 = ""
+                if spectrogram and len(tr.data) >= 32:
+                    spec_b64 = _compute_spectrogram_png(
+                        tr.data.tolist(), tr.stats.sampling_rate,
+                        width=1200, height=160,
+                    )
+
+                data = tr.data.tolist()
+                if len(data) > max_samples:
+                    step = len(data) // max_samples
+                    data = data[::step]
+
+                trace_dict = {
+                    "station": sta, "network": net, "channel": tr.stats.channel,
+                    "latitude": sta_lat, "longitude": sta_lon,
+                    "data": data,
+                    "sampling_rate": tr.stats.sampling_rate,
+                    "starttime": str(tr.stats.starttime),
+                    "endtime": str(tr.stats.endtime),
+                    "picks": picks,
+                    "has_data": True,
+                }
+                if spectrogram and spec_b64:
+                    trace_dict["spectrogram_b64"] = spec_b64
+                traces.append(trace_dict)
+            except Exception as exc:
+                traces.append({
+                    "station": sta, "network": net, "channel": chan,
+                    "latitude": sta_lat, "longitude": sta_lon,
+                    "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                    "picks": picks, "has_data": False, "error": str(exc),
+                })
+
+    return {
+        "start": str(t_start),
+        "end": str(t_end),
+        "traces": traces,
+    }
+
+
+def _compute_spectrogram_png(
+    data: list[float],
+    sampling_rate: float,
+    width: int = 800,
+    height: int = 128,
+) -> str:
+    """Compute spectrogram and return as Base64-encoded PNG."""
+    import base64
+    import io
+    import numpy as np
+    from scipy.signal import spectrogram as sp_spectrogram
+
+    arr = np.array(data, dtype=np.float64)
+    if len(arr) < 32:
+        return ""
+
+    # STFT parameters tuned for 100 Hz seismic data
+    nperseg = min(128, len(arr) // 4)
+    noverlap = int(nperseg * 0.75)
+    f, t, Sxx = sp_spectrogram(arr, fs=sampling_rate,
+                                nperseg=nperseg, noverlap=noverlap)
+
+    # Log-scale power, clip to usable dynamic range
+    Sxx_log = 10 * np.log10(Sxx + 1e-30)
+    vmin = np.percentile(Sxx_log, 5)
+    vmax = np.percentile(Sxx_log, 99)
+    Sxx_norm = np.clip((Sxx_log - vmin) / (vmax - vmin + 1e-10), 0, 1)
+
+    # Apply viridis colormap manually (avoid matplotlib import overhead)
+    # 5-stop viridis approximation: dark purple -> teal -> yellow
+    viridis_lut = np.array([
+        [68, 1, 84],    [59, 82, 139],  [33, 145, 140],
+        [94, 201, 98],  [253, 231, 37],
+    ], dtype=np.uint8)
+    idx = (Sxx_norm * (len(viridis_lut) - 1)).astype(int)
+    # Flip frequency axis (high freq at top)
+    img = viridis_lut[idx[::-1, :]]
+
+    # Resize to target dimensions via PIL
+    from PIL import Image
+    pil_img = Image.fromarray(img, mode='RGB')
+    pil_img = pil_img.resize((width, height), Image.BILINEAR)
+
+    buf = io.BytesIO()
+    pil_img.save(buf, format='PNG', optimize=True)
+    return base64.b64encode(buf.getvalue()).decode('ascii')
+
+
 @app.get("/api/event/{event_id}/waveforms")
 async def event_waveforms(
     event_id: str,
@@ -1282,6 +1638,7 @@ async def event_waveforms(
     window_before: float = Query(default=5.0, ge=0, le=60),
     window_after: float = Query(default=30.0, ge=5, le=300),
     max_samples: int = Query(default=5000, ge=100, le=50000),
+    spectrogram: bool = Query(default=False),
 ):
     """Return waveform data + picks for all stations contributing to an event."""
     from obspy import UTCDateTime
@@ -1333,8 +1690,11 @@ async def event_waveforms(
             continue
         net, sta = parts
 
-        # Find miniSEED file
+        # Find miniSEED file — try exact channel, then any band code with
+        # same instrument+orientation (e.g. EHZ→HHZ) for mixed networks
         candidates = list(day_dir.glob(f"{net}.{sta}.*.{channel}.*.mseed")) if day_dir.exists() else []
+        if not candidates and day_dir.exists() and len(channel) == 3:
+            candidates = list(day_dir.glob(f"{net}.{sta}.*.?{channel[1:]}.*.mseed"))
         if not candidates:
             traces.append({
                 "station": sta, "network": net, "channel": channel,
@@ -1355,19 +1715,31 @@ async def event_waveforms(
                 continue
 
             tr = st_sliced[0]
+
+            # Compute spectrogram on full-res data before downsampling
+            spec_b64 = ""
+            if spectrogram and len(tr.data) >= 32:
+                spec_b64 = _compute_spectrogram_png(
+                    tr.data.tolist(), tr.stats.sampling_rate,
+                    width=800, height=128,
+                )
+
             data = tr.data.tolist()
             if len(data) > max_samples:
                 step = len(data) // max_samples
                 data = data[::step]
 
-            traces.append({
+            trace_dict = {
                 "station": sta, "network": net, "channel": channel,
                 "data": data,
                 "sampling_rate": tr.stats.sampling_rate,
                 "starttime": str(tr.stats.starttime),
                 "endtime": str(tr.stats.endtime),
                 "picks": picks,
-            })
+            }
+            if spectrogram and spec_b64:
+                trace_dict["spectrogram_b64"] = spec_b64
+            traces.append(trace_dict)
         except Exception as exc:
             traces.append({
                 "station": sta, "network": net, "channel": channel,
@@ -1478,3 +1850,554 @@ async def catalog_export_quakeml(
         media_type="application/xml",
         headers={"Content-Disposition": "attachment; filename=catalog_export.xml"},
     )
+
+
+# ── Atomic CSV writer ────────────────────────────────────────────
+def _atomic_write_csv(path: Path, rows: list[dict], fieldnames: list[str]):
+    """Write CSV via temp file + os.replace for crash safety."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(
+        dir=str(path.parent), suffix=".tmp", prefix=path.stem + "_"
+    )
+    try:
+        with os.fdopen(fd, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
+        os.replace(tmp_path, str(path))
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+# ── GaMMA initialisation (lazy, cached) ──────────────────────────
+_gamma_state: dict | None = None
+
+
+def _init_gamma() -> dict:
+    """Lazily initialise and cache GaMMA station DataFrame, projection, and config."""
+    global _gamma_state
+    if _gamma_state is not None:
+        return _gamma_state
+
+    # sklearn shim (same as associate.py)
+    import sklearn.base
+    if not hasattr(sklearn.base.BaseEstimator, "_check_n_features"):
+        def _check_n_features(self, X, reset=False):
+            n_features = X.shape[1] if hasattr(X, "shape") and X.ndim > 1 else 1
+            if reset or not hasattr(self, "n_features_in_"):
+                self.n_features_in_ = n_features
+        sklearn.base.BaseEstimator._check_n_features = _check_n_features
+
+    import numpy as np
+    import pandas as pd
+    from lib.projection import make_projection
+
+    stations = _load_stations()
+    center_lon, center_lat = -106.40, 31.85
+    proj = make_projection(center_lon, center_lat)
+
+    sta_rows = []
+    sta_lookup = {}
+    for s in stations:
+        sid = f"{s['network']}.{s['station']}"
+        x_km, y_km = proj(s["longitude"], s["latitude"])
+        z_km = -s["elevation_m"] / 1000.0
+        sta_rows.append({"id": sid, "x(km)": x_km, "y(km)": y_km, "z(km)": z_km})
+        sta_lookup[sid] = {
+            "latitude": s["latitude"],
+            "longitude": s["longitude"],
+            "elevation_m": s["elevation_m"],
+        }
+
+    stations_df = pd.DataFrame(sta_rows)
+
+    xlim, ylim = 0.7, 0.7
+    degree2km = 111.19
+    x_km_lim = np.array([-xlim, xlim]) * degree2km * np.cos(np.deg2rad(center_lat))
+    y_km_lim = np.array([-ylim, ylim]) * degree2km
+    dims = ["x(km)", "y(km)", "z(km)"]
+
+    gamma_config = {
+        "center": (center_lon, center_lat),
+        "xlim_degree": [-xlim, xlim],
+        "ylim_degree": [-ylim, ylim],
+        "degree2km": degree2km,
+        "dims": dims,
+        "x(km)": x_km_lim.tolist(),
+        "y(km)": y_km_lim.tolist(),
+        "z(km)": [0, 30],
+        "use_amplitude": False,
+        "vel": {"p": 5.0, "s": 2.89},
+        "use_dbscan": True,
+        "dbscan_eps": 25,
+        "dbscan_min_samples": 3,
+        "min_picks_per_eq": 4,
+        "max_sigma11": 2.0,
+        "max_sigma22": 2.0,
+        "oversample_factor": 5,
+        "bfgs_bounds": (
+            [x_km_lim.tolist(), y_km_lim.tolist(), [0, 30]] + [[None, None]]
+        ),
+    }
+
+    _gamma_state = {
+        "stations_df": stations_df,
+        "proj": proj,
+        "config": gamma_config,
+        "station_lookup": sta_lookup,
+        "center_lon": center_lon,
+        "center_lat": center_lat,
+    }
+    return _gamma_state
+
+
+# ── GET /api/event/{event_id}/waveforms/all ──────────────────────
+@app.get("/api/event/{event_id}/waveforms/all")
+async def event_waveforms_all(
+    event_id: str,
+    channel: str = Query(default="EHZ"),
+    window_before: float = Query(default=10.0, ge=0, le=120),
+    window_after: float = Query(default=60.0, ge=5, le=600),
+    max_samples: int = Query(default=10000, ge=100, le=100000),
+    freqmin: Optional[float] = Query(default=None, ge=0.01, le=50.0),
+    freqmax: Optional[float] = Query(default=None, ge=0.1, le=50.0),
+    spectrogram: bool = Query(default=False),
+):
+    """Return waveforms for ALL stations with optional bandpass filter."""
+    from obspy import UTCDateTime
+
+    # Get event info
+    rows = _read_catalog()
+    event_row = None
+    for r in rows:
+        if r.get("event_id") == event_id:
+            event_row = r
+            break
+    if event_row is None:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
+
+    event_time = event_row.get("time", "")
+    if not event_time:
+        raise HTTPException(status_code=400, detail="Event has no time")
+
+    # Load existing picks for this event
+    assignments = _read_assignments()
+    picks_by_station: dict[str, list[dict]] = {}
+    for a in assignments:
+        if a.get("event_id") == event_id:
+            sta_key = f"{a.get('network', '')}.{a.get('station', '')}"
+            if sta_key not in picks_by_station:
+                picks_by_station[sta_key] = []
+            picks_by_station[sta_key].append({
+                "phase": a.get("phase", ""),
+                "time": a.get("time", ""),
+                "probability": float(a["probability"]) if a.get("probability") else None,
+                "channel": a.get("channel", ""),
+                "amplitude": float(a["amplitude"]) if a.get("amplitude") else None,
+            })
+
+    t_origin = UTCDateTime(event_time)
+    t_start = t_origin - window_before
+    t_end = t_origin + window_after
+    jday = t_origin.julday
+    year = t_origin.year
+    day_dir = PROCESSED_DIR / str(year) / str(jday).zfill(3)
+
+    all_stations = _load_stations()
+    traces = []
+
+    # Support 3-component mode
+    channels_to_load = ["EHZ", "EHN", "EHE"] if channel == "3C" else [channel]
+
+    for s in all_stations:
+        net = s["network"]
+        sta = s["station"]
+        sta_key = f"{net}.{sta}"
+        picks = picks_by_station.get(sta_key, [])
+        sta_lat = s.get("latitude")
+        sta_lon = s.get("longitude")
+
+        for chan in channels_to_load:
+            # Find miniSEED file
+            candidates = list(day_dir.glob(f"{net}.{sta}.*.{chan}.*.mseed")) if day_dir.exists() else []
+            if not candidates and day_dir.exists() and len(chan) == 3:
+                candidates = list(day_dir.glob(f"{net}.{sta}.*.?{chan[1:]}.*.mseed"))
+
+            if not candidates:
+                traces.append({
+                    "station": sta, "network": net, "channel": chan,
+                    "latitude": sta_lat, "longitude": sta_lon,
+                    "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                    "picks": picks, "has_data": False, "error": "No miniSEED file found",
+                })
+                continue
+
+            try:
+                stream = _get_obspy_stream(candidates[0])
+                st_sliced = stream.copy().trim(t_start, t_end)
+                if len(st_sliced) == 0:
+                    traces.append({
+                        "station": sta, "network": net, "channel": chan,
+                        "latitude": sta_lat, "longitude": sta_lon,
+                        "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                        "picks": picks, "has_data": False, "error": "No data in time window",
+                    })
+                    continue
+
+                tr = st_sliced[0]
+
+                # Apply bandpass filter if requested
+                if freqmin is not None and freqmax is not None:
+                    tr = tr.copy()
+                    tr.detrend("demean")
+                    tr.filter("bandpass", freqmin=freqmin, freqmax=freqmax, corners=4, zerophase=True)
+                elif freqmin is not None:
+                    tr = tr.copy()
+                    tr.detrend("demean")
+                    tr.filter("highpass", freq=freqmin, corners=4, zerophase=True)
+                elif freqmax is not None:
+                    tr = tr.copy()
+                    tr.detrend("demean")
+                    tr.filter("lowpass", freq=freqmax, corners=4, zerophase=True)
+
+                # Compute spectrogram on full-res data before downsampling
+                spec_b64 = ""
+                if spectrogram and len(tr.data) >= 32:
+                    spec_b64 = _compute_spectrogram_png(
+                        tr.data.tolist(), tr.stats.sampling_rate,
+                        width=1200, height=160,
+                    )
+
+                data = tr.data.tolist()
+                if len(data) > max_samples:
+                    step = len(data) // max_samples
+                    data = data[::step]
+
+                trace_dict = {
+                    "station": sta, "network": net, "channel": tr.stats.channel,
+                    "latitude": sta_lat, "longitude": sta_lon,
+                    "data": data,
+                    "sampling_rate": tr.stats.sampling_rate,
+                    "starttime": str(tr.stats.starttime),
+                    "endtime": str(tr.stats.endtime),
+                    "picks": picks,
+                    "has_data": True,
+                }
+                if spectrogram and spec_b64:
+                    trace_dict["spectrogram_b64"] = spec_b64
+                traces.append(trace_dict)
+            except Exception as exc:
+                traces.append({
+                    "station": sta, "network": net, "channel": chan,
+                    "latitude": sta_lat, "longitude": sta_lon,
+                    "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
+                    "picks": picks, "has_data": False, "error": str(exc),
+                })
+
+    ev_lat = float(event_row["latitude"]) if event_row.get("latitude") else None
+    ev_lon = float(event_row["longitude"]) if event_row.get("longitude") else None
+
+    return {
+        "event_id": event_id,
+        "event_time": event_time,
+        "event_latitude": ev_lat,
+        "event_longitude": ev_lon,
+        "traces": traces,
+    }
+
+
+# ── POST /api/event/{event_id}/relocate ──────────────────────────
+@app.post("/api/event/{event_id}/relocate")
+async def event_relocate(event_id: str, request: Request):
+    """Run GaMMA relocation on user-edited picks (no save)."""
+    body = await request.json()
+    picks_input = body.get("picks", [])
+    if len(picks_input) < 4:
+        raise HTTPException(status_code=400, detail="Need at least 4 picks for relocation")
+
+    import numpy as np
+    import pandas as pd
+    from gamma.utils import association
+    from lib.magnitude import MLConfig, compute_ml_network, compute_ml_station, haversine_km
+
+    gs = _init_gamma()
+    stations_df = gs["stations_df"]
+    proj = gs["proj"]
+    gamma_config = gs["config"]
+    station_lookup = gs["station_lookup"]
+
+    # Build picks DataFrame
+    try:
+        pick_rows = []
+        for p in picks_input:
+            raw_amp = p.get("amplitude")
+            amp_val = float(raw_amp) if raw_amp and float(raw_amp) > 0 else np.nan
+            pick_rows.append({
+                "id": f"{p['network']}.{p['station']}",
+                "timestamp": pd.Timestamp(p["time"]),
+                "type": p["phase"],
+                "prob": float(p.get("probability", 0.8)),
+                "amp": amp_val,
+                "network": p["network"],
+                "station": p["station"],
+                "channel": p.get("channel", ""),
+                "phase": p["phase"],
+                "time": p["time"],
+                "probability": float(p.get("probability", 0.8)),
+                "amplitude": amp_val,
+            })
+        picks_df = pd.DataFrame(pick_rows)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid pick data: {exc}")
+
+    try:
+        events_list, assignments_list = association(
+            picks_df, stations_df, gamma_config, method="BGMM",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"GaMMA association failed: {exc}")
+
+    if not events_list:
+        raise HTTPException(status_code=422, detail="Relocation failed — no event found from these picks")
+
+    try:
+        # Use the first (best) event
+        ev = events_list[0]
+        x = ev.get("x(km)", 0.0)
+        y = ev.get("y(km)", 0.0)
+        depth = ev.get("z(km)", 0.0)
+
+        # Convert event time robustly — GaMMA may return pd.Timestamp,
+        # numpy datetime64, or string; normalise via pd.Timestamp → ISO.
+        ev_time_raw = ev.get("time", "")
+        ev_ts = pd.Timestamp(ev_time_raw)
+        ev_time = ev_ts.isoformat()
+        ev_epoch = ev_ts.timestamp()  # Unix seconds for residual math
+
+        lon, lat = proj(x, y, inverse=True)
+
+        # Compute magnitude
+        ml_cfg = MLConfig(
+            freq_hz=5.0, wa_gain=2800.0, min_distance_km=10.0,
+            a=1.110, b=0.00189, c=3.0, ref_distance_km=100.0,
+        )
+        station_mls = []
+        for pick_idx, ev_idx, _score in assignments_list:
+            pick = picks_df.iloc[pick_idx]
+            amp_vel = pick.get("amplitude", 0.0)
+            if amp_vel is None or not np.isfinite(amp_vel) or amp_vel <= 0:
+                continue
+            sta_id = f"{pick.get('network', '')}.{pick.get('station', '')}"
+            sta = station_lookup.get(sta_id)
+            if sta is None:
+                continue
+            d_horiz = haversine_km(lat, lon, sta["latitude"], sta["longitude"])
+            r = math.sqrt(d_horiz ** 2 + depth ** 2)
+            ml_sta = compute_ml_station(float(amp_vel), r, ml_cfg)
+            if ml_sta is not None:
+                station_mls.append(ml_sta)
+
+        ml, ml_err, ml_count = compute_ml_network(station_mls)
+
+        # Compute residuals using epoch arithmetic (avoids UTCDateTime parsing)
+        residuals = []
+        for pick_idx, ev_idx, _score in assignments_list:
+            pick = picks_df.iloc[pick_idx]
+            sta_id = f"{pick.get('network', '')}.{pick.get('station', '')}"
+            sta = station_lookup.get(sta_id)
+            if sta is None:
+                continue
+            phase = pick.get("phase", pick.get("type", ""))
+            pick_epoch = pd.Timestamp(pick.get("time", pick.get("timestamp", ""))).timestamp()
+            observed_tt = pick_epoch - ev_epoch
+
+            # Predicted travel time
+            d_horiz = haversine_km(lat, lon, sta["latitude"], sta["longitude"])
+            r = math.sqrt(d_horiz ** 2 + depth ** 2)
+            vel = 5.0 if phase == "P" else 2.89
+            predicted_tt = r / vel
+
+            residuals.append({
+                "station": pick.get("station", sta_id.split(".")[-1]),
+                "phase": phase,
+                "observed_s": round(observed_tt, 4),
+                "predicted_s": round(predicted_tt, 4),
+                "residual_s": round(observed_tt - predicted_tt, 4),
+            })
+
+        # Count picks used
+        num_picks = len(assignments_list)
+
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Post-association processing failed: {exc}")
+
+    return {
+        "location": {
+            "latitude": round(lat, 6),
+            "longitude": round(lon, 6),
+            "depth_km": round(depth, 2),
+            "time": ev_time,
+            "sigma_time": round(ev.get("sigma_time", 0.0), 4),
+            "sigma_amp": round(ev.get("sigma_amp", 0.0), 4),
+            "num_picks": num_picks,
+        },
+        "magnitude": {
+            "ml": round(ml, 2) if ml is not None else None,
+            "ml_err": round(ml_err, 2) if ml_err is not None else None,
+            "num_ml_sta": ml_count,
+        },
+        "residuals": residuals,
+    }
+
+
+# ── POST /api/event/{event_id}/save ──────────────────────────────
+@app.post("/api/event/{event_id}/save")
+async def event_save(event_id: str, request: Request):
+    """Save reviewed event to catalog and assignments."""
+    body = await request.json()
+    picks_input = body.get("picks", [])
+    location = body.get("location", {})
+    magnitude = body.get("magnitude", {})
+
+    if not location:
+        raise HTTPException(status_code=400, detail="Location data required")
+
+    now_utc = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    # ── Update catalog.csv ──
+    catalog_rows = _read_catalog()
+    found = False
+    for row in catalog_rows:
+        if row.get("event_id") == event_id:
+            row["latitude"] = str(round(float(location["latitude"]), 6))
+            row["longitude"] = str(round(float(location["longitude"]), 6))
+            row["depth_km"] = str(round(float(location["depth_km"]), 2))
+            row["time"] = location.get("time", row.get("time", ""))
+            row["sigma_time"] = str(round(float(location.get("sigma_time", 0)), 4))
+            row["sigma_amp"] = str(round(float(location.get("sigma_amp", 0)), 4))
+            row["num_picks"] = str(location.get("num_picks", row.get("num_picks", 0)))
+            if magnitude.get("ml") is not None:
+                row["magnitude"] = str(round(float(magnitude["ml"]), 2))
+                row["magnitude_type"] = "ML"
+            if magnitude.get("ml_err") is not None:
+                row["ml_err"] = str(round(float(magnitude["ml_err"]), 2))
+            if magnitude.get("num_ml_sta") is not None:
+                row["num_ml_sta"] = str(magnitude["num_ml_sta"])
+            row["reviewed"] = now_utc
+            row["review_status"] = body.get("review_status", "confirmed")
+            row["event_type"] = body.get("event_type", row.get("event_type", "undetermined"))
+            found = True
+            break
+
+    if not found:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
+
+    # Use all columns from the existing catalog, adding reviewed/review_status/event_type if not present
+    if catalog_rows:
+        catalog_fields = list(catalog_rows[0].keys())
+        if "reviewed" not in catalog_fields:
+            catalog_fields.append("reviewed")
+        if "review_status" not in catalog_fields:
+            catalog_fields.append("review_status")
+        if "event_type" not in catalog_fields:
+            catalog_fields.append("event_type")
+    else:
+        catalog_fields = [
+            "event_id", "event_index", "time", "magnitude", "magnitude_type", "ml_err",
+            "latitude", "longitude", "depth_km", "sigma_time", "sigma_amp",
+            "num_picks", "num_ml_sta", "reviewed", "review_status", "event_type",
+        ]
+    _atomic_write_csv(CATALOG_FILE, catalog_rows, catalog_fields)
+
+    # ── Update assignments.csv ──
+    all_assignments = _read_assignments()
+    # Remove old assignments for this event
+    other_assignments = [a for a in all_assignments if a.get("event_id") != event_id]
+    # Add new picks
+    for p in picks_input:
+        other_assignments.append({
+            "event_id": event_id,
+            "network": p.get("network", ""),
+            "station": p.get("station", ""),
+            "location": p.get("location", ""),
+            "channel": p.get("channel", ""),
+            "phase": p.get("phase", ""),
+            "time": p.get("time", ""),
+            "probability": str(p.get("probability", "")),
+            "amplitude": str(p.get("amplitude", "")),
+            "amplitude_channel": p.get("amplitude_channel", ""),
+        })
+
+    assign_fields = [
+        "event_id", "network", "station", "location", "channel",
+        "phase", "time", "probability", "amplitude", "amplitude_channel",
+    ]
+    _atomic_write_csv(ASSIGNMENTS_FILE, other_assignments, assign_fields)
+
+    # Invalidate dashboard caches
+    for key in list(_cache.keys()):
+        del _cache[key]
+
+    # Return updated event
+    for row in catalog_rows:
+        if row.get("event_id") == event_id:
+            return {"event": _parse_catalog_row(row), "saved": True}
+
+    return {"saved": True}
+
+
+# ── POST /api/event/{event_id}/review-status ─────────────────────
+@app.post("/api/event/{event_id}/review-status")
+async def event_review_status(event_id: str, request: Request):
+    """Quick status-only update (confirm/reject without relocation)."""
+    body = await request.json()
+    status = body.get("status", "")
+    if status not in ("confirmed", "rejected"):
+        raise HTTPException(status_code=400, detail="status must be 'confirmed' or 'rejected'")
+
+    now_utc = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    catalog_rows = _read_catalog()
+    found = False
+    for row in catalog_rows:
+        if row.get("event_id") == event_id:
+            row["review_status"] = status
+            row["reviewed"] = now_utc
+            if "event_type" in body:
+                row["event_type"] = body["event_type"]
+            found = True
+            break
+
+    if not found:
+        raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
+
+    if catalog_rows:
+        catalog_fields = list(catalog_rows[0].keys())
+        if "reviewed" not in catalog_fields:
+            catalog_fields.append("reviewed")
+        if "review_status" not in catalog_fields:
+            catalog_fields.append("review_status")
+        if "event_type" not in catalog_fields:
+            catalog_fields.append("event_type")
+    else:
+        catalog_fields = [
+            "event_id", "event_index", "time", "magnitude", "magnitude_type", "ml_err",
+            "latitude", "longitude", "depth_km", "sigma_time", "sigma_amp",
+            "num_picks", "num_ml_sta", "reviewed", "review_status", "event_type",
+        ]
+    _atomic_write_csv(CATALOG_FILE, catalog_rows, catalog_fields)
+
+    # Invalidate dashboard caches
+    for key in list(_cache.keys()):
+        del _cache[key]
+
+    for row in catalog_rows:
+        if row.get("event_id") == event_id:
+            return {"event": _parse_catalog_row(row), "updated": True}
+
+    return {"updated": True}

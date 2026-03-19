@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>El Paso Seismic Pipeline</title>
+<title>El Paso Seismic Monitor</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -60,6 +60,56 @@
   .badge-waiting  { background: var(--amber); color: #000; }
   .badge-stopped  { background: var(--gray);  color: #e2e8f0; }
 
+  /* pipeline controls */
+  .pipeline-controls { display: flex; gap: .35rem; align-items: center; }
+  .btn-pipeline {
+    font-size: .65rem; font-weight: 600; padding: .2rem .6rem;
+    border-radius: .3rem; border: 1px solid var(--border);
+    cursor: pointer; white-space: nowrap;
+  }
+  .btn-start { background: var(--green); color: #fff; border-color: var(--green); }
+  .btn-start:hover { filter: brightness(1.15); }
+  .btn-start:disabled { opacity: .4; cursor: not-allowed; filter: none; }
+  .btn-stop { background: var(--red); color: #fff; border-color: var(--red); }
+  .btn-stop:hover { filter: brightness(1.15); }
+
+  .pipeline-dropdown { position: relative; }
+  .dropdown-menu {
+    display: none; position: absolute; top: 100%; right: 0; margin-top: .25rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: .35rem;
+    min-width: 160px; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,.5);
+  }
+  .dropdown-menu.open { display: block; }
+  .dropdown-item {
+    display: block; width: 100%; text-align: left; padding: .4rem .7rem;
+    font-size: .7rem; color: var(--text); background: none; border: none;
+    cursor: pointer;
+  }
+  .dropdown-item:hover { background: var(--border); }
+
+  /* backfill modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 3000; justify-content: center; align-items: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: .5rem;
+    padding: 1.25rem; min-width: 300px; max-width: 400px;
+  }
+  .modal-box h3 { margin-bottom: .75rem; font-size: .9rem; }
+  .modal-box label { display: block; font-size: .7rem; color: var(--muted); margin: .4rem 0 .15rem; }
+  .modal-box input[type="date"] {
+    width: 100%; padding: .3rem .4rem; font-size: .75rem;
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: .25rem;
+  }
+  .modal-box .modal-check { display: flex; align-items: center; gap: .4rem; margin: .5rem 0; font-size: .7rem; }
+  .modal-actions { display: flex; gap: .4rem; margin-top: .75rem; justify-content: flex-end; }
+  .modal-actions button { font-size: .7rem; padding: .3rem .7rem; border-radius: .25rem; cursor: pointer; border: 1px solid var(--border); }
+  .modal-actions .btn-modal-cancel { background: var(--surface); color: var(--text); }
+  .modal-actions .btn-modal-start { background: var(--green); color: #fff; border-color: var(--green); }
+
   .ws-indicator {
     font-size: .6rem;
     padding: .1rem .4rem;
@@ -97,6 +147,18 @@
 
   @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:.5 } }
   .step-chip.st-running { animation: pulse 2s ease-in-out infinite; }
+
+  @keyframes event-radiate {
+    0%   { width: 10px; height: 10px; margin-left: -5px; margin-top: -5px; opacity: .8; }
+    100% { width: 50px; height: 50px; margin-left: -25px; margin-top: -25px; opacity: 0; }
+  }
+  .event-pulse-div {
+    position: absolute;
+    border-radius: 50%;
+    border: 2.5px solid #fff;
+    pointer-events: none;
+    animation: event-radiate 1.4s ease-out infinite;
+  }
 
   /* date filter bar */
   .filter-bar {
@@ -150,7 +212,7 @@
 
   /* map */
   .map-wrap {
-    flex: 3;
+    flex: 1;
     min-width: 0;
     border-radius: .5rem;
     overflow: hidden;
@@ -227,12 +289,13 @@
 
   /* sidebar */
   .sidebar {
-    flex: 2;
+    flex: 0 0 420px;
     display: flex;
     flex-direction: column;
     gap: .5rem;
     padding-left: .75rem;
     min-width: 260px;
+    max-width: 460px;
     overflow-y: auto;
   }
 
@@ -374,27 +437,6 @@
     vertical-align: middle;
   }
 
-  /* event chart */
-  .event-chart { margin-top: .1rem; }
-  .event-chart svg { display: block; }
-
-  /* station activity heatmap */
-  .heatmap-wrap { margin-top: .1rem; overflow-x: auto; }
-  .heatmap-wrap svg { display: block; }
-  .heatmap-label {
-    font-size: .6rem;
-    color: var(--muted);
-    margin-top: .25rem;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-  }
-  .heatmap-label .hm-grad {
-    height: 6px;
-    width: 80px;
-    border-radius: 3px;
-    background: linear-gradient(90deg, #1e293b, #3b82f6, #22c55e);
-  }
 
   /* data completeness calendar */
   .completeness-wrap { margin-top: .1rem; overflow-x: auto; }
@@ -413,10 +455,6 @@
     border-radius: 3px;
     background: linear-gradient(90deg, #1e293b, #166534, #22c55e);
   }
-
-  /* pick quality histogram */
-  .pick-hist { margin-top: .1rem; }
-  .pick-hist svg { display: block; }
 
   /* disk panel */
   .disk-text {
@@ -469,6 +507,39 @@
   /* leaflet overrides for dark theme */
   .leaflet-container { background: #0f172a; }
   .leaflet-control-attribution { font-size: .55rem !important; opacity: .5; }
+
+  /* map style switcher */
+  .map-style-control {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    z-index: 1000;
+    display: flex;
+    gap: 0;
+    border-radius: .35rem;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  }
+  .map-style-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-right: none;
+    color: var(--muted);
+    padding: .2rem .5rem;
+    font-size: .6rem;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .map-style-btn:last-child { border-right: 1px solid var(--border); }
+  .map-style-btn:hover { color: var(--text); background: var(--border); }
+  .map-style-btn.active { color: var(--text); background: var(--blue); border-color: var(--blue); }
+  .map-toggle-btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+    padding: .2rem .5rem; font-size: .6rem; font-family: inherit; cursor: pointer; white-space: nowrap;
+  }
+  .map-toggle-btn:hover { color: var(--text); background: var(--border); }
+  .map-toggle-btn.active { color: var(--text); background: var(--blue); border-color: var(--blue); }
 
   /* tab bar */
   .tab-bar {
@@ -590,33 +661,249 @@
   .catalog-pagination button:disabled { opacity: .4; cursor: default; }
   .catalog-pagination button:hover:not(:disabled) { background: var(--border); }
 
-  /* analysis tab */
-  .analysis-grid {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: .75rem;
-    min-height: 0;
-  }
-  .analysis-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: .5rem;
-    padding: .6rem .75rem;
-    display: flex;
+  /* review overlay */
+  .review-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    z-index: 3000;
     flex-direction: column;
+    overflow: hidden;
+  }
+  .review-overlay.visible { display: flex; }
+  .review-header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .5rem .75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-wrap: wrap;
+  }
+  .review-header h3 { font-size: .85rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .review-header .review-pick-status { font-size: .68rem; color: var(--muted); }
+  .review-header .unsaved-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--amber);
+    display: none;
+    animation: pulse-dot 1.5s infinite;
+  }
+  .review-header .unsaved-dot.active { display: inline-block; }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .review-controls {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .35rem .75rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: .68rem;
+    flex-wrap: wrap;
+  }
+  .review-controls label { color: var(--muted); font-size: .62rem; text-transform: uppercase; }
+  .review-controls select, .review-controls input[type="number"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: .35rem;
+    padding: .15rem .3rem;
+    font-size: .68rem;
+    font-family: inherit;
+    width: 5rem;
+  }
+  .review-controls input[type="number"] { width: 4rem; }
+  .review-body-wrapper {
+    display: flex;
+    flex: 1;
     min-height: 0;
     overflow: hidden;
   }
-  .analysis-panel .panel-title { margin-bottom: .3rem; }
-  .analysis-chart { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
-  .analysis-chart svg { max-width: 100%; max-height: 100%; }
-  .analysis-annotation {
-    font-size: .62rem;
+  .review-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: .5rem .75rem;
+    min-width: 0;
+  }
+  .review-map-panel {
+    flex: 0 0 45%;
+    max-width: 650px;
+    min-width: 350px;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    position: relative;
+  }
+  #rv-map-container {
+    flex: 1;
+    min-height: 0;
+  }
+  .rv-map-legend {
+    position: absolute;
+    bottom: 4px; right: 6px;
+    padding: .15rem .4rem;
+    font-size: .52rem;
     color: var(--muted);
-    margin-top: .25rem;
-    line-height: 1.5;
+    display: flex;
+    gap: .5rem;
+    background: rgba(2,6,23,.7);
+    border-radius: .2rem;
+    z-index: 500;
+    pointer-events: none;
+  }
+  .rv-map-legend span { display: flex; align-items: center; gap: .15rem; }
+  .rv-map-legend .leg-line {
+    display: inline-block;
+    width: 14px;
+    height: 2px;
+  }
+  .review-trace { margin-bottom: .35rem; }
+  .review-trace-label {
+    font-size: .65rem;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: .1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .review-trace-label .no-data-badge {
+    font-size: .55rem;
+    color: var(--red);
+    opacity: .7;
+  }
+  .review-trace canvas {
+    width: 100%;
+    height: 120px;
+    border: 1px solid var(--border);
+    border-radius: .25rem;
+    background: #020617;
+    cursor: crosshair;
+  }
+  .review-trace-group {
+    border: 1px solid var(--border);
+    border-radius: .35rem;
+    margin-bottom: .5rem;
+    padding: .3rem .4rem;
+    background: rgba(255,255,255,.02);
+  }
+  .review-trace-group .group-label {
+    font-size: .68rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: .2rem;
+  }
+  .review-trace-group .review-trace { margin-bottom: .15rem; }
+  .review-trace-group .review-trace-label { font-size: .58rem; color: var(--muted); font-weight: 400; }
+  .review-trace-group .review-trace canvas { height: 80px; }
+  .review-results {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: .5rem .75rem;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: .68rem;
+  }
+  .review-results h4 {
+    font-size: .7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: .3rem;
+  }
+  .review-results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: .3rem .8rem;
+    margin-bottom: .4rem;
+  }
+  .review-results-grid .rr-item .rr-value { font-weight: 700; font-size: .75rem; }
+  .review-results-grid .rr-item .rr-label { font-size: .6rem; color: var(--muted); text-transform: uppercase; }
+  .residual-table { width: 100%; border-collapse: collapse; font-size: .62rem; }
+  .residual-table th {
+    text-align: left; color: var(--muted); text-transform: uppercase;
+    font-size: .58rem; padding: .2rem .3rem; border-bottom: 1px solid var(--border);
+  }
+  .residual-table td { padding: .15rem .3rem; border-bottom: 1px solid var(--border); }
+  .residual-good { color: var(--green); }
+  .residual-warn { color: var(--amber); }
+  .residual-bad { color: var(--red); }
+  .pick-mode-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: .35rem;
+    padding: .15rem .5rem;
+    font-size: .65rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .pick-mode-btn.active { color: var(--text); border-color: var(--blue); background: rgba(59,130,246,.15); }
+  .reviewed-check { color: var(--green); font-weight: 700; }
+
+  /* event type dropdown in review header */
+  .rv-event-type-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: .35rem;
+    padding: .15rem .4rem;
+    font-size: .68rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* waveviewer tab */
+  .wv-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .25rem 0 .5rem;
+    flex-wrap: wrap;
+  }
+  .wv-toolbar label {
+    font-size: .65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .wv-toolbar input[type="date"],
+  .wv-toolbar input[type="number"],
+  .wv-toolbar select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: .35rem;
+    padding: .2rem .4rem;
+    font-size: .68rem;
+    font-family: inherit;
+  }
+  .wv-toolbar input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+  }
+  .wv-trace-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: .25rem 0;
+  }
+  .wv-trace-body .waveform-trace { margin-bottom: .35rem; }
+  .wv-trace-body .waveform-trace-label {
+    font-size: .65rem;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: .1rem;
+  }
+  .wv-trace-body canvas {
+    width: 100%;
+    height: 100px;
+    border: 1px solid var(--border);
+    border-radius: .25rem;
+    background: #020617;
   }
 
   /* waveform panel */
@@ -684,6 +971,32 @@
     border-radius: .25rem;
     background: #020617;
   }
+  /* Spectrogram canvas — sits directly below waveform canvas */
+  .waveform-trace .spectrogram-canvas {
+    width: 100%;
+    height: 80px;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 .25rem .25rem;
+    background: #020617;
+    display: block;
+  }
+  .waveform-trace canvas:first-of-type:not(:last-of-type) {
+    border-radius: .25rem .25rem 0 0;
+  }
+  .review-trace .spectrogram-canvas {
+    width: 100%;
+    height: 120px;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 .25rem .25rem;
+    background: #020617;
+    cursor: crosshair;
+    display: block;
+  }
+  .review-trace canvas:first-of-type:not(:last-of-type) {
+    border-radius: .25rem .25rem 0 0;
+  }
 
   /* Responsive: tablet */
   @media (max-width: 1024px) {
@@ -701,11 +1014,11 @@
       padding-left: 0;
       padding-top: .5rem;
       min-width: 0;
+      max-width: none;
     }
   }
 
   @media (max-width: 1024px) {
-    .analysis-grid { grid-template-columns: 1fr; }
     .waveform-overlay { width: 100%; min-width: 0; }
   }
 
@@ -729,8 +1042,21 @@
 <body>
 
 <div class="header">
-  <h1>El Paso Seismic Pipeline</h1>
+  <div>
+    <h1>El Paso Seismic Monitor</h1>
+    <div style="font-size:.6rem;color:var(--muted)">by Marc Garcia</div>
+  </div>
   <div class="header-right">
+    <div class="pipeline-controls">
+      <div class="pipeline-dropdown" id="start-dropdown">
+        <button class="btn-pipeline btn-start" id="btn-start-pipeline">Start &#9662;</button>
+        <div class="dropdown-menu" id="start-menu">
+          <button class="dropdown-item" id="start-continuous">Continuous mode</button>
+          <button class="dropdown-item" id="start-backfill">Backfill date range...</button>
+        </div>
+      </div>
+      <button class="btn-pipeline btn-stop" id="btn-stop-pipeline" style="display:none">Stop</button>
+    </div>
     <span class="ws-indicator" id="ws-indicator">polling</span>
     <span class="badge badge-idle" id="pipeline-badge">idle</span>
   </div>
@@ -757,13 +1083,21 @@
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="overview">Overview</button>
   <button class="tab-btn" data-tab="catalog">Catalog</button>
-  <button class="tab-btn" data-tab="analysis">Analysis</button>
+  <button class="tab-btn" data-tab="waveviewer">Waveviewer</button>
 </div>
 
 <!-- Tab: Overview (existing layout) -->
 <div class="main tab-content active" id="tab-overview">
   <div class="map-wrap">
     <div id="map"></div>
+    <div class="map-style-control" id="map-style-control">
+      <button class="map-style-btn active" data-style="dark">Dark</button>
+      <button class="map-style-btn" data-style="light">Light</button>
+      <button class="map-style-btn" data-style="satellite">Satellite</button>
+    </div>
+    <div style="position:absolute;bottom:10px;left:200px;z-index:1000">
+      <button class="map-toggle-btn" id="toggle-faults" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4)">Faults</button>
+    </div>
     <div class="event-detail-overlay" id="event-detail">
       <button class="detail-close" id="detail-close">&times;</button>
       <h3 id="detail-title">Event Detail</h3>
@@ -771,17 +1105,6 @@
     </div>
   </div>
   <div class="sidebar">
-    <!-- Progress + Throughput -->
-    <div class="panel">
-      <div class="panel-title">Progress</div>
-      <div class="panel-loading" id="loading-progress"><span class="spinner"></span></div>
-      <div class="bar-outer"><div class="bar-inner" id="progress-bar" style="width:0; background:var(--blue)"></div></div>
-      <div class="progress-text" id="progress-text">&mdash;</div>
-      <div class="progress-steps" id="progress-steps"></div>
-      <div class="throughput-text" id="throughput-text"></div>
-      <div class="step-timing-bar" id="step-timing-bar"></div>
-      <div class="step-timing-legend" id="step-timing-legend"></div>
-    </div>
     <!-- Statistics -->
     <div class="panel">
       <div class="panel-title">Statistics</div>
@@ -793,27 +1116,23 @@
         <div class="stat-item"><div class="stat-value" id="s-stations">&mdash;</div><div class="stat-label">Stations</div></div>
         <div class="stat-item"><div class="stat-value" id="s-mag">&mdash;</div><div class="stat-label">Magnitude</div></div>
         <div class="stat-item"><div class="stat-value" id="s-latest">&mdash;</div><div class="stat-label">Latest event</div></div>
+        <div class="stat-item"><div class="stat-value" id="s-reviewed">&mdash;</div><div class="stat-label">Reviewed</div></div>
       </div>
     </div>
-    <!-- Event Rate -->
+    <!-- Progress + Throughput -->
     <div class="panel">
-      <div class="panel-title">Events / Day</div>
-      <div class="panel-loading" id="loading-events"><span class="spinner"></span></div>
-      <div class="event-chart" id="event-chart">
-        <div class="empty-state">No events yet.</div>
+      <div class="panel-title">Progress</div>
+      <div class="panel-loading" id="loading-progress"><span class="spinner"></span></div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span id="progress-badge" style="font-size:.65rem;font-weight:700;white-space:nowrap"></span>
+        <div class="bar-outer" style="flex:1"><div class="bar-inner" id="progress-bar" style="width:0; background:var(--blue)"></div></div>
+        <span id="progress-count" style="font-size:.65rem;color:var(--muted);white-space:nowrap"></span>
       </div>
-    </div>
-    <!-- Station Activity -->
-    <div class="panel">
-      <div class="panel-title">Station Activity <span class="error-count" id="heatmap-range"></span></div>
-      <div class="panel-loading" id="loading-heatmap"><span class="spinner"></span></div>
-      <div class="heatmap-wrap" id="station-heatmap">
-        <div class="empty-state">No pick data yet.</div>
-      </div>
-      <div class="heatmap-label">
-        <span>0</span><div class="hm-grad"></div><span id="heatmap-max">max</span>
-        <span style="margin-left:auto">picks / station / day</span>
-      </div>
+      <div class="progress-text" id="progress-text">&mdash;</div>
+      <div class="progress-steps" id="progress-steps"></div>
+      <div class="throughput-text" id="throughput-text"></div>
+      <div class="step-timing-bar" id="step-timing-bar"></div>
+      <div class="step-timing-legend" id="step-timing-legend"></div>
     </div>
     <!-- Data Completeness -->
     <div class="panel">
@@ -825,14 +1144,6 @@
       <div class="completeness-label">
         <span>0</span><div class="cmp-grad"></div><span id="completeness-max">max</span>
         <span style="margin-left:auto">files / station / day</span>
-      </div>
-    </div>
-    <!-- Pick Quality -->
-    <div class="panel">
-      <div class="panel-title">Pick Quality <span class="error-count" id="pick-quality-info"></span></div>
-      <div class="panel-loading" id="loading-picks"><span class="spinner"></span></div>
-      <div class="pick-hist" id="pick-hist">
-        <div class="empty-state">No picks yet.</div>
       </div>
     </div>
     <!-- Disk Usage -->
@@ -857,6 +1168,14 @@
 <!-- Tab: Catalog -->
 <div class="tab-content-full" id="tab-catalog">
   <div class="catalog-toolbar">
+    <input type="text" id="cat-search" placeholder="Search event ID..." style="width:10rem" />
+    <label>Status</label>
+    <select id="cat-review-filter" style="width:6.5rem">
+      <option value="">All</option>
+      <option value="unreviewed">Unreviewed</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="rejected">Rejected</option>
+    </select>
     <label>Min Mag</label>
     <input type="number" id="cat-min-mag" step="0.1" placeholder="0.0" />
     <label>Max Depth</label>
@@ -880,27 +1199,41 @@
   </div>
 </div>
 
-<!-- Tab: Analysis -->
-<div class="tab-content-full" id="tab-analysis">
-  <div class="analysis-grid">
-    <div class="analysis-panel">
-      <div class="panel-title">Gutenberg-Richter (Magnitude-Frequency)</div>
-      <div class="analysis-chart" id="gr-chart"><div class="empty-state">Loading...</div></div>
-      <div class="analysis-annotation" id="gr-annotation"></div>
-    </div>
-    <div class="analysis-panel">
-      <div class="panel-title">Depth Distribution</div>
-      <div class="analysis-chart" id="depth-chart"><div class="empty-state">Loading...</div></div>
-      <div class="analysis-annotation" id="depth-annotation"></div>
-    </div>
-    <div class="analysis-panel">
-      <div class="panel-title">Latitude vs Depth Cross-Section</div>
-      <div class="analysis-chart" id="cross-lat-chart"><div class="empty-state">Loading...</div></div>
-    </div>
-    <div class="analysis-panel">
-      <div class="panel-title">Longitude vs Depth Cross-Section</div>
-      <div class="analysis-chart" id="cross-lon-chart"><div class="empty-state">Loading...</div></div>
-    </div>
+<!-- Tab: Waveviewer -->
+<div class="tab-content-full" id="tab-waveviewer">
+  <div class="wv-toolbar">
+    <label>Date (UTC)</label><input type="date" id="wv-date" />
+    <label>Time</label>
+    <input type="number" id="wv-hh" min="0" max="23" placeholder="HH" style="width:3rem" />
+    <span style="color:var(--muted);font-size:.8rem">:</span>
+    <input type="number" id="wv-mm" min="0" max="59" placeholder="MM" style="width:3rem" />
+    <span style="color:var(--muted);font-size:.8rem">:</span>
+    <input type="number" id="wv-ss" min="0" max="59" placeholder="SS" value="0" style="width:3rem" />
+    <label>Window</label>
+    <select id="wv-window">
+      <option value="30">30 s</option>
+      <option value="60" selected>1 min</option>
+      <option value="120">2 min</option>
+      <option value="300">5 min</option>
+      <option value="600">10 min</option>
+    </select>
+    <label>Channel</label>
+    <select id="wv-channel">
+      <option value="EHZ">Vertical (EHZ/HHZ)</option>
+      <option value="EHN">North (EHN/HHN)</option>
+      <option value="EHE">East (EHE/HHE)</option>
+      <option value="3C">3-Component</option>
+    </select>
+    <label>Fmin</label>
+    <input type="number" id="wv-fmin" placeholder="Hz" min="0.01" max="50" step="0.5" style="width:4rem" />
+    <label>Fmax</label>
+    <input type="number" id="wv-fmax" placeholder="Hz" min="0.1" max="50" step="0.5" style="width:4rem" />
+    <label style="font-size:.7rem;cursor:pointer"><input type="checkbox" id="wv-spectrogram"> Spectrogram</label>
+    <button class="btn-sm btn-primary" id="wv-load">Load Waveforms</button>
+    <span id="wv-summary" style="margin-left:auto;font-size:.65rem;color:var(--muted)"></span>
+  </div>
+  <div class="wv-trace-body" id="wv-trace-body">
+    <div class="empty-state">Pick a date and time (UTC), then click Load Waveforms.</div>
   </div>
 </div>
 
@@ -913,9 +1246,9 @@
   <div class="waveform-controls">
     <label>Channel</label>
     <select id="wf-channel">
-      <option value="EHZ">EHZ (Vertical)</option>
-      <option value="EHN">EHN (North)</option>
-      <option value="EHE">EHE (East)</option>
+      <option value="EHZ">Vertical (EHZ/HHZ)</option>
+      <option value="EHN">North (EHN/HHN)</option>
+      <option value="EHE">East (EHE/HHE)</option>
     </select>
     <label>Before</label>
     <select id="wf-before">
@@ -930,9 +1263,78 @@
       <option value="60">60s</option>
     </select>
     <button class="btn-sm btn-primary" id="wf-reload">Reload</button>
+    <label style="margin-left:.5rem;font-size:.7rem;cursor:pointer"><input type="checkbox" id="wf-spectrogram"> Spectrogram</label>
   </div>
   <div class="waveform-body" id="wf-body">
     <div class="empty-state">Select an event to view waveforms.</div>
+  </div>
+</div>
+
+<!-- Review overlay panel -->
+<div class="review-overlay" id="review-overlay">
+  <div class="review-header">
+    <h3 id="rv-title">Review Mode</h3>
+    <span class="review-pick-status" id="rv-pick-status">0P + 0S picks</span>
+    <span class="unsaved-dot" id="rv-unsaved-dot" title="Unsaved changes"></span>
+    <button class="btn-sm btn-primary" id="rv-relocate">Relocate</button>
+    <button class="btn-sm" id="rv-save" disabled>Save</button>
+    <select id="rv-event-type" class="rv-event-type-select">
+      <option value="undetermined">Undetermined</option>
+      <option value="earthquake">Earthquake</option>
+      <option value="quarry_blast">Quarry Blast</option>
+      <option value="noise">Noise</option>
+    </select>
+    <button class="btn-sm" id="rv-confirm" style="color:var(--green)" title="Confirm (c)">&#10003; Confirm</button>
+    <button class="btn-sm" id="rv-reject" style="color:var(--red)" title="Reject (x)">&#10007; Reject</button>
+    <button class="btn-sm" id="rv-close">&times; Close</button>
+  </div>
+  <div class="review-controls">
+    <label>Channel</label>
+    <select id="rv-channel">
+      <option value="EHZ">Vertical (EHZ/HHZ)</option>
+      <option value="EHN">North (EHN/HHN)</option>
+      <option value="EHE">East (EHE/HHE)</option>
+      <option value="3C">3-Component</option>
+    </select>
+    <label>Before</label>
+    <input type="number" id="rv-before" value="10" min="1" max="120" step="1" />
+    <label>After</label>
+    <input type="number" id="rv-after" value="60" min="5" max="600" step="5" />
+    <label>Fmin</label>
+    <input type="number" id="rv-fmin" placeholder="Hz" min="0.01" max="50" step="0.5" />
+    <label>Fmax</label>
+    <input type="number" id="rv-fmax" placeholder="Hz" min="0.1" max="50" step="0.5" />
+    <button class="btn-sm btn-primary" id="rv-reload">Reload</button>
+    <label style="margin-left:.5rem;font-size:.7rem;cursor:pointer"><input type="checkbox" id="rv-spectrogram"> Spectrogram</label>
+    <span style="margin-left:.5rem;color:var(--muted);font-size:.62rem">PICK MODE:</span>
+    <button class="pick-mode-btn active" data-mode="addP">Add P</button>
+    <button class="pick-mode-btn" data-mode="addS">Add S</button>
+    <button class="pick-mode-btn" data-mode="delete">Delete</button>
+    <button class="pick-mode-btn" data-mode="drag">Drag</button>
+    <button class="btn-sm" id="rv-undo" disabled title="Undo (Ctrl+Z)">Undo</button>
+    <button class="btn-sm" id="rv-redo" disabled title="Redo (Ctrl+Y)">Redo</button>
+    <span style="margin-left:.3rem;color:var(--muted);font-size:.55rem;opacity:.7">P S D G R ^Z ^Y c x n Esc</span>
+  </div>
+  <div class="review-body-wrapper">
+    <div class="review-body" id="rv-body">
+      <div class="empty-state">Loading waveforms...</div>
+    </div>
+    <div class="review-map-panel" id="rv-map-panel">
+      <div id="rv-map-container"></div>
+      <div class="rv-map-legend">
+        <span><span class="leg-line" style="background:#64748b;border-style:dashed"></span> Dist</span>
+        <span>&#9650; Station</span>
+        <span>&#9733; Event</span>
+      </div>
+    </div>
+  </div>
+  <div class="review-results" id="rv-results" style="display:none">
+    <h4>Relocation Results</h4>
+    <div class="review-results-grid" id="rv-results-grid"></div>
+    <table class="residual-table" id="rv-residual-table">
+      <thead><tr><th>Station</th><th>Phase</th><th>Obs (s)</th><th>Pred (s)</th><th>Resid (s)</th></tr></thead>
+      <tbody id="rv-residual-tbody"></tbody>
+    </table>
   </div>
 </div>
 
@@ -962,14 +1364,110 @@ let apiFailCount = 0;
 
 // ── Map setup ───────────────────────────────────────────────────
 const map = L.map('map', { zoomControl: true }).setView([31.85, -106.40], 10);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OSM</a>',
-  subdomains: 'abcd',
-  maxZoom: 19
-}).addTo(map);
+
+var mapTileLayers = {
+  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OSM</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }),
+  light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OSM</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }),
+  satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Sources: Esri, Maxar, Earthstar',
+    maxZoom: 19
+  }),
+};
+var currentTileLayer = mapTileLayers.dark;
+currentTileLayer.addTo(map);
+
+document.querySelectorAll('.map-style-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var style = btn.getAttribute('data-style');
+    if (mapTileLayers[style] === currentTileLayer) return;
+    map.removeLayer(currentTileLayer);
+    currentTileLayer = mapTileLayers[style];
+    currentTileLayer.addTo(map);
+    document.querySelectorAll('.map-style-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  });
+});
+
+// Study area bounds (center ±0.7°)
+L.rectangle(
+  [[31.85 - 0.7, -106.40 - 0.7], [31.85 + 0.7, -106.40 + 0.7]],
+  { color: '#ef4444', weight: 1.5, dashArray: '6 4', fill: false, interactive: false }
+).addTo(map);
+
+// ── Fault layer (USGS Quaternary Faults, served locally) ────────
+map.createPane('faults').style.zIndex = 350;
+var faultLayer = L.layerGroup({ pane: 'faults' });
+var faultsVisible = false;
+var faultsLoaded = false;
+
+document.getElementById('toggle-faults').addEventListener('click', function() {
+  var btn = this;
+  if (!faultsLoaded) {
+    btn.textContent = 'Loading\u2026';
+    fetch('/api/faults').then(function(r) { return r.json(); }).then(function(data) {
+      data.features.forEach(function(feature) {
+        if (!feature.geometry || !feature.geometry.coordinates) return;
+        var coords = feature.geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+        var p = feature.properties;
+        var html = '<b>' + esc(p.fault_name || 'Unnamed') + '</b>';
+        if (p.slip_sense) html += '<br>Slip: ' + esc(p.slip_sense);
+        if (p.slip_rate) html += '<br>Rate: ' + esc(p.slip_rate);
+        if (p.age) html += '<br>Age: ' + esc(p.age);
+        // Glow layer (wider, semi-transparent)
+        L.polyline(coords, {
+          pane: 'faults', color: '#ff6600', weight: 5, opacity: 0.25, interactive: false
+        }).addTo(faultLayer);
+        // Core line
+        L.polyline(coords, {
+          pane: 'faults', color: '#ff4422', weight: 1.5, opacity: 0.9
+        }).bindPopup(html).addTo(faultLayer);
+      });
+      faultLayer.addTo(map);
+      faultsLoaded = true;
+      faultsVisible = true;
+      btn.classList.add('active');
+      btn.textContent = 'Faults';
+    }).catch(function() {
+      btn.textContent = 'Faults';
+    });
+  } else {
+    faultsVisible = !faultsVisible;
+    if (faultsVisible) {
+      faultLayer.addTo(map);
+      btn.classList.add('active');
+    } else {
+      map.removeLayer(faultLayer);
+      btn.classList.remove('active');
+    }
+  }
+});
 
 const stationLayer = L.layerGroup().addTo(map);
 const eventLayer = L.layerGroup().addTo(map);
+var _pulseMarker = null;
+
+function clearPulseMarker() {
+  if (_pulseMarker) { map.removeLayer(_pulseMarker); _pulseMarker = null; }
+}
+
+function showPulseMarker(lat, lon) {
+  clearPulseMarker();
+  _pulseMarker = L.marker([lat, lon], {
+    icon: L.divIcon({
+      className: '',
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
+      html: '<div class="event-pulse-div"></div>',
+    }),
+    interactive: false,
+  }).addTo(map);
+}
 
 // ── Station triangle icon (color-aware) ─────────────────────────
 function stationIcon(color) {
@@ -983,12 +1481,29 @@ function stationIcon(color) {
 }
 
 // ── Event color interpolation (amber to red by index) ────────────
-function eventColor(idx, total) {
-  if (total <= 1) return '#ef4444';
-  const t = idx / (total - 1);
-  const r = Math.round(245 + (239 - 245) * t);
-  const g = Math.round(158 - 158 * t);
-  const b = Math.round(11 + (68 - 11) * t);
+// Viridis colormap — maps magnitude to color
+var _viridis = [
+  [0.267004, 0.004874, 0.329415],
+  [0.282327, 0.140926, 0.457517],
+  [0.253935, 0.265254, 0.529983],
+  [0.206756, 0.371758, 0.553117],
+  [0.163625, 0.471133, 0.558148],
+  [0.127568, 0.566949, 0.550556],
+  [0.134692, 0.658636, 0.517649],
+  [0.266941, 0.748751, 0.440573],
+  [0.477504, 0.821444, 0.318195],
+  [0.741388, 0.873449, 0.149561],
+  [0.993248, 0.906157, 0.143936],
+];
+function eventColor(mag) {
+  var minM = 0, maxM = 4;
+  var t = Math.max(0, Math.min(1, ((mag || 0) - minM) / (maxM - minM)));
+  var idx = t * (_viridis.length - 1);
+  var lo = Math.floor(idx), hi = Math.min(lo + 1, _viridis.length - 1);
+  var f = idx - lo;
+  var r = Math.round((_viridis[lo][0] * (1 - f) + _viridis[hi][0] * f) * 255);
+  var g = Math.round((_viridis[lo][1] * (1 - f) + _viridis[hi][1] * f) * 255);
+  var b = Math.round((_viridis[lo][2] * (1 - f) + _viridis[hi][2] * f) * 255);
   return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
@@ -1087,6 +1602,11 @@ function renderStatus(data) {
     var chip = '<span class="step-chip st-' + esc(s.status) + '">' + (icon ? icon + ' ' : '') + esc(STEP_LABELS[s.name] || s.name) + '</span>';
     return (i > 0 ? '<span class="arrow">\u2192</span>' : '') + chip;
   }).join('');
+
+  // Sync Start/Stop buttons with pipeline state
+  if (typeof updateControlButtons === 'function') {
+    updateControlButtons(p.status === 'running' || p.status === 'waiting');
+  }
 }
 
 // ── Render stations on map ──────────────────────────────────────
@@ -1130,11 +1650,11 @@ function renderEvents(events) {
   if (events.length === 0) return;
   events.forEach(function(e, i) {
     if (e.latitude == null || e.longitude == null) return;
-    var radius = 3 + (e.magnitude || 0) * 3;
+    var radius = 2 + (e.magnitude || 0) * 1.5;
     L.circleMarker([e.latitude, e.longitude], {
       radius: radius,
-      fillColor: eventColor(i, events.length),
-      color: eventColor(i, events.length),
+      fillColor: eventColor(e.magnitude),
+      color: '#000',
       weight: 1,
       fillOpacity: 0.8
     })
@@ -1188,6 +1708,7 @@ function showEventDetail(eventId) {
 
 document.getElementById('detail-close').addEventListener('click', function() {
   document.getElementById('event-detail').classList.remove('visible');
+  clearPulseMarker();
 });
 
 // ── Render stats panel ──────────────────────────────────────────
@@ -1207,49 +1728,103 @@ function renderStats(s) {
 
   if (s.latest_event_time) {
     var d = new Date(s.latest_event_time);
-    document.getElementById('s-latest').textContent = d.toISOString().slice(0, 16).replace('T', ' ');
+    var timeStr = d.toISOString().slice(0, 16).replace('T', ' ');
+    var el = document.getElementById('s-latest');
+    el.innerHTML = '<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted">' + esc(timeStr) + '</span>';
+    el.style.cursor = 'pointer';
+    el.onclick = function() {
+      // Switch to overview tab if needed
+      if (activeTab !== 'overview') {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelector('.tab-btn[data-tab="overview"]').classList.add('active');
+        document.getElementById('tab-' + activeTab).classList.remove('active');
+        activeTab = 'overview';
+        document.getElementById('tab-overview').classList.add('active');
+        setTimeout(function() { map.invalidateSize(); }, 50);
+      }
+      // Fly to event
+      if (s.latest_event_lat != null && s.latest_event_lon != null) {
+        map.flyTo([s.latest_event_lat, s.latest_event_lon], 13);
+      }
+      showEventDetail(s.latest_event_id);
+    };
   } else {
-    document.getElementById('s-latest').textContent = '\u2014';
+    var el = document.getElementById('s-latest');
+    el.textContent = '\u2014';
+    el.style.cursor = '';
+    el.onclick = null;
+  }
+
+  // Review progress
+  var total = s.catalog_events || 0;
+  var reviewed = s.reviewed_count || 0;
+  var revEl = document.getElementById('s-reviewed');
+  if (total > 0) {
+    var revPct = Math.round((reviewed / total) * 100);
+    var revColor = revPct === 100 ? 'var(--green)' : revPct > 0 ? 'var(--amber)' : 'var(--muted)';
+    revEl.innerHTML = reviewed + '<span style="color:var(--muted);font-weight:400;font-size:.75rem"> / ' + total + '</span>' +
+      ' <span style="font-size:.6rem;color:' + revColor + '">' + revPct + '%</span>';
+  } else {
+    revEl.textContent = '\u2014';
   }
 }
 
 // ── Render progress panel ───────────────────────────────────────
 function renderProgress(p) {
   var bar = document.getElementById('progress-bar');
-  var pct = p.percent || 0;
-  bar.style.width = pct + '%';
-
-  var isWaiting = p.waiting;
-  var isContinuous = p.mode === 'continuous';
-
-  bar.style.background = (isWaiting || pct >= 95) ? 'var(--green)' : 'var(--blue)';
-
+  var badge = document.getElementById('progress-badge');
+  var count = document.getElementById('progress-count');
   var txt = document.getElementById('progress-text');
-  var line = '<b>' + p.days_complete + '</b> / ' + p.total_days + ' days (' + pct + '%)';
-  line += ' &nbsp;\u00b7&nbsp; ' + esc(p.start_date) + ' \u2192 ' + esc(p.target_date);
+  var pct = p.percent || 0;
+  var isCaughtUp = pct >= 95 && p.pipeline_status !== 'running';
 
-  if (isWaiting && p.next_run_at) {
-    var diffSec = Math.max(0, Math.floor((new Date(p.next_run_at).getTime() - Date.now()) / 1000));
-    var hh = Math.floor(diffSec / 3600), mm = Math.floor((diffSec % 3600) / 60);
-    var wait = hh > 0 ? hh + 'h ' + String(mm).padStart(2, '0') + 'm' : mm + 'm';
-    line += ' &nbsp;\u00b7&nbsp; <span style="color:var(--green)">Live</span> \u2014 next: <b>' + esc(p.current_day) + '</b> in ~' + wait;
-  } else if (p.current_day && p.pipeline_status === 'running') {
-    line += isContinuous
-      ? ' &nbsp;\u00b7&nbsp; <span style="color:var(--blue)">Catching up</span> \u2014 <b>' + esc(p.current_day) + '</b>'
-      : ' &nbsp;\u00b7&nbsp; Processing: <b>' + esc(p.current_day) + '</b>';
-  } else if (p.pipeline_status === 'stopped') {
-    line += ' &nbsp;\u00b7&nbsp; <span style="color:var(--muted)">Stopped</span>';
+  // Bar
+  bar.style.width = Math.min(pct, 100) + '%';
+
+  // Count (right of bar)
+  count.textContent = p.days_complete + ' / ' + p.total_days;
+
+  if (p.pipeline_status === 'running') {
+    // Running
+    bar.style.background = 'var(--blue)';
+    badge.innerHTML = '\u25cf Running';
+    badge.style.color = 'var(--blue)';
+    txt.innerHTML = p.current_day
+      ? 'Processing <b>' + esc(p.current_day) + '</b>'
+      : '';
+  } else if (isCaughtUp) {
+    // Caught up — check freshness
+    var targetDate = new Date(p.target_date + 'T00:00:00Z');
+    var dataAgeDays = Math.floor((Date.now() - targetDate.getTime()) / 86400000);
+
+    if (dataAgeDays > 2) {
+      // Stale
+      bar.style.background = 'var(--amber)';
+      badge.innerHTML = '\u25cf Behind';
+      badge.style.color = 'var(--amber)';
+      txt.innerHTML = 'Data is <b>' + dataAgeDays + '</b> days old';
+    } else {
+      // Fresh
+      bar.style.background = 'var(--green)';
+      badge.innerHTML = '\u25cf Up to date';
+      badge.style.color = 'var(--green)';
+      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var tdLabel = months[targetDate.getUTCMonth()] + ' ' + targetDate.getUTCDate();
+      txt.innerHTML = 'Data through <b>' + tdLabel + '</b>';
+    }
+  } else {
+    // Not yet caught up, idle
+    bar.style.background = 'var(--blue)';
+    badge.innerHTML = '\u25cf Idle';
+    badge.style.color = 'var(--muted)';
+    txt.innerHTML = '';
   }
-  txt.innerHTML = line;
 
   var steps = document.getElementById('progress-steps');
-  var items = [
+  steps.innerHTML = [
     ['Ingested', p.days_ingested], ['Processed', p.days_processed],
     ['Detected', p.days_detected], ['Associated', p.days_associated],
-  ];
-  if (isContinuous && p.days_skipped && p.days_skipped.length > 0)
-    items.push(['Skipped', p.days_skipped.length]);
-  steps.innerHTML = items.map(function(pair) {
+  ].map(function(pair) {
     return '<span class="ps-item">' + pair[0] + ': <span class="ps-val">' + pair[1] + '</span></span>';
   }).join('');
 }
@@ -1287,125 +1862,6 @@ function renderThroughput(t) {
   legEl.innerHTML = order.filter(function(n) { return stepAvg[n]; }).map(function(name) {
     return '<span><span class="stl-dot" style="background:' + STEP_COLORS[name] + '"></span>' + esc(STEP_SHORT[name]) + ' ' + fmtDur(stepAvg[name]) + '</span>';
   }).join('');
-}
-
-// ── Render event rate chart ─────────────────────────────────────
-function renderEventRate(data) {
-  var days = data.days || [];
-  var el = document.getElementById('event-chart');
-  if (days.length === 0) {
-    el.innerHTML = '<div class="empty-state">No events yet.</div>';
-    return;
-  }
-
-  var W = el.clientWidth || 280;
-  var H = 80;
-  var PAD_LEFT = 28;
-  var PAD_BOTTOM = 16;
-  var PAD_TOP = 4;
-  var chartW = W - PAD_LEFT;
-  var chartH = H - PAD_BOTTOM - PAD_TOP;
-  var maxCount = Math.max.apply(null, days.map(function(d) { return d.count; }).concat([1]));
-  var gap = days.length > 200 ? 0 : 1;
-  var barW = Math.max(1, Math.floor((chartW - gap * days.length) / Math.max(days.length, 1)));
-
-  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
-  var yTicks = maxCount <= 5 ? maxCount : Math.min(4, maxCount);
-  for (var i = 0; i <= yTicks; i++) {
-    var val = Math.round((i / yTicks) * maxCount);
-    var y = PAD_TOP + chartH - (i / yTicks) * chartH;
-    svg += '<line x1="' + PAD_LEFT + '" y1="' + y + '" x2="' + W + '" y2="' + y + '" stroke="#334155" stroke-width="0.5"/>';
-    svg += '<text x="' + (PAD_LEFT - 4) + '" y="' + (y + 3) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + val + '</text>';
-  }
-  days.forEach(function(d, i) {
-    var x = PAD_LEFT + i * (barW + gap);
-    var h = Math.max(1, (d.count / maxCount) * chartH);
-    var yb = PAD_TOP + chartH - h;
-    svg += '<rect x="' + x + '" y="' + yb + '" width="' + barW + '" height="' + h + '" fill="var(--amber)" rx="' + (barW > 2 ? 1 : 0) + '"><title>' + esc(d.date) + ': ' + d.count + ' event(s)</title></rect>';
-  });
-  var xLabels = [];
-  xLabels.push({ i: 0, label: days[0].date.slice(5) });
-  var prevMonth = days[0].date.slice(0, 7);
-  for (var j = 1; j < days.length; j++) {
-    var mo = days[j].date.slice(0, 7);
-    if (mo !== prevMonth) {
-      xLabels.push({ i: j, label: days[j].date.slice(5) });
-      prevMonth = mo;
-    }
-  }
-  if (days.length > 1) xLabels.push({ i: days.length - 1, label: days[days.length - 1].date.slice(5) });
-  xLabels.forEach(function(item) {
-    var x = PAD_LEFT + item.i * (barW + gap) + barW / 2;
-    svg += '<text x="' + x + '" y="' + (H - 1) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
-  });
-  svg += '</svg>';
-  el.innerHTML = svg;
-}
-
-// ── Render station activity heatmap ─────────────────────────────
-function renderStationHeatmap(data) {
-  var stations = data.stations, days = data.days, matrix = data.matrix;
-  var el = document.getElementById('station-heatmap');
-  var rangeEl = document.getElementById('heatmap-range');
-  var maxEl = document.getElementById('heatmap-max');
-
-  if (!days || days.length === 0 || !stations || stations.length === 0) {
-    el.innerHTML = '<div class="empty-state">No pick data yet.</div>';
-    rangeEl.textContent = '';
-    maxEl.textContent = 'max';
-    return;
-  }
-
-  var globalMax = Math.max.apply(null, [1].concat(matrix.reduce(function(a, b) { return a.concat(b); }, [])));
-  maxEl.textContent = globalMax;
-  rangeEl.textContent = days.length + ' days';
-
-  var LABEL_W = 52;
-  var W = el.clientWidth || 280;
-  var chartW = W - LABEL_W;
-  var ROW_H = 16;
-  var PAD_BOTTOM = 16;
-  var cellW = Math.max(1, chartW / days.length);
-  var svgW = LABEL_W + cellW * days.length;
-  var svgH = ROW_H * stations.length + PAD_BOTTOM;
-
-  var svg = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
-  stations.forEach(function(sta, si) {
-    var y = si * ROW_H;
-    svg += '<text x="' + (LABEL_W - 4) + '" y="' + (y + ROW_H - 4) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + esc(sta) + '</text>';
-    var row = matrix[si];
-    row.forEach(function(count, di) {
-      var x = LABEL_W + di * cellW;
-      var color = heatColor(count, globalMax);
-      svg += '<rect x="' + x + '" y="' + (y + 1) + '" width="' + Math.max(cellW - 0.5, 0.5) + '" height="' + (ROW_H - 2) + '" fill="' + color + '" rx="1"><title>' + esc(sta) + ' ' + esc(days[di]) + ': ' + count + ' picks</title></rect>';
-    });
-  });
-  var baseY = ROW_H * stations.length;
-  var pm = days[0].slice(0, 7);
-  var ticks = [{ i: 0, label: days[0].slice(5) }];
-  for (var i = 1; i < days.length; i++) {
-    var mo2 = days[i].slice(0, 7);
-    if (mo2 !== pm) {
-      ticks.push({ i: i, label: days[i].slice(5) });
-      pm = mo2;
-    }
-  }
-  if (days.length > 1) ticks.push({ i: days.length - 1, label: days[days.length - 1].slice(5) });
-  ticks.forEach(function(item) {
-    var x = LABEL_W + item.i * cellW + cellW / 2;
-    svg += '<text x="' + x + '" y="' + (baseY + PAD_BOTTOM - 3) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
-  });
-  svg += '</svg>';
-  el.innerHTML = svg;
-}
-
-function heatColor(val, max) {
-  if (val === 0) return '#1e293b';
-  var t = Math.min(val / max, 1);
-  var r = Math.round(59 + (34 - 59) * t);
-  var g = Math.round(130 + (197 - 130) * t);
-  var b = Math.round(246 + (94 - 246) * t);
-  return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
 // ── Completeness color (dark to green) ────────────────────────────
@@ -1471,55 +1927,6 @@ function renderCompleteness(data) {
     var x = LABEL_W + item.i * cellW + cellW / 2;
     svg += '<text x="' + x + '" y="' + (baseY + PAD_BOTTOM - 3) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
   });
-  svg += '</svg>';
-  el.innerHTML = svg;
-}
-
-// ── Render pick quality histogram ────────────────────────────────
-function renderPickQuality(data) {
-  var bins = data.bins, bin_edges = data.bin_edges, total = data.total, p_count = data.p_count, s_count = data.s_count;
-  var el = document.getElementById('pick-hist');
-  var infoEl = document.getElementById('pick-quality-info');
-
-  if (!total) {
-    el.innerHTML = '<div class="empty-state">No picks yet.</div>';
-    infoEl.textContent = '';
-    return;
-  }
-
-  infoEl.textContent = '(' + total.toLocaleString() + ' picks \u00b7 P=' + p_count.toLocaleString() + ' S=' + s_count.toLocaleString() + ')';
-
-  var W = el.clientWidth || 280;
-  var H = 90;
-  var PAD_LEFT = 34;
-  var PAD_BOTTOM = 18;
-  var PAD_TOP = 4;
-  var PAD_RIGHT = 4;
-  var chartW = W - PAD_LEFT - PAD_RIGHT;
-  var chartH = H - PAD_BOTTOM - PAD_TOP;
-  var maxBin = Math.max.apply(null, [1].concat(bins));
-  var barW = chartW / bins.length;
-  var gap2 = Math.max(1, barW * 0.15);
-
-  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
-  var yTicks = Math.min(4, maxBin);
-  for (var i = 0; i <= yTicks; i++) {
-    var val = Math.round((i / yTicks) * maxBin);
-    var y = PAD_TOP + chartH - (i / yTicks) * chartH;
-    svg += '<line x1="' + PAD_LEFT + '" y1="' + y + '" x2="' + (W - PAD_RIGHT) + '" y2="' + y + '" stroke="#334155" stroke-width="0.5"/>';
-    svg += '<text x="' + (PAD_LEFT - 4) + '" y="' + (y + 3) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + val + '</text>';
-  }
-  bins.forEach(function(count, i) {
-    var x = PAD_LEFT + i * barW + gap2 / 2;
-    var w = barW - gap2;
-    var h = Math.max(count > 0 ? 1 : 0, (count / maxBin) * chartH);
-    var y = PAD_TOP + chartH - h;
-    svg += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="var(--blue)" rx="1"><title>' + bin_edges[i].toFixed(1) + '\u2013' + bin_edges[i + 1].toFixed(1) + ': ' + count + ' picks</title></rect>';
-  });
-  for (var j = 0; j <= bins.length; j++) {
-    var x2 = PAD_LEFT + j * barW;
-    svg += '<text x="' + x2 + '" y="' + (H - 2) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + bin_edges[j].toFixed(1) + '</text>';
-  }
   svg += '</svg>';
   el.innerHTML = svg;
 }
@@ -1697,29 +2104,17 @@ async function pollErrors() {
 }
 
 async function pollSlow() {
-  showLoading('loading-events');
-  showLoading('loading-heatmap');
   showLoading('loading-completeness');
-  showLoading('loading-picks');
   try {
     var results = await Promise.all([
       fetchJSON('/api/station_health'),
-      fetchJSON('/api/event_rate' + dateParams()),
-      fetchJSON('/api/station_picks'),
       fetchJSON('/api/data_completeness'),
-      fetchJSON('/api/pick_quality')
     ]);
     renderStationHealth(results[0]);
-    renderEventRate(results[1]);
-    renderStationHeatmap(results[2]);
-    renderCompleteness(results[3]);
-    renderPickQuality(results[4]);
+    renderCompleteness(results[1]);
     onApiSuccess();
   } catch(e) { onApiFailure(e); }
-  hideLoading('loading-events');
-  hideLoading('loading-heatmap');
   hideLoading('loading-completeness');
-  hideLoading('loading-picks');
 }
 
 // Initial loads
@@ -1743,7 +2138,7 @@ window.addEventListener('resize', function() { map.invalidateSize(); });
 
 // ── Tab Navigation ──────────────────────────────────────────────
 var activeTab = 'overview';
-var tabDataLoaded = { overview: true, catalog: false, analysis: false };
+var tabDataLoaded = { overview: true, catalog: false, waveviewer: false };
 
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -1760,7 +2155,6 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
     if (!tabDataLoaded[tab]) {
       tabDataLoaded[tab] = true;
       if (tab === 'catalog') loadCatalogTable();
-      if (tab === 'analysis') loadAnalysis();
     }
   });
 });
@@ -1785,10 +2179,12 @@ var catMaxDepth = null;
 var catMinPicks = null;
 
 var CAT_COLUMNS = [
+  { key: 'reviewed', label: 'Review', sortable: false },
+  { key: 'event_type', label: 'Type', sortable: false },
   { key: 'event_id', label: 'ID', sortable: false },
   { key: 'time', label: 'Time', sortable: true },
   { key: 'magnitude', label: 'Mag', sortable: true },
-  { key: 'magnitude_type', label: 'Type', sortable: false },
+  { key: 'magnitude_type', label: 'Mag Type', sortable: false },
   { key: 'depth_km', label: 'Depth (km)', sortable: true },
   { key: 'latitude', label: 'Lat', sortable: false },
   { key: 'longitude', label: 'Lon', sortable: false },
@@ -1837,10 +2233,32 @@ function magClass(m) {
   return 'mag-red';
 }
 
+function eventTypeBadge(t) {
+  var colors = {
+    earthquake: 'var(--blue)',
+    quarry_blast: 'var(--amber)',
+    noise: 'var(--gray)',
+    undetermined: 'var(--muted)',
+  };
+  var labels = {
+    earthquake: 'EQ',
+    quarry_blast: 'QB',
+    noise: 'Noise',
+    undetermined: '?',
+  };
+  var c = colors[t] || 'var(--muted)';
+  var l = labels[t] || esc(t || '?');
+  return '<span style="color:' + c + ';font-weight:700;font-size:.6rem;text-transform:uppercase">' + l + '</span>';
+}
+
 function loadCatalogTable() {
   var params = ['page=' + catPage, 'per_page=' + catPerPage, 'sort_by=' + catSortBy, 'sort_order=' + catSortOrder];
   if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
   if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
+  var searchVal = document.getElementById('cat-search').value.trim();
+  if (searchVal) params.push('search=' + encodeURIComponent(searchVal));
+  var reviewFilter = document.getElementById('cat-review-filter').value;
+  if (reviewFilter) params.push('review_status=' + encodeURIComponent(reviewFilter));
   if (catMinMag != null) params.push('min_magnitude=' + catMinMag);
   if (catMaxDepth != null) params.push('max_depth=' + catMaxDepth);
   if (catMinPicks != null) params.push('min_picks=' + catMinPicks);
@@ -1853,6 +2271,8 @@ function loadCatalogTable() {
     } else {
       tbody.innerHTML = data.events.map(function(e) {
         return '<tr data-eid="' + esc(e.event_id) + '">' +
+          '<td>' + (e.review_status === 'confirmed' ? '<span style="color:var(--green);font-weight:700;font-size:.7rem">\u25cf Confirmed</span>' : e.review_status === 'rejected' ? '<span style="color:var(--red);font-weight:700;font-size:.7rem">\u25cf Rejected</span>' : '<span style="color:var(--amber);font-weight:700;font-size:.7rem">\u25cf Unreviewed</span>') + '</td>' +
+          '<td>' + eventTypeBadge(e.event_type) + '</td>' +
           '<td>' + esc(e.event_id) + '</td>' +
           '<td>' + esc(e.time || '') + '</td>' +
           '<td class="' + magClass(e.magnitude) + '">' + (e.magnitude != null ? e.magnitude.toFixed(2) : '-') + '</td>' +
@@ -1897,6 +2317,9 @@ function loadCatalogTable() {
 
 document.getElementById('cat-prev').addEventListener('click', function() { if (catPage > 1) { catPage--; loadCatalogTable(); } });
 document.getElementById('cat-next').addEventListener('click', function() { catPage++; loadCatalogTable(); });
+document.getElementById('cat-search').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { catPage = 1; loadCatalogTable(); }
+});
 document.getElementById('cat-filter-apply').addEventListener('click', function() {
   var v = document.getElementById('cat-min-mag').value;
   catMinMag = v ? parseFloat(v) : null;
@@ -1908,258 +2331,19 @@ document.getElementById('cat-filter-apply').addEventListener('click', function()
   loadCatalogTable();
 });
 document.getElementById('cat-filter-clear').addEventListener('click', function() {
+  document.getElementById('cat-search').value = '';
   document.getElementById('cat-min-mag').value = '';
   document.getElementById('cat-max-depth').value = '';
   document.getElementById('cat-min-picks').value = '';
+  document.getElementById('cat-review-filter').value = '';
   catMinMag = null; catMaxDepth = null; catMinPicks = null;
   catPage = 1;
   loadCatalogTable();
 });
-
-// ── Analysis Tab ────────────────────────────────────────────────
-function loadAnalysis() {
-  loadMagFreq();
-  loadDepthDist();
-}
-
-// Gutenberg-Richter plot
-function loadMagFreq() {
-  var params = [];
-  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
-  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
-  var url = '/api/magnitude_frequency' + (params.length ? '?' + params.join('&') : '');
-  fetchJSON(url).then(function(d) {
-    renderMagFreq(d);
-  }).catch(function() {
-    document.getElementById('gr-chart').innerHTML = '<div class="empty-state">Failed to load.</div>';
-  });
-}
-
-function renderMagFreq(d) {
-  var el = document.getElementById('gr-chart');
-  var annEl = document.getElementById('gr-annotation');
-
-  if (!d.bins || d.bins.length === 0 || d.total_events < 2) {
-    el.innerHTML = '<div class="empty-state">Not enough events for analysis.</div>';
-    annEl.textContent = '';
-    return;
-  }
-
-  var W = el.clientWidth || 350;
-  var H = el.clientHeight || 250;
-  var PAD = { top: 10, right: 15, bottom: 30, left: 42 };
-  var cW = W - PAD.left - PAD.right;
-  var cH = H - PAD.top - PAD.bottom;
-
-  var bins = d.bins, cum = d.cumulative, log10n = d.log10_n;
-  var minM = Math.min.apply(null, bins);
-  var maxM = Math.max.apply(null, bins);
-  var validLog = log10n.filter(function(v) { return v != null; });
-  var minLog = Math.min.apply(null, validLog);
-  var maxLog = Math.max.apply(null, validLog);
-
-  if (maxM === minM) maxM = minM + 1;
-  if (maxLog === minLog) maxLog = minLog + 1;
-
-  function xScale(m) { return PAD.left + ((m - minM) / (maxM - minM)) * cW; }
-  function yScale(logn) { return PAD.top + cH - ((logn - minLog) / (maxLog - minLog)) * cH; }
-
-  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
-
-  // Grid lines
-  var nYTicks = 4;
-  for (var i = 0; i <= nYTicks; i++) {
-    var yVal = minLog + (i / nYTicks) * (maxLog - minLog);
-    var yy = yScale(yVal);
-    svg += '<line x1="' + PAD.left + '" y1="' + yy + '" x2="' + (W - PAD.right) + '" y2="' + yy + '" stroke="#334155" stroke-width="0.5"/>';
-    svg += '<text x="' + (PAD.left - 4) + '" y="' + (yy + 3) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + yVal.toFixed(1) + '</text>';
-  }
-
-  // X axis labels
-  var nXTicks = Math.min(8, bins.length);
-  var xStep = Math.max(1, Math.floor(bins.length / nXTicks));
-  for (var j = 0; j < bins.length; j += xStep) {
-    var xx = xScale(bins[j]);
-    svg += '<text x="' + xx + '" y="' + (H - 5) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="middle">' + bins[j].toFixed(1) + '</text>';
-  }
-
-  // Axis labels
-  svg += '<text x="' + (W / 2) + '" y="' + (H - 0) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="middle">Magnitude</text>';
-  svg += '<text x="12" y="' + (H / 2) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="middle" transform="rotate(-90,12,' + (H / 2) + ')">log10(N)</text>';
-
-  // Data points
-  for (var k = 0; k < bins.length; k++) {
-    if (log10n[k] == null) continue;
-    var cx = xScale(bins[k]);
-    var cy = yScale(log10n[k]);
-    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="var(--blue)" opacity="0.8"><title>M=' + bins[k].toFixed(1) + ' N=' + cum[k] + ' log10(N)=' + log10n[k].toFixed(2) + '</title></circle>';
-  }
-
-  // Mc vertical line
-  if (d.mc != null) {
-    var xMc = xScale(d.mc);
-    svg += '<line x1="' + xMc + '" y1="' + PAD.top + '" x2="' + xMc + '" y2="' + (H - PAD.bottom) + '" stroke="var(--amber)" stroke-width="1" stroke-dasharray="4,3"/>';
-    svg += '<text x="' + (xMc + 3) + '" y="' + (PAD.top + 10) + '" fill="var(--amber)" font-size="8" font-family="monospace">Mc=' + d.mc.toFixed(1) + '</text>';
-  }
-
-  // b-value fit line
-  if (d.b_value != null && d.a_value != null) {
-    var fitM1 = d.mc || minM;
-    var fitM2 = maxM;
-    var fitY1 = d.a_value - d.b_value * fitM1;
-    var fitY2 = d.a_value - d.b_value * fitM2;
-    if (fitY1 >= minLog && fitY2 <= maxLog) {
-      svg += '<line x1="' + xScale(fitM1) + '" y1="' + yScale(fitY1) + '" x2="' + xScale(fitM2) + '" y2="' + yScale(fitY2) + '" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="6,3"/>';
-    }
-  }
-
-  svg += '</svg>';
-  el.innerHTML = svg;
-
-  var ann = [];
-  ann.push('Events: ' + d.total_events);
-  if (d.b_value != null) ann.push('b = ' + d.b_value.toFixed(2));
-  if (d.a_value != null) ann.push('a = ' + d.a_value.toFixed(2));
-  if (d.mc != null) ann.push('Mc = ' + d.mc.toFixed(1));
-  if (d.r_squared != null) ann.push('R\u00b2 = ' + d.r_squared.toFixed(3));
-  annEl.textContent = ann.join('  \u00b7  ');
-}
-
-// Depth distribution
-function loadDepthDist() {
-  var params = [];
-  if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
-  if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
-  var url = '/api/depth_distribution' + (params.length ? '?' + params.join('&') : '');
-  fetchJSON(url).then(function(d) {
-    renderDepthHist(d);
-    renderCrossSection(d.scatter, 'latitude', 'cross-lat-chart');
-    renderCrossSection(d.scatter, 'longitude', 'cross-lon-chart');
-  }).catch(function() {
-    document.getElementById('depth-chart').innerHTML = '<div class="empty-state">Failed to load.</div>';
-  });
-}
-
-function renderDepthHist(d) {
-  var el = document.getElementById('depth-chart');
-  var annEl = document.getElementById('depth-annotation');
-  var hist = d.histogram;
-
-  if (!hist.bins || hist.bins.length === 0) {
-    el.innerHTML = '<div class="empty-state">No depth data available.</div>';
-    annEl.textContent = '';
-    return;
-  }
-
-  var W = el.clientWidth || 350;
-  var H = el.clientHeight || 250;
-  var PAD = { top: 15, right: 10, bottom: 15, left: 42 };
-  var cW = W - PAD.left - PAD.right;
-  var cH = H - PAD.top - PAD.bottom;
-
-  var bins = hist.bins, counts = hist.counts;
-  var maxCount = Math.max.apply(null, [1].concat(counts));
-  var minD = Math.min.apply(null, bins) - hist.bin_size / 2;
-  var maxD = Math.max.apply(null, bins) + hist.bin_size / 2;
-  if (maxD === minD) maxD = minD + 1;
-
-  // Depth axis points DOWN (seismological convention)
-  function yScale(depth) { return PAD.top + ((depth - minD) / (maxD - minD)) * cH; }
-  function xScale(count) { return PAD.left + (count / maxCount) * cW; }
-
-  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
-
-  // Depth axis labels
-  var nTicks = Math.min(6, bins.length);
-  var dStep = Math.max(1, Math.floor(bins.length / nTicks));
-  for (var i = 0; i < bins.length; i += dStep) {
-    var yy = yScale(bins[i]);
-    svg += '<line x1="' + PAD.left + '" y1="' + yy + '" x2="' + (W - PAD.right) + '" y2="' + yy + '" stroke="#334155" stroke-width="0.5"/>';
-    svg += '<text x="' + (PAD.left - 4) + '" y="' + (yy + 3) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + bins[i].toFixed(0) + 'km</text>';
-  }
-
-  // Horizontal bars
-  var barH = Math.max(1, (cH / bins.length) * 0.8);
-  for (var j = 0; j < bins.length; j++) {
-    var y = yScale(bins[j]) - barH / 2;
-    var w = (counts[j] / maxCount) * cW;
-    svg += '<rect x="' + PAD.left + '" y="' + y + '" width="' + Math.max(counts[j] > 0 ? 1 : 0, w) + '" height="' + barH + '" fill="var(--blue)" rx="1" opacity="0.8"><title>' + bins[j].toFixed(1) + ' km: ' + counts[j] + ' events</title></rect>';
-  }
-
-  // Median depth line
-  if (d.median_depth != null) {
-    var yMed = yScale(d.median_depth);
-    svg += '<line x1="' + PAD.left + '" y1="' + yMed + '" x2="' + (W - PAD.right) + '" y2="' + yMed + '" stroke="var(--amber)" stroke-width="1" stroke-dasharray="4,3"/>';
-    svg += '<text x="' + (W - PAD.right - 2) + '" y="' + (yMed - 3) + '" fill="var(--amber)" font-size="7" font-family="monospace" text-anchor="end">median ' + d.median_depth.toFixed(1) + 'km</text>';
-  }
-
-  svg += '</svg>';
-  el.innerHTML = svg;
-
-  var ann = [];
-  ann.push('Median: ' + (d.median_depth != null ? d.median_depth.toFixed(1) + ' km' : '-'));
-  ann.push('Mean: ' + (d.mean_depth != null ? d.mean_depth.toFixed(1) + ' km' : '-'));
-  ann.push('Events: ' + (d.scatter ? d.scatter.length : 0));
-  annEl.textContent = ann.join('  \u00b7  ');
-}
-
-function renderCrossSection(scatter, coordKey, elId) {
-  var el = document.getElementById(elId);
-  if (!scatter || scatter.length === 0) {
-    el.innerHTML = '<div class="empty-state">No data.</div>';
-    return;
-  }
-
-  var W = el.clientWidth || 350;
-  var H = el.clientHeight || 250;
-  var PAD = { top: 10, right: 10, bottom: 28, left: 42 };
-  var cW = W - PAD.left - PAD.right;
-  var cH = H - PAD.top - PAD.bottom;
-
-  var coords = scatter.map(function(e) { return e[coordKey]; });
-  var depths = scatter.map(function(e) { return e.depth_km; });
-  var minC = Math.min.apply(null, coords);
-  var maxC = Math.max.apply(null, coords);
-  var minD = Math.min.apply(null, depths);
-  var maxD = Math.max.apply(null, depths);
-  if (maxC === minC) maxC = minC + 0.1;
-  if (maxD === minD) maxD = minD + 1;
-
-  function xScale(c) { return PAD.left + ((c - minC) / (maxC - minC)) * cW; }
-  // Depth axis points DOWN
-  function yScale(d) { return PAD.top + ((d - minD) / (maxD - minD)) * cH; }
-
-  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
-
-  // Grid
-  for (var i = 0; i <= 4; i++) {
-    var dVal = minD + (i / 4) * (maxD - minD);
-    var yy = yScale(dVal);
-    svg += '<line x1="' + PAD.left + '" y1="' + yy + '" x2="' + (W - PAD.right) + '" y2="' + yy + '" stroke="#334155" stroke-width="0.5"/>';
-    svg += '<text x="' + (PAD.left - 4) + '" y="' + (yy + 3) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="end">' + dVal.toFixed(1) + '</text>';
-  }
-  for (var j = 0; j <= 4; j++) {
-    var cVal = minC + (j / 4) * (maxC - minC);
-    var xx = xScale(cVal);
-    svg += '<text x="' + xx + '" y="' + (H - 5) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + cVal.toFixed(2) + '</text>';
-  }
-
-  // Axis labels
-  var axisLabel = coordKey === 'latitude' ? 'Latitude' : 'Longitude';
-  svg += '<text x="' + (W / 2) + '" y="' + (H - 0) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + axisLabel + '</text>';
-  svg += '<text x="10" y="' + (H / 2) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle" transform="rotate(-90,10,' + (H / 2) + ')">Depth (km)</text>';
-
-  // Scatter circles, size proportional to magnitude
-  scatter.forEach(function(e) {
-    var cx = xScale(e[coordKey]);
-    var cy = yScale(e.depth_km);
-    var r = 2 + (e.magnitude || 0) * 2;
-    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + Math.min(r, 10) + '" fill="var(--blue)" opacity="0.5" stroke="var(--blue)" stroke-width="0.5"><title>' + esc(e.event_id) + '\nM ' + (e.magnitude != null ? e.magnitude.toFixed(1) : '?') + ' \u00b7 ' + e.depth_km.toFixed(1) + ' km\n' + axisLabel + ': ' + e[coordKey].toFixed(4) + '</title></circle>';
-  });
-
-  svg += '</svg>';
-  el.innerHTML = svg;
-}
+document.getElementById('cat-review-filter').addEventListener('change', function() {
+  catPage = 1;
+  loadCatalogTable();
+});
 
 // ── Enhanced Event Detail (with waveform button + extra fields) ──
 var _origShowEventDetail = showEventDetail;
@@ -2175,6 +2359,10 @@ showEventDetail = function(eventId) {
     .then(function(data) {
       if (!data) return;
       var ev = data.event;
+      // Pulsating ring on selected event
+      if (ev.latitude != null && ev.longitude != null) {
+        showPulseMarker(ev.latitude, ev.longitude);
+      }
       title.textContent = esc(ev.event_id);
       var html = '';
       html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '</span></div>';
@@ -2206,13 +2394,24 @@ showEventDetail = function(eventId) {
         html += '</div></div>';
       }
 
-      // Waveform button
-      html += '<div style="margin-top:.5rem;text-align:center"><button class="btn-sm btn-primary" id="btn-view-waveforms" style="width:100%">View Waveforms</button></div>';
+      // Reviewed status
+      if (ev.reviewed) {
+        html += '<div class="detail-row"><span class="detail-label">Reviewed</span><span class="detail-value reviewed-check">\u2713 ' + esc(ev.reviewed) + '</span></div>';
+      }
+
+      // Waveform + Review buttons
+      html += '<div style="margin-top:.5rem;display:flex;gap:.3rem">';
+      html += '<button class="btn-sm btn-primary" id="btn-view-waveforms" style="flex:1">View Waveforms</button>';
+      html += '<button class="btn-sm" id="btn-review-event" style="flex:1;background:var(--green);border-color:var(--green);color:#fff">Review</button>';
+      html += '</div>';
 
       body.innerHTML = html;
 
       document.getElementById('btn-view-waveforms').addEventListener('click', function() {
         showEventWaveforms(ev.event_id);
+      });
+      document.getElementById('btn-review-event').addEventListener('click', function() {
+        openReviewMode(ev.event_id);
       });
     })
     .catch(function() {
@@ -2235,8 +2434,9 @@ function showEventWaveforms(eventId) {
   var channel = document.getElementById('wf-channel').value;
   var before = document.getElementById('wf-before').value;
   var after = document.getElementById('wf-after').value;
+  var showSpec = document.getElementById('wf-spectrogram').checked;
 
-  fetchJSON('/api/event/' + encodeURIComponent(eventId) + '/waveforms?channel=' + channel + '&window_before=' + before + '&window_after=' + after)
+  fetchJSON('/api/event/' + encodeURIComponent(eventId) + '/waveforms?channel=' + channel + '&window_before=' + before + '&window_after=' + after + '&spectrogram=' + showSpec)
     .then(function(data) {
       if (!data.traces || data.traces.length === 0) {
         body.innerHTML = '<div class="empty-state">No waveform data available.</div>';
@@ -2253,11 +2453,23 @@ function showEventWaveforms(eventId) {
 
         if (tr.data && tr.data.length > 0) {
           var canvas = document.createElement('canvas');
-          canvas.width = 800;
-          canvas.height = 80;
           div.appendChild(canvas);
+          if (tr.spectrogram_b64) {
+            var specCanvas = document.createElement('canvas');
+            specCanvas.className = 'spectrogram-canvas';
+            div.appendChild(specCanvas);
+          }
           body.appendChild(div);
-          renderWaveformCanvas(canvas, tr, data.event_time);
+          // Set canvas buffer to match displayed size × DPR (prevents stretching and blurry text)
+          var dpr = window.devicePixelRatio || 1;
+          var dw = canvas.clientWidth || 800;
+          var dh = canvas.clientHeight || 80;
+          canvas.width = dw * dpr;
+          canvas.height = dh * dpr;
+          renderWaveformCanvas(canvas, tr, data.event_time, dw, dh, dpr);
+          if (tr.spectrogram_b64) {
+            drawSpectrogramCanvas(specCanvas, tr, data.event_time);
+          }
         } else {
           var nodata = document.createElement('div');
           nodata.className = 'empty-state';
@@ -2274,10 +2486,12 @@ function showEventWaveforms(eventId) {
     });
 }
 
-function renderWaveformCanvas(canvas, trace, eventTime) {
+function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
   var ctx = canvas.getContext('2d');
-  var W = canvas.width;
-  var H = canvas.height;
+  dpr = dpr || 1;
+  var W = cssW || canvas.width;
+  var H = cssH || canvas.height;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   var data = trace.data;
   var n = data.length;
   if (n === 0) return;
@@ -2308,35 +2522,57 @@ function renderWaveformCanvas(canvas, trace, eventTime) {
   }
   ctx.stroke();
 
-  // Draw pick markers
-  if (trace.picks && trace.starttime) {
+  // Draw origin time + pick markers
+  if (trace.starttime) {
     var tStart = new Date(trace.starttime.replace('T', ' ').replace('Z', '')).getTime() / 1000;
     var tEnd = tStart + n / (trace.sampling_rate || 100);
     var dur = tEnd - tStart;
 
-    trace.picks.forEach(function(pick) {
-      if (!pick.time) return;
-      var pickT = new Date(pick.time.replace('T', ' ').replace('Z', '')).getTime() / 1000;
-      var frac = (pickT - tStart) / dur;
-      if (frac < 0 || frac > 1) return;
-      var px = frac * W;
+    // Origin time line
+    if (eventTime) {
+      var originT = new Date(eventTime.replace('T', ' ').replace('Z', '')).getTime() / 1000;
+      var otFrac = (originT - tStart) / dur;
+      if (otFrac >= 0 && otFrac <= 1) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(otFrac * W, 0);
+        ctx.lineTo(otFrac * W, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('OT', otFrac * W + 3, H - 4);
+      }
+    }
 
-      var color = pick.phase === 'P' ? '#ef4444' : '#22c55e';
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath();
-      ctx.moveTo(px, 0);
-      ctx.lineTo(px, H);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    // Pick markers
+    if (trace.picks) {
+      trace.picks.forEach(function(pick) {
+        if (!pick.time) return;
+        var pickT = new Date(pick.time.replace('T', ' ').replace('Z', '')).getTime() / 1000;
+        var frac = (pickT - tStart) / dur;
+        if (frac < 0 || frac > 1) return;
+        var px = frac * W;
 
-      // Label
-      ctx.fillStyle = color;
-      ctx.font = '9px monospace';
-      var label = pick.phase + (pick.probability != null ? ' ' + (pick.probability * 100).toFixed(0) + '%' : '');
-      ctx.fillText(label, px + 2, 10);
-    });
+        var color = pick.phase === 'P' ? '#ef4444' : '#22c55e';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(px, 0);
+        ctx.lineTo(px, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label
+        ctx.fillStyle = color;
+        ctx.font = 'bold 12px monospace';
+        var label = pick.phase + (pick.probability != null ? ' ' + (pick.probability * 100).toFixed(0) + '%' : '');
+        ctx.fillText(label, px + 3, 14);
+      });
+    }
   }
 }
 
@@ -2346,6 +2582,1497 @@ document.getElementById('wf-close').addEventListener('click', function() {
 document.getElementById('wf-reload').addEventListener('click', function() {
   if (currentWaveformEventId) showEventWaveforms(currentWaveformEventId);
 });
+
+// ── Review Mode ─────────────────────────────────────────────────
+var reviewState = {
+  eventId: null,
+  eventTime: null,
+  eventLat: null,
+  eventLon: null,
+  traces: [],
+  picks: [],
+  relocated: false,
+  locationResult: null,
+  magnitudeResult: null,
+  dirty: true,
+  pickMode: 'addP',
+  picksModified: false,
+  dragPick: null,
+  dragCanvas: null,
+  undoStack: [],
+  redoStack: [],
+};
+
+function openReviewMode(eventId) {
+  reviewState.eventId = eventId;
+  reviewState.picks = [];
+  reviewState.relocated = false;
+  reviewState.locationResult = null;
+  reviewState.magnitudeResult = null;
+  reviewState.dirty = true;
+  reviewState.picksModified = false;
+  reviewState.undoStack = [];
+  reviewState.redoStack = [];
+  document.getElementById('rv-save').disabled = true;
+  document.getElementById('rv-results').style.display = 'none';
+  document.getElementById('rv-unsaved-dot').classList.remove('active');
+  document.getElementById('rv-title').innerHTML = 'Review \u2014 ' + esc(eventId);
+  document.getElementById('review-overlay').classList.add('visible');
+  // Reset map state on open and initialize
+  if (reviewMapLayers) reviewMapLayers.clearLayers();
+  if (!reviewMap) initReviewMap();
+  setTimeout(function() { if (reviewMap) reviewMap.invalidateSize(); }, 100);
+  // Load event type into dropdown
+  document.getElementById('rv-event-type').value = 'undetermined';
+  fetchJSON('/api/event/' + encodeURIComponent(eventId)).then(function(data) {
+    if (data && data.event) {
+      document.getElementById('rv-event-type').value = data.event.event_type || 'undetermined';
+    }
+  }).catch(function() {});
+  loadReviewWaveforms();
+}
+
+function reviewStatusBadge(status) {
+  if (status === 'confirmed') return ' <span style="color:var(--green);font-size:.7rem;font-weight:700">\u25cf Confirmed</span>';
+  if (status === 'rejected') return ' <span style="color:var(--red);font-size:.7rem;font-weight:700">\u25cf Rejected</span>';
+  return ' <span style="color:var(--amber);font-size:.7rem;font-weight:700">\u25cf Unreviewed</span>';
+}
+
+function updateReviewTitleBadge() {
+  // Fetch event detail to get review_status for badge
+  fetchJSON('/api/event/' + encodeURIComponent(reviewState.eventId)).then(function(data) {
+    if (data && data.event) {
+      document.getElementById('rv-title').innerHTML = 'Review \u2014 ' + esc(reviewState.eventId) + reviewStatusBadge(data.event.review_status);
+    }
+  }).catch(function() {});
+}
+
+function loadReviewWaveforms() {
+  var body = document.getElementById('rv-body');
+  body.innerHTML = '<div class="empty-state">Loading all station waveforms...</div>';
+  updateReviewTitleBadge();
+
+  var channel = document.getElementById('rv-channel').value;
+  var before = document.getElementById('rv-before').value || 10;
+  var after = document.getElementById('rv-after').value || 60;
+  var fmin = document.getElementById('rv-fmin').value;
+  var fmax = document.getElementById('rv-fmax').value;
+
+  var showSpec = document.getElementById('rv-spectrogram').checked;
+  var url = '/api/event/' + encodeURIComponent(reviewState.eventId) + '/waveforms/all?channel=' + channel + '&window_before=' + before + '&window_after=' + after + '&max_samples=10000&spectrogram=' + showSpec;
+  if (fmin) url += '&freqmin=' + fmin;
+  if (fmax) url += '&freqmax=' + fmax;
+
+  fetchJSON(url).then(function(data) {
+    reviewState.eventTime = data.event_time;
+    reviewState.eventLat = data.event_latitude;
+    reviewState.eventLon = data.event_longitude;
+    reviewState.traces = data.traces || [];
+
+    // Sort traces by distance from event origin (closest first)
+    var evLat = reviewState.locationResult ? reviewState.locationResult.latitude : reviewState.eventLat;
+    var evLon = reviewState.locationResult ? reviewState.locationResult.longitude : reviewState.eventLon;
+    if (evLat != null && evLon != null) {
+      reviewState.traces.sort(function(a, b) {
+        var dA = (a.latitude != null && a.longitude != null) ? haversine_km(evLat, evLon, a.latitude, a.longitude) : 99999;
+        var dB = (b.latitude != null && b.longitude != null) ? haversine_km(evLat, evLon, b.latitude, b.longitude) : 99999;
+        return dA - dB;
+      });
+    }
+
+    // Import existing picks if we haven't edited yet
+    if (reviewState.picks.length === 0) {
+      var seenPicks = {};
+      data.traces.forEach(function(tr) {
+        if (tr.picks) {
+          tr.picks.forEach(function(p) {
+            if (p.time) {
+              var dedupKey = tr.network + '.' + tr.station + '.' + p.phase + '.' + p.time;
+              if (seenPicks[dedupKey]) return;
+              seenPicks[dedupKey] = true;
+              reviewState.picks.push({
+                network: tr.network,
+                station: tr.station,
+                channel: p.channel || tr.channel,
+                phase: p.phase,
+                time: p.time,
+                probability: p.probability || 0.8,
+                amplitude: p.amplitude || 0,
+              });
+            }
+          });
+        }
+      });
+    }
+
+    renderReviewTraces();
+    updatePickStatus();
+    // Ensure map container is sized before updating
+    if (reviewMap) reviewMap.invalidateSize();
+    updateReviewMap();
+  }).catch(function(err) {
+    body.innerHTML = '<div class="empty-state">Failed to load waveforms: ' + esc(err.message || err) + '</div>';
+  });
+}
+
+function traceDistLabel(tr) {
+  var evLat = reviewState.locationResult ? reviewState.locationResult.latitude : reviewState.eventLat;
+  var evLon = reviewState.locationResult ? reviewState.locationResult.longitude : reviewState.eventLon;
+  if (evLat != null && evLon != null && tr.latitude != null && tr.longitude != null) {
+    var d = haversine_km(evLat, evLon, tr.latitude, tr.longitude);
+    return ' <span style="color:var(--muted);font-size:.55rem;opacity:.8">' + d.toFixed(1) + ' km</span>';
+  }
+  return '';
+}
+
+function renderReviewTraces() {
+  var body = document.getElementById('rv-body');
+  body.innerHTML = '';
+
+  var is3C = document.getElementById('rv-channel').value === '3C';
+
+  if (is3C) {
+    // Group traces by network.station
+    var groups = {};
+    var groupOrder = [];
+    reviewState.traces.forEach(function(tr) {
+      var key = tr.network + '.' + tr.station;
+      if (!groups[key]) {
+        groups[key] = [];
+        groupOrder.push(key);
+      }
+      groups[key].push(tr);
+    });
+
+    groupOrder.forEach(function(key) {
+      var trList = groups[key];
+      var groupDiv = document.createElement('div');
+      groupDiv.className = 'review-trace-group';
+      var groupLabel = document.createElement('div');
+      groupLabel.className = 'group-label';
+      groupLabel.innerHTML = esc(key) + traceDistLabel(trList[0]);
+      groupDiv.appendChild(groupLabel);
+
+      var zTrace = null;
+      var lastDiv = null;
+
+      trList.forEach(function(tr) {
+        var div = document.createElement('div');
+        div.className = 'review-trace';
+        var label = document.createElement('div');
+        label.className = 'review-trace-label';
+        var chanSuffix = tr.channel ? tr.channel.slice(-1) : '?';
+        label.innerHTML = esc(chanSuffix);
+        if (!tr.has_data && tr.error) {
+          label.innerHTML += ' <span class="no-data-badge">' + esc(tr.error) + '</span>';
+        }
+        div.appendChild(label);
+
+        if (tr.data && tr.data.length > 0) {
+          var canvas = document.createElement('canvas');
+          canvas.dataset.network = tr.network;
+          canvas.dataset.station = tr.station;
+          canvas.dataset.channel = tr.channel;
+          div.appendChild(canvas);
+          // Remember Z trace for spectrogram (rendered after last component)
+          if (chanSuffix === 'Z' && tr.spectrogram_b64) {
+            zTrace = tr;
+          }
+          lastDiv = div;
+          groupDiv.appendChild(div);
+          var dpr2 = window.devicePixelRatio || 1;
+          var cw2 = canvas.clientWidth || 1600;
+          var ch2 = canvas.clientHeight || 80;
+          canvas.width = cw2 * dpr2;
+          canvas.height = ch2 * dpr2;
+          drawReviewCanvas(canvas, tr);
+          attachCanvasEvents(canvas, tr);
+        } else {
+          var nodata = document.createElement('div');
+          nodata.className = 'empty-state';
+          nodata.textContent = tr.error || 'No data';
+          nodata.style.height = '80px';
+          nodata.style.lineHeight = '80px';
+          div.appendChild(nodata);
+          lastDiv = div;
+          groupDiv.appendChild(div);
+        }
+      });
+
+      // Append spectrogram under the last component (not Z)
+      if (zTrace && lastDiv) {
+        var specCanvas = document.createElement('canvas');
+        specCanvas.className = 'spectrogram-canvas';
+        specCanvas.dataset.network = zTrace.network;
+        specCanvas.dataset.station = zTrace.station;
+        specCanvas.dataset.channel = zTrace.channel;
+        specCanvas.dataset.role = 'spectrogram';
+        lastDiv.appendChild(specCanvas);
+        zTrace._specCanvas = specCanvas;
+        var staPicks = reviewState.picks.filter(function(p) {
+          return p.station === zTrace.station && p.network === zTrace.network;
+        });
+        drawSpectrogramCanvas(zTrace._specCanvas, zTrace, reviewState.eventTime, staPicks);
+        attachCanvasEvents(zTrace._specCanvas, zTrace);
+      }
+
+      body.appendChild(groupDiv);
+    });
+  } else {
+    // Single-channel mode — existing behavior
+    reviewState.traces.forEach(function(tr) {
+      var div = document.createElement('div');
+      div.className = 'review-trace';
+      var label = document.createElement('div');
+      label.className = 'review-trace-label';
+      label.innerHTML = esc(tr.network + '.' + tr.station + '.' + tr.channel) + traceDistLabel(tr);
+      if (!tr.has_data && tr.error) {
+        label.innerHTML += ' <span class="no-data-badge">' + esc(tr.error) + '</span>';
+      }
+      div.appendChild(label);
+
+      if (tr.data && tr.data.length > 0) {
+        var canvas = document.createElement('canvas');
+        canvas.dataset.network = tr.network;
+        canvas.dataset.station = tr.station;
+        canvas.dataset.channel = tr.channel;
+        div.appendChild(canvas);
+        if (tr.spectrogram_b64) {
+          var specCanvas = document.createElement('canvas');
+          specCanvas.className = 'spectrogram-canvas';
+          specCanvas.dataset.network = tr.network;
+          specCanvas.dataset.station = tr.station;
+          specCanvas.dataset.channel = tr.channel;
+          specCanvas.dataset.role = 'spectrogram';
+          div.appendChild(specCanvas);
+          tr._specCanvas = specCanvas;
+        }
+        body.appendChild(div);
+        var dpr2 = window.devicePixelRatio || 1;
+        var cw2 = canvas.clientWidth || 1600;
+        var ch2 = canvas.clientHeight || 120;
+        canvas.width = cw2 * dpr2;
+        canvas.height = ch2 * dpr2;
+        drawReviewCanvas(canvas, tr);
+        attachCanvasEvents(canvas, tr);
+        if (tr._specCanvas) {
+          var staPicks = reviewState.picks.filter(function(p) {
+            return p.station === tr.station && p.network === tr.network;
+          });
+          drawSpectrogramCanvas(tr._specCanvas, tr, reviewState.eventTime, staPicks);
+          attachCanvasEvents(tr._specCanvas, tr);
+        }
+      } else {
+        var nodata = document.createElement('div');
+        nodata.className = 'empty-state';
+        nodata.textContent = tr.error || 'No data';
+        nodata.style.height = '120px';
+        nodata.style.lineHeight = '120px';
+        div.appendChild(nodata);
+        body.appendChild(div);
+      }
+    });
+  }
+}
+
+function drawReviewCanvas(canvas, trace) {
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W = canvas.width / dpr;
+  var H = canvas.height / dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  var data = trace.data;
+  var n = data.length;
+
+  ctx.fillStyle = '#020617';
+  ctx.fillRect(0, 0, W, H);
+  if (n === 0) return;
+
+  // Normalize
+  var maxAbs = 0;
+  for (var i = 0; i < n; i++) {
+    var a = Math.abs(data[i]);
+    if (a > maxAbs) maxAbs = a;
+  }
+  if (maxAbs === 0) maxAbs = 1;
+
+  // Draw waveform
+  ctx.strokeStyle = '#60a5fa';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  var mid = H / 2;
+  var amp = (H / 2) * 0.85;
+  for (var j = 0; j < n; j++) {
+    var x = (j / (n - 1)) * W;
+    var y = mid - (data[j] / maxAbs) * amp;
+    if (j === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Time axis info
+  var tStart = parseTimeStr(trace.starttime);
+  var tEnd = tStart + n / (trace.sampling_rate || 100);
+  var dur = tEnd - tStart;
+
+  // Draw origin time
+  if (reviewState.eventTime) {
+    var originT = parseTimeStr(reviewState.eventTime);
+    var frac = (originT - tStart) / dur;
+    if (frac >= 0 && frac <= 1) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(frac * W, 0);
+      ctx.lineTo(frac * W, H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px monospace';
+      ctx.fillText('OT', frac * W + 3, H - 4);
+    }
+  }
+
+  // Draw picks for this station
+  var staPicks = reviewState.picks.filter(function(p) {
+    return p.station === trace.station && p.network === trace.network;
+  });
+  staPicks.forEach(function(pick) {
+    var pickT = parseTimeStr(pick.time);
+    var pFrac = (pickT - tStart) / dur;
+    if (pFrac < 0 || pFrac > 1) return;
+    var px = pFrac * W;
+    var color = pick.phase === 'P' ? '#ef4444' : '#22c55e';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    ctx.moveTo(px, 0);
+    ctx.lineTo(px, H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color;
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText(pick.phase, px + 3, 16);
+  });
+
+  // Draw theoretical travel time lines after relocation
+  if (reviewState.locationResult && trace.latitude != null && trace.longitude != null) {
+    var loc = reviewState.locationResult;
+    if (loc.latitude != null && loc.longitude != null) {
+      var horizDist = haversine_km(trace.latitude, trace.longitude, loc.latitude, loc.longitude);
+      var depthKm = loc.depth_km || 0;
+      var hypoDist = Math.sqrt(horizDist * horizDist + depthKm * depthKm);
+      var eventOriginT = parseTimeStr(loc.time || reviewState.eventTime);
+
+      var tpPred = eventOriginT + hypoDist / 5.0;
+      var tsPred = eventOriginT + hypoDist / 2.89;
+
+      // Draw Tp (cyan dotted)
+      var tpFrac = (tpPred - tStart) / dur;
+      if (tpFrac >= 0 && tpFrac <= 1) {
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        ctx.moveTo(tpFrac * W, 0);
+        ctx.lineTo(tpFrac * W, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#00e5ff';
+        ctx.font = '11px monospace';
+        ctx.fillText('Tp', tpFrac * W + 3, 30);
+      }
+      // Draw Ts (orange dotted)
+      var tsFrac = (tsPred - tStart) / dur;
+      if (tsFrac >= 0 && tsFrac <= 1) {
+        ctx.strokeStyle = '#ff9800';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        ctx.moveTo(tsFrac * W, 0);
+        ctx.lineTo(tsFrac * W, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ff9800';
+        ctx.font = '11px monospace';
+        ctx.fillText('Ts', tsFrac * W + 3, 30);
+      }
+    }
+  }
+
+  // Time axis labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px monospace';
+  for (var t = 0; t <= 10; t++) {
+    var relSec = (t / 10) * dur;
+    var xPos = (t / 10) * W;
+    var originT2 = reviewState.eventTime ? parseTimeStr(reviewState.eventTime) : tStart;
+    var relToOrigin = (tStart + relSec) - originT2;
+    ctx.fillText((relToOrigin >= 0 ? '+' : '') + relToOrigin.toFixed(1) + 's', xPos + 2, H - 2);
+  }
+}
+
+function parseTimeStr(s) {
+  if (!s) return 0;
+  var str = String(s).replace('T', ' ').replace('Z', '');
+  return new Date(str + 'Z').getTime() / 1000;
+}
+
+function haversine_km(lat1, lon1, lat2, lon2) {
+  var R = 6371.0;
+  var rlat1 = lat1 * Math.PI / 180, rlat2 = lat2 * Math.PI / 180;
+  var dlat = (lat2 - lat1) * Math.PI / 180, dlon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dlat/2)**2 + Math.cos(rlat1)*Math.cos(rlat2)*Math.sin(dlon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function greatCirclePoints(lat1, lon1, lat2, lon2, npts) {
+  npts = npts || 50;
+  var toRad = Math.PI / 180, toDeg = 180 / Math.PI;
+  var phi1 = lat1 * toRad, lam1 = lon1 * toRad;
+  var phi2 = lat2 * toRad, lam2 = lon2 * toRad;
+  var d = 2 * Math.asin(Math.sqrt(
+    Math.sin((phi2 - phi1)/2)**2 + Math.cos(phi1)*Math.cos(phi2)*Math.sin((lam2 - lam1)/2)**2
+  ));
+  if (d < 1e-10) return [[lat1, lon1], [lat2, lon2]];
+  var pts = [];
+  for (var i = 0; i <= npts; i++) {
+    var f = i / npts;
+    var A = Math.sin((1 - f) * d) / Math.sin(d);
+    var B = Math.sin(f * d) / Math.sin(d);
+    var x = A * Math.cos(phi1) * Math.cos(lam1) + B * Math.cos(phi2) * Math.cos(lam2);
+    var y = A * Math.cos(phi1) * Math.sin(lam1) + B * Math.cos(phi2) * Math.sin(lam2);
+    var z = A * Math.sin(phi1) + B * Math.sin(phi2);
+    pts.push([Math.atan2(z, Math.sqrt(x*x + y*y)) * toDeg, Math.atan2(y, x) * toDeg]);
+  }
+  return pts;
+}
+
+function redrawAllReviewCanvases() {
+  var body = document.getElementById('rv-body');
+  if (!body) return;
+  var canvases = body.querySelectorAll('canvas:not(.spectrogram-canvas)');
+  canvases.forEach(function(canvas) {
+    var net = canvas.dataset.network;
+    var sta = canvas.dataset.station;
+    var chan = canvas.dataset.channel;
+    var tr = reviewState.traces.find(function(t) {
+      return t.network === net && t.station === sta && t.channel === chan;
+    });
+    if (tr && tr.data && tr.data.length > 0) {
+      drawReviewCanvas(canvas, tr);
+    }
+  });
+}
+
+function drawSpectrogramCanvas(canvas, trace, eventTime, picks) {
+  var dpr = window.devicePixelRatio || 1;
+  var cssW = canvas.clientWidth || 800;
+  var cssH = canvas.clientHeight || 50;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  if (!trace.spectrogram_b64) return;
+
+  var img = new Image();
+  img.onload = function() {
+    // Shift spectrogram left by ~2s to align STFT centers with waveform
+    var dur = trace.data.length / (trace.sampling_rate || 100);
+    var shiftPx = (0.5 / dur) * cssW;
+    ctx.drawImage(img, shiftPx, 0, cssW, cssH);
+
+    // Frequency axis labels (right edge, with padding to avoid clipping)
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    var nyquist = (trace.sampling_rate || 100) / 2;
+    var labels = [0, nyquist * 0.25, nyquist * 0.5, nyquist * 0.75, nyquist];
+    var padTop = 10;
+    var padBot = 4;
+    labels.forEach(function(freq, i) {
+      var frac = i / (labels.length - 1);
+      var y = (cssH - padBot) - frac * (cssH - padTop - padBot);
+      ctx.fillText(freq.toFixed(0) + ' Hz', cssW - 3, y);
+    });
+    ctx.textAlign = 'left';
+
+    // Draw pick lines on spectrogram (same time mapping as waveform)
+    var picksToShow = picks || (trace.picks || []);
+    if (picksToShow.length > 0 && trace.starttime) {
+      var tStart = parseTimeStr(trace.starttime);
+      var n = trace.data.length;
+      var dur = n / (trace.sampling_rate || 100);
+      picksToShow.forEach(function(pick) {
+        if (!pick.time) return;
+        var pickT = parseTimeStr(pick.time);
+        var frac = (pickT - tStart) / dur;
+        if (frac < 0 || frac > 1) return;
+        var px = frac * cssW;
+        var color = pick.phase === 'P' ? '#ef4444' : '#22c55e';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(px, 0);
+        ctx.lineTo(px, cssH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+    }
+
+    // Draw origin time line
+    if (eventTime) {
+      var tStart2 = parseTimeStr(trace.starttime);
+      var n2 = trace.data.length;
+      var dur2 = n2 / (trace.sampling_rate || 100);
+      var originT = parseTimeStr(eventTime);
+      var frac2 = (originT - tStart2) / dur2;
+      if (frac2 >= 0 && frac2 <= 1) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(frac2 * cssW, 0);
+        ctx.lineTo(frac2 * cssW, cssH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+  };
+  img.src = 'data:image/png;base64,' + trace.spectrogram_b64;
+}
+
+function redrawTraceCanvases(canvas, trace) {
+  // Find the waveform canvas (first canvas sibling without spectrogram-canvas class)
+  var parent = canvas.parentElement;
+  if (parent) {
+    var canvases = parent.querySelectorAll('canvas:not(.spectrogram-canvas)');
+    if (canvases.length > 0) {
+      drawReviewCanvas(canvases[0], trace);
+    }
+  } else {
+    drawReviewCanvas(canvas, trace);
+  }
+  // Redraw spectrogram: either on this trace or the Z trace of the same station (3C mode)
+  var specTrace = trace;
+  if (!specTrace._specCanvas) {
+    specTrace = reviewState.traces.find(function(t) {
+      return t.network === trace.network && t.station === trace.station && t._specCanvas;
+    }) || null;
+  }
+  if (specTrace && specTrace._specCanvas) {
+    var staPicks = reviewState.picks.filter(function(p) {
+      return p.station === specTrace.station && p.network === specTrace.network;
+    });
+    drawSpectrogramCanvas(specTrace._specCanvas, specTrace, reviewState.eventTime, staPicks);
+  }
+}
+
+function canvasToTime(canvas, clientX, trace) {
+  var rect = canvas.getBoundingClientRect();
+  var frac = (clientX - rect.left) / rect.width;
+  frac = Math.max(0, Math.min(1, frac));
+  var tStart = parseTimeStr(trace.starttime);
+  var n = trace.data.length;
+  var dur = n / (trace.sampling_rate || 100);
+  return tStart + frac * dur;
+}
+
+function timeToIso(t) {
+  return new Date(t * 1000).toISOString();
+}
+
+function findNearestPick(canvas, clientX, trace) {
+  var rect = canvas.getBoundingClientRect();
+  var clickFrac = (clientX - rect.left) / rect.width;
+  var tStart = parseTimeStr(trace.starttime);
+  var n = trace.data.length;
+  var dur = n / (trace.sampling_rate || 100);
+  var tolerance = 10 / rect.width; // 10px tolerance
+
+  var best = null;
+  var bestDist = Infinity;
+  reviewState.picks.forEach(function(p, idx) {
+    if (p.station !== trace.station || p.network !== trace.network) return;
+    var pickT = parseTimeStr(p.time);
+    var pickFrac = (pickT - tStart) / dur;
+    var dist = Math.abs(pickFrac - clickFrac);
+    if (dist < tolerance && dist < bestDist) {
+      bestDist = dist;
+      best = { pick: p, index: idx };
+    }
+  });
+  return best;
+}
+
+// Measure peak absolute amplitude (m/s velocity) from waveform data
+// between P and S picks (or P + 5s window if no S).
+function measureAmplitude(trace, network, station) {
+  if (!trace || !trace.data || trace.data.length === 0) return 0;
+  var sr = trace.sampling_rate || 100;
+  var tStart = parseTimeStr(trace.starttime);
+
+  // Find P and S picks for this station
+  var pTime = null, sTime = null;
+  reviewState.picks.forEach(function(pk) {
+    if (pk.station !== station || pk.network !== network) return;
+    var t = parseTimeStr(pk.time);
+    if (pk.phase === 'P' && (pTime === null || t < pTime)) pTime = t;
+    if (pk.phase === 'S' && (sTime === null || t > (pTime || 0))) sTime = t;
+  });
+
+  if (pTime === null) return 0;
+
+  // Measurement window: P to S, or P to P+5s
+  var winStart = pTime;
+  var winEnd = sTime ? sTime : pTime + 5.0;
+  // Ensure at least 0.5s window
+  if (winEnd - winStart < 0.5) winEnd = winStart + 0.5;
+
+  var i0 = Math.max(0, Math.round((winStart - tStart) * sr));
+  var i1 = Math.min(trace.data.length - 1, Math.round((winEnd - tStart) * sr));
+  if (i1 <= i0) return 0;
+
+  var maxAbs = 0;
+  for (var i = i0; i <= i1; i++) {
+    var v = Math.abs(trace.data[i]);
+    if (v > maxAbs) maxAbs = v;
+  }
+  return maxAbs;
+}
+
+// Update amplitude on all picks for a given station using available trace data
+function updateStationAmplitudes(network, station) {
+  // Find the best trace for amplitude measurement (prefer Z component)
+  var bestTrace = null;
+  reviewState.traces.forEach(function(tr) {
+    if (tr.network !== network || tr.station !== station) return;
+    if (!tr.data || tr.data.length === 0) return;
+    if (!bestTrace || tr.channel.slice(-1) === 'Z') bestTrace = tr;
+  });
+  if (!bestTrace) return;
+
+  var amp = measureAmplitude(bestTrace, network, station);
+  reviewState.picks.forEach(function(pk) {
+    if (pk.station === station && pk.network === network) {
+      pk.amplitude = amp;
+    }
+  });
+}
+
+function attachCanvasEvents(canvas, trace) {
+  canvas.addEventListener('mousedown', function(e) {
+    var mode = reviewState.pickMode;
+
+    if (mode === 'addP' || mode === 'addS') {
+      pushUndo();
+      var t = canvasToTime(canvas, e.clientX, trace);
+      var phase = mode === 'addP' ? 'P' : 'S';
+      reviewState.picks.push({
+        network: trace.network,
+        station: trace.station,
+        channel: trace.channel,
+        phase: phase,
+        time: timeToIso(t),
+        probability: 0.8,
+        amplitude: 0,
+      });
+      reviewState.dirty = true;
+      reviewState.picksModified = true;
+      document.getElementById('rv-save').disabled = true;
+      document.getElementById('rv-unsaved-dot').classList.add('active');
+      updateStationAmplitudes(trace.network, trace.station);
+      redrawTraceCanvases(canvas, trace);
+      updatePickStatus();
+    } else if (mode === 'delete') {
+      var found = findNearestPick(canvas, e.clientX, trace);
+      if (found) {
+        pushUndo();
+        reviewState.picks.splice(found.index, 1);
+        reviewState.dirty = true;
+        reviewState.picksModified = true;
+        document.getElementById('rv-save').disabled = true;
+        document.getElementById('rv-unsaved-dot').classList.add('active');
+        updateStationAmplitudes(trace.network, trace.station);
+        redrawTraceCanvases(canvas, trace);
+        updatePickStatus();
+      }
+    } else if (mode === 'drag') {
+      var found2 = findNearestPick(canvas, e.clientX, trace);
+      if (found2) {
+        pushUndo();
+        reviewState.dragPick = found2;
+        reviewState.dragCanvas = canvas;
+        canvas.style.cursor = 'grabbing';
+      }
+    }
+  });
+
+  canvas.addEventListener('mousemove', function(e) {
+    if (reviewState.pickMode === 'drag' && reviewState.dragPick && reviewState.dragCanvas === canvas) {
+      var t = canvasToTime(canvas, e.clientX, trace);
+      reviewState.dragPick.pick.time = timeToIso(t);
+      redrawTraceCanvases(canvas, trace);
+    }
+  });
+
+  canvas.addEventListener('mouseup', function(e) {
+    if (reviewState.dragPick && reviewState.dragCanvas === canvas) {
+      var t = canvasToTime(canvas, e.clientX, trace);
+      reviewState.dragPick.pick.time = timeToIso(t);
+      reviewState.dirty = true;
+      reviewState.picksModified = true;
+      document.getElementById('rv-save').disabled = true;
+      document.getElementById('rv-unsaved-dot').classList.add('active');
+      reviewState.dragPick = null;
+      reviewState.dragCanvas = null;
+      canvas.style.cursor = 'crosshair';
+      updateStationAmplitudes(trace.network, trace.station);
+      redrawTraceCanvases(canvas, trace);
+      updatePickStatus();
+    }
+  });
+
+  canvas.addEventListener('mouseleave', function() {
+    if (reviewState.dragPick && reviewState.dragCanvas === canvas) {
+      reviewState.dragPick = null;
+      reviewState.dragCanvas = null;
+      canvas.style.cursor = 'crosshair';
+      redrawTraceCanvases(canvas, trace);
+    }
+  });
+}
+
+function updatePickStatus() {
+  var pCount = reviewState.picks.filter(function(p) { return p.phase === 'P'; }).length;
+  var sCount = reviewState.picks.filter(function(p) { return p.phase === 'S'; }).length;
+  document.getElementById('rv-pick-status').textContent = pCount + 'P + ' + sCount + 'S picks';
+}
+
+// ── Undo / Redo ─────────────────────────────────────────────────
+function pushUndo() {
+  reviewState.undoStack.push(JSON.stringify(reviewState.picks));
+  reviewState.redoStack = [];
+  if (reviewState.undoStack.length > 50) reviewState.undoStack.shift();
+  updateUndoButtons();
+}
+
+function undo() {
+  if (reviewState.undoStack.length === 0) return;
+  reviewState.redoStack.push(JSON.stringify(reviewState.picks));
+  reviewState.picks = JSON.parse(reviewState.undoStack.pop());
+  reviewState.dirty = true;
+  reviewState.picksModified = true;
+  document.getElementById('rv-save').disabled = true;
+  document.getElementById('rv-unsaved-dot').classList.add('active');
+  redrawAllReviewCanvases();
+  // Redraw all spectrograms
+  reviewState.traces.forEach(function(tr) {
+    if (tr._specCanvas) {
+      var staPicks = reviewState.picks.filter(function(p) {
+        return p.station === tr.station && p.network === tr.network;
+      });
+      drawSpectrogramCanvas(tr._specCanvas, tr, reviewState.eventTime, staPicks);
+    }
+  });
+  updatePickStatus();
+  updateUndoButtons();
+}
+
+function redo() {
+  if (reviewState.redoStack.length === 0) return;
+  reviewState.undoStack.push(JSON.stringify(reviewState.picks));
+  reviewState.picks = JSON.parse(reviewState.redoStack.pop());
+  reviewState.dirty = true;
+  reviewState.picksModified = true;
+  document.getElementById('rv-save').disabled = true;
+  document.getElementById('rv-unsaved-dot').classList.add('active');
+  redrawAllReviewCanvases();
+  reviewState.traces.forEach(function(tr) {
+    if (tr._specCanvas) {
+      var staPicks = reviewState.picks.filter(function(p) {
+        return p.station === tr.station && p.network === tr.network;
+      });
+      drawSpectrogramCanvas(tr._specCanvas, tr, reviewState.eventTime, staPicks);
+    }
+  });
+  updatePickStatus();
+  updateUndoButtons();
+}
+
+function updateUndoButtons() {
+  var undoBtn = document.getElementById('rv-undo');
+  var redoBtn = document.getElementById('rv-redo');
+  if (undoBtn) undoBtn.disabled = reviewState.undoStack.length === 0;
+  if (redoBtn) redoBtn.disabled = reviewState.redoStack.length === 0;
+}
+
+// Pick mode buttons
+document.querySelectorAll('.pick-mode-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.pick-mode-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    reviewState.pickMode = btn.getAttribute('data-mode');
+  });
+});
+
+// Relocate
+document.getElementById('rv-relocate').addEventListener('click', function() {
+  var btn = document.getElementById('rv-relocate');
+  btn.disabled = true;
+  btn.textContent = 'Relocating...';
+
+  fetch('/api/event/' + encodeURIComponent(reviewState.eventId) + '/relocate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ picks: reviewState.picks }),
+  })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Relocation failed'); });
+    return r.json();
+  })
+  .then(function(result) {
+    reviewState.relocated = true;
+    reviewState.locationResult = result.location;
+    reviewState.magnitudeResult = result.magnitude;
+    reviewState.dirty = false;
+    document.getElementById('rv-save').disabled = false;
+    showRelocationResults(result);
+    redrawAllReviewCanvases();
+    updateReviewMap();
+    updateMainMapEvent();
+  })
+  .catch(function(err) {
+    alert('Relocation failed: ' + err.message);
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.textContent = 'Relocate';
+  });
+});
+
+function showRelocationResults(result) {
+  var panel = document.getElementById('rv-results');
+  panel.style.display = 'block';
+
+  var loc = result.location || {};
+  var mag = result.magnitude || {};
+  var grid = document.getElementById('rv-results-grid');
+  grid.innerHTML = [
+    { label: 'Latitude', value: loc.latitude != null ? loc.latitude.toFixed(4) : '-' },
+    { label: 'Longitude', value: loc.longitude != null ? loc.longitude.toFixed(4) : '-' },
+    { label: 'Depth', value: loc.depth_km != null ? loc.depth_km.toFixed(2) + ' km' : '-' },
+    { label: 'Time', value: loc.time ? loc.time.slice(0, 23) : '-' },
+    { label: 'ML', value: mag.ml != null ? mag.ml.toFixed(2) : '-' },
+    { label: 'ML err', value: mag.ml_err != null ? '\u00b1' + mag.ml_err.toFixed(2) : '-' },
+    { label: 'Picks used', value: loc.num_picks || '-' },
+    { label: 'ML stations', value: mag.num_ml_sta || '-' },
+  ].map(function(item) {
+    return '<div class="rr-item"><div class="rr-value">' + esc(item.value) + '</div><div class="rr-label">' + esc(item.label) + '</div></div>';
+  }).join('');
+
+  var tbody = document.getElementById('rv-residual-tbody');
+  var residuals = result.residuals || [];
+  tbody.innerHTML = residuals.map(function(r) {
+    var absR = Math.abs(r.residual_s);
+    var cls = absR < 0.5 ? 'residual-good' : absR < 1.0 ? 'residual-warn' : 'residual-bad';
+    return '<tr><td>' + esc(r.station) + '</td><td>' + esc(r.phase) + '</td>' +
+      '<td>' + r.observed_s.toFixed(3) + '</td><td>' + r.predicted_s.toFixed(3) + '</td>' +
+      '<td class="' + cls + '">' + r.residual_s.toFixed(3) + '</td></tr>';
+  }).join('');
+}
+
+// Layer group for great circle arcs on the main map (cleared on close)
+var mainMapArcsLayer = L.layerGroup().addTo(map);
+
+function updateMainMapEvent() {
+  // Move the event dot on the main dashboard map to the relocated position
+  if (!reviewState.locationResult || !reviewState.eventId) return;
+  var loc = reviewState.locationResult;
+  if (loc.latitude == null || loc.longitude == null) return;
+  var mag = reviewState.magnitudeResult;
+  var mlVal = (mag && mag.ml != null) ? mag.ml : 0;
+
+  // Collect layers to remove first (avoid modifying during iteration)
+  var toRemove = [];
+  eventLayer.eachLayer(function(layer) {
+    var tip = layer.getTooltip && layer.getTooltip();
+    if (tip) {
+      var content = tip.getContent();
+      if (content && content.indexOf(reviewState.eventId) !== -1) {
+        toRemove.push(layer);
+      }
+    }
+  });
+  toRemove.forEach(function(layer) { eventLayer.removeLayer(layer); });
+
+  var radius = 2 + mlVal * 1.5;
+  L.circleMarker([loc.latitude, loc.longitude], {
+    radius: radius,
+    fillColor: eventColor(mlVal),
+    color: '#000',
+    weight: 1,
+    fillOpacity: 0.8
+  })
+  .bindTooltip(
+    '<b>' + esc(reviewState.eventId) + '</b><br>' + esc(loc.time || '') + '<br>M ' + mlVal.toFixed(1) + ' \u00b7 ' + (loc.depth_km != null ? loc.depth_km.toFixed(1) : '?') + ' km',
+    { className: '' }
+  )
+  .on('click', function() { showEventDetail(reviewState.eventId); })
+  .addTo(eventLayer);
+
+  // Draw concentric distance circles on the main map
+  mainMapArcsLayer.clearLayers();
+  var maxDist = 0;
+  var seenDist = {};
+  reviewState.traces.forEach(function(tr) {
+    if (tr.latitude == null || tr.longitude == null) return;
+    var dk = tr.network + '.' + tr.station;
+    if (seenDist[dk]) return;
+    seenDist[dk] = true;
+    var d = haversine_km(loc.latitude, loc.longitude, tr.latitude, tr.longitude);
+    if (d > maxDist) maxDist = d;
+  });
+  var ringStep = 10;
+  if (maxDist > 100) ringStep = 25;
+  if (maxDist > 250) ringStep = 50;
+  var numRings = Math.ceil(maxDist / ringStep);
+  for (var ri = 1; ri <= numRings; ri++) {
+    var ringKm = ri * ringStep;
+    mainMapArcsLayer.addLayer(L.circle([loc.latitude, loc.longitude], {
+      radius: ringKm * 1000,
+      color: '#64748b',
+      weight: 0.8,
+      opacity: 0.5,
+      fill: false,
+      dashArray: '4 4',
+      interactive: false,
+    }));
+    var labelLat = loc.latitude + (ringKm / 111.12);
+    mainMapArcsLayer.addLayer(L.marker([labelLat, loc.longitude], {
+      icon: L.divIcon({
+        className: '',
+        iconSize: [0, 0],
+        html: '<span style="font-size:9px;color:#94a3b8;white-space:nowrap;position:relative;left:-12px;top:-6px">' + ringKm + 'km</span>',
+      }),
+      interactive: false,
+    }));
+  }
+}
+
+// ── Review Map ──────────────────────────────────────────────────
+var reviewMap = null;
+var reviewMapLayers = L.layerGroup();
+
+function initReviewMap() {
+  if (reviewMap) return;
+  reviewMap = L.map('rv-map-container', { zoomControl: true }).setView([31.85, -106.40], 10);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; CARTO &copy; OSM',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(reviewMap);
+  reviewMapLayers.addTo(reviewMap);
+}
+
+function updateReviewMap() {
+  if (!reviewMap) initReviewMap();
+
+  reviewMapLayers.clearLayers();
+
+  // Determine event location: relocated or catalog
+  var evLat = null, evLon = null;
+  if (reviewState.locationResult && reviewState.locationResult.latitude != null) {
+    evLat = reviewState.locationResult.latitude;
+    evLon = reviewState.locationResult.longitude;
+  } else if (reviewState.eventLat != null) {
+    evLat = reviewState.eventLat;
+    evLon = reviewState.eventLon;
+  }
+
+  // Collect unique stations from traces
+  var seenSta = {};
+  var bounds = [];
+  reviewState.traces.forEach(function(tr) {
+    if (tr.latitude == null || tr.longitude == null) return;
+    var key = tr.network + '.' + tr.station;
+    if (seenSta[key]) return;
+    seenSta[key] = true;
+    var marker = L.marker([tr.latitude, tr.longitude], { icon: stationIcon('#3b82f6') });
+    marker.bindTooltip(key, { permanent: false, direction: 'top', className: 'station-tooltip' });
+    reviewMapLayers.addLayer(marker);
+    bounds.push([tr.latitude, tr.longitude]);
+  });
+
+  // Event marker
+  if (evLat != null && evLon != null) {
+    var evLatLng = [evLat, evLon];
+    bounds.push(evLatLng);
+
+    var evIcon = L.divIcon({
+      className: '',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+      html: '<svg width="18" height="18" viewBox="0 0 18 18"><polygon points="9,1 11.5,6.5 17,7.2 13,11 14,16.5 9,13.8 4,16.5 5,11 1,7.2 6.5,6.5" fill="#fbbf24" stroke="#fff" stroke-width="0.8"/></svg>'
+    });
+    reviewMapLayers.addLayer(L.marker(evLatLng, { icon: evIcon }).bindTooltip('Event', { direction: 'top' }));
+
+    // Concentric distance circles around epicenter
+    // Find max station distance to determine ring range
+    var maxDist = 0;
+    var seenDist = {};
+    reviewState.traces.forEach(function(tr) {
+      if (tr.latitude == null || tr.longitude == null) return;
+      var dk = tr.network + '.' + tr.station;
+      if (seenDist[dk]) return;
+      seenDist[dk] = true;
+      var d = haversine_km(evLat, evLon, tr.latitude, tr.longitude);
+      if (d > maxDist) maxDist = d;
+    });
+
+    // Draw rings at regular intervals
+    var ringStep = 10; // km
+    if (maxDist > 100) ringStep = 25;
+    if (maxDist > 250) ringStep = 50;
+    var numRings = Math.ceil(maxDist / ringStep);
+    for (var ri = 1; ri <= numRings; ri++) {
+      var ringKm = ri * ringStep;
+      var circle = L.circle(evLatLng, {
+        radius: ringKm * 1000, // meters
+        color: '#64748b',
+        weight: 0.8,
+        opacity: 0.5,
+        fill: false,
+        dashArray: '4 4',
+        interactive: false,
+      });
+      reviewMapLayers.addLayer(circle);
+      // Label at top of circle
+      var labelLat = evLat + (ringKm / 111.12);
+      reviewMapLayers.addLayer(L.marker([labelLat, evLon], {
+        icon: L.divIcon({
+          className: '',
+          iconSize: [0, 0],
+          html: '<span style="font-size:9px;color:#94a3b8;white-space:nowrap;position:relative;left:-12px;top:-6px">' + ringKm + 'km</span>',
+        }),
+        interactive: false,
+      }));
+    }
+  }
+
+  if (bounds.length > 1) {
+    reviewMap.fitBounds(bounds, { padding: [20, 20] });
+  } else if (bounds.length === 1) {
+    reviewMap.setView(bounds[0], 10);
+  }
+}
+
+
+// Save
+document.getElementById('rv-save').addEventListener('click', function() {
+  if (!reviewState.relocated) {
+    alert('Please relocate first before saving.');
+    return;
+  }
+  var btn = document.getElementById('rv-save');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  fetch('/api/event/' + encodeURIComponent(reviewState.eventId) + '/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      picks: reviewState.picks,
+      location: reviewState.locationResult,
+      magnitude: reviewState.magnitudeResult,
+      review_status: 'confirmed',
+      event_type: document.getElementById('rv-event-type').value,
+    }),
+  })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Save failed'); });
+    return r.json();
+  })
+  .then(function() {
+    reviewState.picksModified = false;
+    document.getElementById('rv-unsaved-dot').classList.remove('active');
+    btn.textContent = 'Saved!';
+    setTimeout(function() { btn.textContent = 'Save'; }, 2000);
+    // Refresh dashboard data
+    pollData();
+    pollSlow();
+    // Refresh catalog if loaded
+    if (tabDataLoaded.catalog) loadCatalogTable();
+  })
+  .catch(function(err) {
+    alert('Save failed: ' + err.message);
+    btn.textContent = 'Save';
+    btn.disabled = false;
+  });
+});
+
+// Close
+document.getElementById('rv-close').addEventListener('click', function() {
+  if (reviewState.picksModified) {
+    if (!confirm('You have unsaved pick changes. Close anyway?')) return;
+  }
+  reviewState.picksModified = false;
+  document.getElementById('rv-unsaved-dot').classList.remove('active');
+  document.getElementById('review-overlay').classList.remove('visible');
+  // Clear map layers on close
+  if (reviewMapLayers) reviewMapLayers.clearLayers();
+  if (mainMapArcsLayer) mainMapArcsLayer.clearLayers();
+});
+
+// Undo/Redo button click handlers
+document.getElementById('rv-undo').addEventListener('click', function() { undo(); });
+document.getElementById('rv-redo').addEventListener('click', function() { redo(); });
+
+// Confirm handler — same as Save but sends review_status: "confirmed"
+document.getElementById('rv-confirm').addEventListener('click', function() {
+  if (!reviewState.relocated) {
+    alert('Please relocate first before confirming.');
+    return;
+  }
+  var btn = document.getElementById('rv-confirm');
+  btn.disabled = true;
+  btn.textContent = 'Confirming...';
+
+  fetch('/api/event/' + encodeURIComponent(reviewState.eventId) + '/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      picks: reviewState.picks,
+      location: reviewState.locationResult,
+      magnitude: reviewState.magnitudeResult,
+      review_status: 'confirmed',
+      event_type: document.getElementById('rv-event-type').value,
+    }),
+  })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Confirm failed'); });
+    return r.json();
+  })
+  .then(function() {
+    reviewState.picksModified = false;
+    document.getElementById('rv-unsaved-dot').classList.remove('active');
+    btn.textContent = '\u2713 Confirmed!';
+    setTimeout(function() { btn.textContent = '\u2713 Confirm'; btn.disabled = false; }, 1500);
+    pollData();
+    if (tabDataLoaded.catalog) loadCatalogTable();
+    advanceToNextUnreviewed();
+  })
+  .catch(function(err) {
+    alert('Confirm failed: ' + err.message);
+    btn.textContent = '\u2713 Confirm';
+    btn.disabled = false;
+  });
+});
+
+// Reject handler — quick status update, no relocation required
+document.getElementById('rv-reject').addEventListener('click', function() {
+  var btn = document.getElementById('rv-reject');
+  btn.disabled = true;
+  btn.textContent = 'Rejecting...';
+
+  var rejectBody = { status: 'rejected' };
+  var evTypeVal = document.getElementById('rv-event-type').value;
+  if (evTypeVal !== 'undetermined') rejectBody.event_type = evTypeVal;
+
+  fetch('/api/event/' + encodeURIComponent(reviewState.eventId) + '/review-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(rejectBody),
+  })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Reject failed'); });
+    return r.json();
+  })
+  .then(function() {
+    reviewState.picksModified = false;
+    document.getElementById('rv-unsaved-dot').classList.remove('active');
+    btn.textContent = '\u2717 Rejected!';
+    setTimeout(function() { btn.textContent = '\u2717 Reject'; btn.disabled = false; }, 1500);
+    pollData();
+    if (tabDataLoaded.catalog) loadCatalogTable();
+    advanceToNextUnreviewed();
+  })
+  .catch(function(err) {
+    alert('Reject failed: ' + err.message);
+    btn.textContent = '\u2717 Reject';
+    btn.disabled = false;
+  });
+});
+
+// Auto-advance to next unreviewed event
+function advanceToNextUnreviewed() {
+  fetchJSON('/api/catalog?review_status=unreviewed&per_page=1&sort_by=time&sort_order=asc')
+    .then(function(data) {
+      if (data && data.events && data.events.length > 0) {
+        var nextId = data.events[0].event_id;
+        openReviewMode(nextId);
+      } else {
+        alert('All events reviewed!');
+        document.getElementById('review-overlay').classList.remove('visible');
+        if (reviewMapLayers) reviewMapLayers.clearLayers();
+        if (mainMapArcsLayer) mainMapArcsLayer.clearLayers();
+      }
+    })
+    .catch(function() {});
+}
+
+// Keyboard shortcuts in review mode
+document.addEventListener('keydown', function(e) {
+  if (!document.getElementById('review-overlay').classList.contains('visible')) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+  var key = e.key.toLowerCase();
+
+  // Undo: Ctrl+Z
+  if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
+    undo();
+    e.preventDefault();
+    return;
+  }
+  // Redo: Ctrl+Y or Ctrl+Shift+Z
+  if ((e.ctrlKey || e.metaKey) && (key === 'y' || (key === 'z' && e.shiftKey))) {
+    redo();
+    e.preventDefault();
+    return;
+  }
+
+  var modeMap = { p: 'addP', s: 'addS', d: 'delete', g: 'drag' };
+  if (modeMap[key]) {
+    reviewState.pickMode = modeMap[key];
+    document.querySelectorAll('.pick-mode-btn').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-mode') === modeMap[key]);
+    });
+    e.preventDefault();
+  } else if (key === 'r') {
+    document.getElementById('rv-relocate').click();
+    e.preventDefault();
+  } else if (key === 'c') {
+    document.getElementById('rv-confirm').click();
+    e.preventDefault();
+  } else if (key === 'x') {
+    document.getElementById('rv-reject').click();
+    e.preventDefault();
+  } else if (key === 'n') {
+    advanceToNextUnreviewed();
+    e.preventDefault();
+  } else if (key === 'escape') {
+    document.getElementById('rv-close').click();
+  }
+});
+
+// Reload waveforms
+document.getElementById('rv-reload').addEventListener('click', function() {
+  if (reviewState.eventId) loadReviewWaveforms();
+});
+
+// ── Waveviewer Tab ──────────────────────────────────────────────
+
+function loadWaveviewerTraces() {
+  var dateVal = document.getElementById('wv-date').value;
+  var hh = document.getElementById('wv-hh').value;
+  var mm = document.getElementById('wv-mm').value;
+  if (!dateVal || hh === '' || mm === '') {
+    alert('Please enter a date, hour, and minute.');
+    return;
+  }
+  var ss = document.getElementById('wv-ss').value || '0';
+  var windowSec = parseInt(document.getElementById('wv-window').value, 10);
+  // Build UTC ISO string: pad h/m/s to 2 digits
+  var pad2 = function(v) { var s = String(parseInt(v, 10)); return s.length < 2 ? '0' + s : s; };
+  var startISO = dateVal + 'T' + pad2(hh) + ':' + pad2(mm) + ':' + pad2(ss) + 'Z';
+  var startD = new Date(startISO);
+  var endD = new Date(startD.getTime() + windowSec * 1000);
+  var endISO = endD.toISOString();
+
+  var channel = document.getElementById('wv-channel').value;
+  var fmin = document.getElementById('wv-fmin').value;
+  var fmax = document.getElementById('wv-fmax').value;
+  var showSpec = document.getElementById('wv-spectrogram').checked;
+
+  var body = document.getElementById('wv-trace-body');
+  body.innerHTML = '<div class="empty-state">Loading waveforms...</div>';
+  document.getElementById('wv-summary').textContent = '';
+
+  var url = '/api/waveforms/all?start=' + encodeURIComponent(startISO) +
+    '&end=' + encodeURIComponent(endISO) +
+    '&channel=' + encodeURIComponent(channel) +
+    '&max_samples=10000&spectrogram=' + showSpec;
+  if (fmin) url += '&freqmin=' + fmin;
+  if (fmax) url += '&freqmax=' + fmax;
+
+  fetchJSON(url).then(function(data) {
+    if (!data.traces || data.traces.length === 0) {
+      body.innerHTML = '<div class="empty-state">No waveform data available for this time window.</div>';
+      return;
+    }
+    var withData = data.traces.filter(function(t) { return t.has_data; });
+    var totalPicks = 0;
+    data.traces.forEach(function(t) { totalPicks += (t.picks ? t.picks.length : 0); });
+    document.getElementById('wv-summary').textContent = withData.length + ' / ' + data.traces.length + ' traces with data, ' + totalPicks + ' picks';
+
+    body.innerHTML = '';
+    data.traces.forEach(function(tr) {
+      var div = document.createElement('div');
+      div.className = 'waveform-trace';
+      var label = document.createElement('div');
+      label.className = 'waveform-trace-label';
+      var pickInfo = '';
+      if (tr.picks && tr.picks.length > 0) {
+        var pCount = tr.picks.filter(function(p) { return p.phase === 'P'; }).length;
+        var sCount = tr.picks.filter(function(p) { return p.phase === 'S'; }).length;
+        pickInfo = ' \u2014 ' + pCount + 'P + ' + sCount + 'S picks';
+      }
+      label.textContent = tr.network + '.' + tr.station + '.' + tr.channel + pickInfo + (tr.error && !tr.has_data ? ' \u2014 ' + tr.error : '');
+      div.appendChild(label);
+
+      if (tr.data && tr.data.length > 0) {
+        var canvas = document.createElement('canvas');
+        div.appendChild(canvas);
+        if (tr.spectrogram_b64) {
+          var specCanvas = document.createElement('canvas');
+          specCanvas.className = 'spectrogram-canvas';
+          div.appendChild(specCanvas);
+        }
+        body.appendChild(div);
+        var dpr = window.devicePixelRatio || 1;
+        var dw = canvas.clientWidth || 800;
+        var dh = canvas.clientHeight || 100;
+        canvas.width = dw * dpr;
+        canvas.height = dh * dpr;
+        renderWaveformCanvas(canvas, tr, null, dw, dh, dpr);
+        if (tr.spectrogram_b64) {
+          drawSpectrogramCanvas(specCanvas, tr, null);
+        }
+      } else {
+        var nodata = document.createElement('div');
+        nodata.className = 'empty-state';
+        nodata.textContent = tr.error || 'No data';
+        nodata.style.height = '60px';
+        nodata.style.lineHeight = '60px';
+        div.appendChild(nodata);
+        body.appendChild(div);
+      }
+    });
+  }).catch(function(err) {
+    body.innerHTML = '<div class="empty-state" style="color:var(--red)">Failed to load waveforms: ' + esc(err.message || 'unknown error') + '</div>';
+  });
+}
+
+document.getElementById('wv-load').addEventListener('click', function() {
+  loadWaveviewerTraces();
+});
+
+
+// ── Pipeline Control Logic ──────────────────────────────────────
+
+// Backfill modal HTML
+(function() {
+  var modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'backfill-modal';
+  modal.innerHTML =
+    '<div class="modal-box">' +
+      '<h3>Backfill Date Range</h3>' +
+      '<label>Start date</label>' +
+      '<input type="date" id="bf-start" />' +
+      '<label>End date</label>' +
+      '<input type="date" id="bf-end" />' +
+      '<div class="modal-check"><input type="checkbox" id="bf-force" /> <span>Force reprocessing</span></div>' +
+      '<div class="modal-actions">' +
+        '<button class="btn-modal-cancel" id="bf-cancel">Cancel</button>' +
+        '<button class="btn-modal-start" id="bf-submit">Start Backfill</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(modal);
+})();
+
+function updateControlButtons(isRunning) {
+  var startBtn = document.getElementById('btn-start-pipeline');
+  var stopBtn = document.getElementById('btn-stop-pipeline');
+  startBtn.disabled = isRunning;
+  stopBtn.style.display = isRunning ? '' : 'none';
+}
+
+// Toggle start dropdown
+document.getElementById('btn-start-pipeline').addEventListener('click', function(e) {
+  if (this.disabled) return;
+  e.stopPropagation();
+  document.getElementById('start-menu').classList.toggle('open');
+});
+document.addEventListener('click', function() {
+  document.getElementById('start-menu').classList.remove('open');
+});
+
+// Start continuous
+document.getElementById('start-continuous').addEventListener('click', function() {
+  document.getElementById('start-menu').classList.remove('open');
+  if (!confirm('Start the pipeline in continuous mode?')) return;
+  fetch('/api/pipeline/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: 'continuous' })
+  }).then(function(r) {
+    if (r.status === 409) { alert('Pipeline is already running.'); return; }
+    if (!r.ok) return r.json().then(function(d) { alert(d.detail || 'Failed to start'); });
+    updateControlButtons(true);
+  }).catch(function() { alert('Failed to reach server.'); });
+});
+
+// Open backfill modal
+document.getElementById('start-backfill').addEventListener('click', function() {
+  document.getElementById('start-menu').classList.remove('open');
+  document.getElementById('backfill-modal').classList.add('open');
+});
+document.getElementById('bf-cancel').addEventListener('click', function() {
+  document.getElementById('backfill-modal').classList.remove('open');
+});
+
+// Submit backfill
+document.getElementById('bf-submit').addEventListener('click', function() {
+  var start = document.getElementById('bf-start').value;
+  var end = document.getElementById('bf-end').value;
+  if (!start || !end) { alert('Please select both start and end dates.'); return; }
+  if (start > end) { alert('Start date must be before end date.'); return; }
+  document.getElementById('backfill-modal').classList.remove('open');
+  if (!confirm('Start backfill from ' + start + ' to ' + end + '?')) return;
+  fetch('/api/pipeline/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mode: 'backfill',
+      start: start,
+      end: end,
+      force: document.getElementById('bf-force').checked
+    })
+  }).then(function(r) {
+    if (r.status === 409) { alert('Pipeline is already running.'); return; }
+    if (!r.ok) return r.json().then(function(d) { alert(d.detail || 'Failed to start'); });
+    updateControlButtons(true);
+  }).catch(function() { alert('Failed to reach server.'); });
+});
+
+// Stop pipeline
+document.getElementById('btn-stop-pipeline').addEventListener('click', function() {
+  if (!confirm('Stop the running pipeline?')) return;
+  fetch('/api/pipeline/stop', { method: 'POST' }).then(function(r) {
+    if (r.status === 404) { alert('No pipeline is running.'); return; }
+    if (!r.ok) return r.json().then(function(d) { alert(d.detail || 'Failed to stop'); });
+    updateControlButtons(false);
+  }).catch(function() { alert('Failed to reach server.'); });
+});
+
+// Initial check
+fetch('/api/pipeline/running').then(function(r) { return r.json(); }).then(function(d) {
+  updateControlButtons(d.running);
+}).catch(function() {});
 </script>
 </body>
 </html>

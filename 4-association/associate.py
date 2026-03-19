@@ -88,6 +88,7 @@ DEFAULTS = {
 EVENT_CSV_COLUMNS = [
     "event_index", "time", "magnitude", "magnitude_type", "ml_err", "latitude",
     "longitude", "depth_km", "sigma_time", "sigma_amp", "num_picks", "num_ml_sta",
+    "reviewed",
 ]
 
 ASSIGNMENT_CSV_COLUMNS = [
@@ -476,6 +477,7 @@ def format_catalog(
             "sigma_amp": f"{ev.get('sigma_amp', 0.0):.4f}",
             "num_picks": int(num_picks),
             "num_ml_sta": int(ml_count),
+            "reviewed": "",
         })
 
     logger.info("Formatted %d events", len(rows))

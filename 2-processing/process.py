@@ -162,7 +162,56 @@ def process_file(
         # 3. Taper
         st.taper(max_percentage=config["taper_fraction"], type="hann")
 
-        # 4. Remove instrument response
+        # 4. Trim traces that start before their metadata validity window.
+        #    Raspberry Shake stations can record samples before the StationXML
+        #    epoch, causing "No matching response information found" from ObsPy.
+        #    This also handles first-day-online cases where the station came
+        #    online mid-day but raw data starts at 00:00.
+        _MAX_TRIM_SEC = 86400.0  # allow trimming up to 24 h (first-day-online)
+        for tr in list(st):
+            # Check if inventory already covers the trace start
+            sel_ok = inventory.select(
+                network=tr.stats.network, station=tr.stats.station,
+                location=tr.stats.location, channel=tr.stats.channel,
+                time=tr.stats.starttime,
+            )
+            if sel_ok and sel_ok[0] and sel_ok[0][0] and sel_ok[0][0][0]:
+                continue  # metadata covers trace start — no trim needed
+
+            # Find the nearest channel epoch that starts just after the trace
+            sel_all = inventory.select(
+                network=tr.stats.network, station=tr.stats.station,
+                location=tr.stats.location, channel=tr.stats.channel,
+            )
+            best_start = None
+            for net in sel_all:
+                for sta in net:
+                    for chan in sta:
+                        cs = UTCDateTime(chan.start_date)
+                        gap = cs - tr.stats.starttime
+                        if 0 < gap <= _MAX_TRIM_SEC:
+                            if best_start is None or cs < best_start:
+                                best_start = cs
+
+            if best_start is not None:
+                gap = best_start - tr.stats.starttime
+                logger.info(
+                    "Trimming %s start by %.0f s to match metadata epoch",
+                    tr.id, gap,
+                )
+                tr.trim(starttime=best_start)
+                if tr.stats.npts < 10:
+                    logger.warning(
+                        "Trace %s too short after metadata trim, removing",
+                        tr.id,
+                    )
+                    st.remove(tr)
+
+        if len(st) == 0:
+            logger.warning("No usable traces after metadata trim in %s", raw_path)
+            return False
+
+        # 5. Remove instrument response
         pre_filt = config["pre_filt"]
         if isinstance(pre_filt, list):
             pre_filt = tuple(pre_filt)
@@ -174,12 +223,12 @@ def process_file(
             water_level=config["water_level"],
         )
 
-        # 5. Bandpass filter removed — the pre_filt cosine taper in
+        # 6. Bandpass filter removed — the pre_filt cosine taper in
         # remove_response() already band-limits the signal. A separate
         # bandpass caused redundant double-filtering at band edges,
         # distorting amplitudes. See SCIENCE_AUDIT.md Issue 2.
 
-        # 6. Write output (float32 keeps ~7 sig figs; halves size vs float64)
+        # 7. Write output (float32 keeps ~7 sig figs; halves size vs float64)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         for tr in st:
             tr.data = tr.data.astype("float32")
