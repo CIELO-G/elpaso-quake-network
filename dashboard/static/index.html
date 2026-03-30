@@ -19,6 +19,40 @@
     --amber: #f59e0b;
     --gray: #475569;
   }
+  [data-theme="light"] {
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --border: #cbd5e1;
+    --text: #1e293b;
+    --muted: #64748b;
+    --green: #16a34a;
+    --blue: #2563eb;
+    --red: #dc2626;
+    --amber: #d97706;
+    --gray: #94a3b8;
+  }
+  [data-theme="light"] .filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: none;
+  }
+  .theme-toggle {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: .5rem;
+    padding: .4rem .7rem;
+    font-size: .75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    transition: background .2s, color .2s, border-color .2s;
+  }
+  .theme-toggle:hover { color: var(--text); background: var(--border); }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
@@ -53,12 +87,12 @@
     text-transform: uppercase;
     letter-spacing: .04em;
   }
-  .badge-idle     { background: var(--gray);  color: #e2e8f0; }
+  .badge-idle     { background: var(--gray);  color: var(--text); }
   .badge-running  { background: var(--blue);  color: #fff; }
   .badge-completed{ background: var(--green); color: #fff; }
   .badge-failed   { background: var(--red);   color: #fff; }
   .badge-waiting  { background: var(--amber); color: #000; }
-  .badge-stopped  { background: var(--gray);  color: #e2e8f0; }
+  .badge-stopped  { background: var(--gray);  color: var(--text); }
 
   /* pipeline controls */
   .pipeline-controls { display: flex; gap: .35rem; align-items: center; }
@@ -453,7 +487,7 @@
     height: 6px;
     width: 80px;
     border-radius: 3px;
-    background: linear-gradient(90deg, #1e293b, #166534, #22c55e);
+    background: linear-gradient(90deg, var(--surface), #166534, var(--green));
   }
 
   /* disk panel */
@@ -483,7 +517,7 @@
     overflow-y: auto;
     color: var(--muted);
   }
-  .error-log .el-row { padding: .1rem 0; border-bottom: 1px solid #1e293b; }
+  .error-log .el-row { padding: .1rem 0; border-bottom: 1px solid var(--bg); }
   .error-log .el-row:last-child { border-bottom: none; }
   .error-log .el-time { color: var(--gray); margin-right: .4em; }
   .error-log .el-step { color: var(--blue); margin-right: .4em; font-weight: 600; }
@@ -505,7 +539,7 @@
   }
 
   /* leaflet overrides for dark theme */
-  .leaflet-container { background: #0f172a; }
+  .leaflet-container { background: var(--bg); }
   .leaflet-control-attribution { font-size: .55rem !important; opacity: .5; }
 
   /* map style switcher */
@@ -1097,6 +1131,7 @@
     </div>
     <div style="position:absolute;bottom:10px;left:200px;z-index:1000">
       <button class="map-toggle-btn" id="toggle-faults" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4)">Faults</button>
+      <button class="map-toggle-btn" id="toggle-study-area" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4);margin-left:.35rem">Study Area</button>
     </div>
     <div class="event-detail-overlay" id="event-detail">
       <button class="detail-close" id="detail-close">&times;</button>
@@ -1339,6 +1374,63 @@
 </div>
 
 <script>
+// ── Theme toggle ────────────────────────────────────────────────
+var _currentAppTheme = localStorage.getItem('theme') || 'dark';
+if (_currentAppTheme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+
+function _applyThemeUI(theme) {
+  var icon = document.getElementById('theme-icon');
+  var label = document.getElementById('theme-label');
+  if (theme === 'light') {
+    if (icon) icon.textContent = '\u{1F319}';
+    if (label) label.textContent = 'Dark';
+  } else {
+    if (icon) icon.textContent = '\u{2600}\u{FE0F}';
+    if (label) label.textContent = 'Light';
+  }
+}
+
+function switchAppTheme(theme) {
+  _currentAppTheme = theme;
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  localStorage.setItem('theme', theme);
+  _applyThemeUI(theme);
+  // Switch main map tiles if map is ready
+  if (typeof mapTileLayers !== 'undefined' && typeof currentTileLayer !== 'undefined' && typeof map !== 'undefined') {
+    var mapStyle = theme === 'light' ? 'light' : 'dark';
+    if (mapTileLayers[mapStyle] !== currentTileLayer) {
+      map.removeLayer(currentTileLayer);
+      currentTileLayer = mapTileLayers[mapStyle];
+      currentTileLayer.addTo(map);
+      // Sync the map style buttons
+      document.querySelectorAll('.map-style-btn').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-style') === mapStyle);
+      });
+    }
+  }
+  // Switch review map tiles if it exists
+  if (typeof reviewMap !== 'undefined' && reviewMap && typeof _reviewTileLayer !== 'undefined') {
+    reviewMap.removeLayer(_reviewTileLayer);
+    var url = theme === 'light'
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    _reviewTileLayer = L.tileLayer(url, {
+      attribution: '&copy; CARTO &copy; OSM', subdomains: 'abcd', maxZoom: 19
+    }).addTo(reviewMap);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  _applyThemeUI(_currentAppTheme);
+  document.getElementById('theme-toggle').addEventListener('click', function() {
+    switchAppTheme(_currentAppTheme === 'light' ? 'dark' : 'light');
+  });
+});
+
 // ── Constants ───────────────────────────────────────────────────
 const STEP_COLORS = {
   ingest: '#3b82f6', process: '#f59e0b', detect: '#22c55e',
@@ -1379,8 +1471,13 @@ var mapTileLayers = {
     maxZoom: 19
   }),
 };
-var currentTileLayer = mapTileLayers.dark;
+var _initMapStyle = _currentAppTheme === 'light' ? 'light' : 'dark';
+var currentTileLayer = mapTileLayers[_initMapStyle];
 currentTileLayer.addTo(map);
+// Sync map style buttons to match theme
+document.querySelectorAll('.map-style-btn').forEach(function(b) {
+  b.classList.toggle('active', b.getAttribute('data-style') === _initMapStyle);
+});
 
 document.querySelectorAll('.map-style-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -1394,11 +1491,24 @@ document.querySelectorAll('.map-style-btn').forEach(function(btn) {
   });
 });
 
-// Study area bounds (center ±0.7°)
-L.rectangle(
+// Study area bounds (center ±0.7°) — togglable, hidden by default
+var studyAreaRect = L.rectangle(
   [[31.85 - 0.7, -106.40 - 0.7], [31.85 + 0.7, -106.40 + 0.7]],
   { color: '#ef4444', weight: 1.5, dashArray: '6 4', fill: false, interactive: false }
-).addTo(map);
+);
+var studyAreaVisible = false;
+document.getElementById('toggle-study-area').addEventListener('click', function() {
+  var btn = this;
+  if (studyAreaVisible) {
+    map.removeLayer(studyAreaRect);
+    studyAreaVisible = false;
+    btn.style.background = '';
+  } else {
+    studyAreaRect.addTo(map);
+    studyAreaVisible = true;
+    btn.style.background = 'var(--blue)';
+  }
+});
 
 // ── Fault layer (USGS Quaternary Faults, served locally) ────────
 map.createPane('faults').style.zIndex = 350;
@@ -1866,7 +1976,7 @@ function renderThroughput(t) {
 
 // ── Completeness color (dark to green) ────────────────────────────
 function completenessColor(val, max) {
-  if (val === 0) return '#1e293b';
+  if (val === 0) return getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
   var t = Math.min(val / max, 1);
   var r = Math.round(22 + (34 - 22) * t);
   var g = Math.round(101 + (197 - 101) * t);
@@ -3557,7 +3667,7 @@ function updateMainMapEvent() {
       icon: L.divIcon({
         className: '',
         iconSize: [0, 0],
-        html: '<span style="font-size:9px;color:#94a3b8;white-space:nowrap;position:relative;left:-12px;top:-6px">' + ringKm + 'km</span>',
+        html: '<span style="font-size:9px;color:var(--muted);white-space:nowrap;position:relative;left:-12px;top:-6px">' + ringKm + 'km</span>',
       }),
       interactive: false,
     }));
@@ -3568,10 +3678,14 @@ function updateMainMapEvent() {
 var reviewMap = null;
 var reviewMapLayers = L.layerGroup();
 
+var _reviewTileLayer = null;
 function initReviewMap() {
   if (reviewMap) return;
   reviewMap = L.map('rv-map-container', { zoomControl: true }).setView([31.85, -106.40], 10);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  var rvUrl = _currentAppTheme === 'light'
+    ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  _reviewTileLayer = L.tileLayer(rvUrl, {
     attribution: '&copy; CARTO &copy; OSM',
     subdomains: 'abcd', maxZoom: 19
   }).addTo(reviewMap);
@@ -3656,7 +3770,7 @@ function updateReviewMap() {
         icon: L.divIcon({
           className: '',
           iconSize: [0, 0],
-          html: '<span style="font-size:9px;color:#94a3b8;white-space:nowrap;position:relative;left:-12px;top:-6px">' + ringKm + 'km</span>',
+          html: '<span style="font-size:9px;color:var(--muted);white-space:nowrap;position:relative;left:-12px;top:-6px">' + ringKm + 'km</span>',
         }),
         interactive: false,
       }));
@@ -4074,5 +4188,8 @@ fetch('/api/pipeline/running').then(function(r) { return r.json(); }).then(funct
   updateControlButtons(d.running);
 }).catch(function() {});
 </script>
+<button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">
+  <span id="theme-icon">☀️</span><span id="theme-label">Light</span>
+</button>
 </body>
 </html>
