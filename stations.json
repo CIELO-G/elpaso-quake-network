@@ -224,6 +224,48 @@
     }
   },
   {
+    "network": "AM",
+    "station": "R3B56",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.873874,
+    "longitude": -106.430401,
+    "elevation_m": 1193.6,
+    "sample_rate_hz": 100.0,
+    "start_date": "2026-03-29",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "AM",
+    "station": "R8DE2",
+    "location": "00",
+    "channels": "EH?",
+    "latitude": 31.757000,
+    "longitude": -106.297000,
+    "elevation_m": 1216.9,
+    "sample_rate_hz": 100.0,
+    "start_date": "2026-03-28",
+    "model": "RS3D",
+    "instrument": {
+      "geophone": {
+        "channels": "EH?",
+        "sensitivity": 360000000.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
     "network": "EP",
     "station": "KIDD",
     "location": "",

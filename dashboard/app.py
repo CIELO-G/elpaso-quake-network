@@ -640,6 +640,45 @@ def _count_day_dirs(base: Path, min_files: int = 0) -> int:
     return count
 
 
+def _latest_day_dir(base: Path, min_files: int = 0) -> str | None:
+    """Return the latest YYYY-MM-DD date string from year/jday dirs."""
+    latest = None
+    if not base.exists():
+        return None
+    for year_dir in base.iterdir():
+        if year_dir.is_dir() and year_dir.name.isdigit():
+            year = int(year_dir.name)
+            for d in year_dir.iterdir():
+                if not d.is_dir() or not d.name.isdigit():
+                    continue
+                if min_files > 0 and sum(1 for f in d.iterdir() if f.is_file()) < min_files:
+                    continue
+                jday = int(d.name)
+                dt = datetime(year, 1, 1) + timedelta(days=jday - 1)
+                ds = dt.strftime("%Y-%m-%d")
+                if latest is None or ds > latest:
+                    latest = ds
+    return latest
+
+
+def _latest_day_csv(base: Path, glob_pattern: str) -> str | None:
+    """Return the latest YYYY-MM-DD date from year/jday CSV files."""
+    latest = None
+    for csv_file in base.rglob(glob_pattern):
+        parts = csv_file.parts
+        try:
+            idx = next(i for i, p in enumerate(parts) if p.isdigit() and len(p) == 4)
+            year = int(parts[idx])
+            jday = int(parts[idx + 1])
+            dt = datetime(year, 1, 1) + timedelta(days=jday - 1)
+            ds = dt.strftime("%Y-%m-%d")
+            if latest is None or ds > latest:
+                latest = ds
+        except (StopIteration, ValueError, IndexError):
+            pass
+    return latest
+
+
 def _count_days_with_data(base: Path, glob_pattern: str, require_rows: bool = False) -> int:
     count = 0
     for csv_file in base.rglob(glob_pattern):
@@ -667,6 +706,11 @@ async def progress():
     days_processed = _count_day_dirs(PROCESSED_DIR)
     days_detected = _count_days_with_data(PICKS_DIR, "*.picks.csv")
     days_associated = _count_days_with_data(EVENTS_DIR, "*.events.csv")
+
+    last_ingested = _latest_day_dir(RAW_DIR, min_files=3)
+    last_processed = _latest_day_dir(PROCESSED_DIR)
+    last_detected = _latest_day_csv(PICKS_DIR, "*.picks.csv")
+    last_associated = _latest_day_csv(EVENTS_DIR, "*.events.csv")
 
     current_day = None
     pipeline_status = None
@@ -717,6 +761,10 @@ async def progress():
         "days_completed_continuous": days_completed_cont,
         "days_skipped": days_skipped,
         "last_completed_at": last_completed_at,
+        "last_ingested": last_ingested,
+        "last_processed": last_processed,
+        "last_detected": last_detected,
+        "last_associated": last_associated,
     }
 
 

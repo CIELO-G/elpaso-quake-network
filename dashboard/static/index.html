@@ -18,6 +18,7 @@
     --red: #ef4444;
     --amber: #f59e0b;
     --gray: #475569;
+    --canvas-bg: #020617;
   }
   [data-theme="light"] {
     --bg: #f1f5f9;
@@ -30,6 +31,7 @@
     --red: #dc2626;
     --amber: #d97706;
     --gray: #94a3b8;
+    --canvas-bg: #ffffff;
   }
   [data-theme="light"] .filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
     filter: none;
@@ -379,7 +381,13 @@
     font-size: .7rem;
     color: #fecaca;
   }
+  [data-theme="light"] .error-banner {
+    background: #fee2e2;
+    border-color: var(--red);
+    color: #991b1b;
+  }
   .error-banner.visible { display: flex; align-items: center; gap: .5rem; }
+  [data-theme="light"] .error-banner .eb-dismiss { color: #991b1b; }
   .error-banner .eb-dismiss {
     margin-left: auto;
     background: none;
@@ -506,7 +514,7 @@
 
   /* error log panel */
   .error-log {
-    background: #020617;
+    background: var(--canvas-bg);
     border: 1px solid var(--border);
     border-radius: .35rem;
     padding: .5rem;
@@ -516,6 +524,9 @@
     max-height: 140px;
     overflow-y: auto;
     color: var(--muted);
+  }
+  [data-theme="light"] .error-log {
+    background: #f8fafc;
   }
   .error-log .el-row { padding: .1rem 0; border-bottom: 1px solid var(--bg); }
   .error-log .el-row:last-child { border-bottom: none; }
@@ -816,7 +827,7 @@
     height: 120px;
     border: 1px solid var(--border);
     border-radius: .25rem;
-    background: #020617;
+    background: var(--canvas-bg);
     cursor: crosshair;
   }
   .review-trace-group {
@@ -937,7 +948,7 @@
     height: 100px;
     border: 1px solid var(--border);
     border-radius: .25rem;
-    background: #020617;
+    background: var(--canvas-bg);
   }
 
   /* waveform panel */
@@ -1003,7 +1014,7 @@
     height: 80px;
     border: 1px solid var(--border);
     border-radius: .25rem;
-    background: #020617;
+    background: var(--canvas-bg);
   }
   /* Spectrogram canvas — sits directly below waveform canvas */
   .waveform-trace .spectrogram-canvas {
@@ -1012,7 +1023,7 @@
     border: 1px solid var(--border);
     border-top: none;
     border-radius: 0 0 .25rem .25rem;
-    background: #020617;
+    background: var(--canvas-bg);
     display: block;
   }
   .waveform-trace canvas:first-of-type:not(:last-of-type) {
@@ -1024,7 +1035,7 @@
     border: 1px solid var(--border);
     border-top: none;
     border-radius: 0 0 .25rem .25rem;
-    background: #020617;
+    background: var(--canvas-bg);
     cursor: crosshair;
     display: block;
   }
@@ -1284,6 +1295,7 @@
       <option value="EHZ">Vertical (EHZ/HHZ)</option>
       <option value="EHN">North (EHN/HHN)</option>
       <option value="EHE">East (EHE/HHE)</option>
+      <option value="3C">3-Component</option>
     </select>
     <label>Before</label>
     <select id="wf-before">
@@ -1421,6 +1433,16 @@ function switchAppTheme(theme) {
     _reviewTileLayer = L.tileLayer(url, {
       attribution: '&copy; CARTO &copy; OSM', subdomains: 'abcd', maxZoom: 19
     }).addTo(reviewMap);
+  }
+  // Redraw any visible waveform canvases so they pick up the new theme colors
+  if (typeof reviewState !== 'undefined' && reviewState.traces && reviewState.traces.length > 0) {
+    document.querySelectorAll('.review-trace canvas:not(.spectrogram-canvas)').forEach(function(canvas) {
+      var net = canvas.dataset.network, sta = canvas.dataset.station, chan = canvas.dataset.channel;
+      var tr = reviewState.traces.find(function(t) {
+        return t.network === net && t.station === sta && t.channel === chan;
+      });
+      if (tr && tr.data && tr.data.length > 0) drawReviewCanvas(canvas, tr);
+    });
   }
 }
 
@@ -1891,14 +1913,19 @@ function renderProgress(p) {
   // Bar
   bar.style.width = Math.min(pct, 100) + '%';
 
-  // Count (right of bar)
-  count.textContent = p.days_complete + ' / ' + p.total_days;
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function fmtDate(dateStr) {
+    var d = new Date(dateStr + 'T00:00:00Z');
+    return months[d.getUTCMonth()] + ' ' + d.getUTCDate();
+  }
 
   if (p.pipeline_status === 'running') {
     // Running
     bar.style.background = 'var(--blue)';
     badge.innerHTML = '\u25cf Running';
     badge.style.color = 'var(--blue)';
+    count.textContent = p.days_complete + ' / ' + p.total_days;
     txt.innerHTML = p.current_day
       ? 'Processing <b>' + esc(p.current_day) + '</b>'
       : '';
@@ -1906,6 +1933,7 @@ function renderProgress(p) {
     // Caught up — check freshness
     var targetDate = new Date(p.target_date + 'T00:00:00Z');
     var dataAgeDays = Math.floor((Date.now() - targetDate.getTime()) / 86400000);
+    count.textContent = '';
 
     if (dataAgeDays > 2) {
       // Stale
@@ -1918,24 +1946,23 @@ function renderProgress(p) {
       bar.style.background = 'var(--green)';
       badge.innerHTML = '\u25cf Up to date';
       badge.style.color = 'var(--green)';
-      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      var tdLabel = months[targetDate.getUTCMonth()] + ' ' + targetDate.getUTCDate();
-      txt.innerHTML = 'Data through <b>' + tdLabel + '</b>';
+      txt.innerHTML = 'Data through <b>' + fmtDate(p.target_date) + '</b>';
     }
   } else {
     // Not yet caught up, idle
     bar.style.background = 'var(--blue)';
     badge.innerHTML = '\u25cf Idle';
     badge.style.color = 'var(--muted)';
+    count.textContent = p.days_complete + ' / ' + p.total_days;
     txt.innerHTML = '';
   }
 
   var steps = document.getElementById('progress-steps');
   steps.innerHTML = [
-    ['Ingested', p.days_ingested], ['Processed', p.days_processed],
-    ['Detected', p.days_detected], ['Associated', p.days_associated],
+    ['Ingested', p.last_ingested], ['Processed', p.last_processed],
+    ['Detected', p.last_detected], ['Associated', p.last_associated],
   ].map(function(pair) {
-    return '<span class="ps-item">' + pair[0] + ': <span class="ps-val">' + pair[1] + '</span></span>';
+    return '<span class="ps-item">' + pair[0] + ': <span class="ps-val">' + (pair[1] ? fmtDate(pair[1]) : '\u2014') + '</span></span>';
   }).join('');
 }
 
@@ -2532,6 +2559,43 @@ showEventDetail = function(eventId) {
 // ── Waveform Viewer ─────────────────────────────────────────────
 var currentWaveformEventId = null;
 
+function _renderWfTrace(tr, eventTime, container) {
+  var div = document.createElement('div');
+  div.className = 'waveform-trace';
+  var label = document.createElement('div');
+  label.className = 'waveform-trace-label';
+  label.textContent = tr.network + '.' + tr.station + '.' + tr.channel + (tr.error ? ' \u2014 ' + tr.error : '');
+  div.appendChild(label);
+
+  if (tr.data && tr.data.length > 0) {
+    var canvas = document.createElement('canvas');
+    div.appendChild(canvas);
+    if (tr.spectrogram_b64) {
+      var specCanvas = document.createElement('canvas');
+      specCanvas.className = 'spectrogram-canvas';
+      div.appendChild(specCanvas);
+    }
+    container.appendChild(div);
+    var dpr = window.devicePixelRatio || 1;
+    var dw = canvas.clientWidth || 800;
+    var dh = canvas.clientHeight || 80;
+    canvas.width = dw * dpr;
+    canvas.height = dh * dpr;
+    renderWaveformCanvas(canvas, tr, eventTime, dw, dh, dpr);
+    if (tr.spectrogram_b64) {
+      drawSpectrogramCanvas(specCanvas, tr, eventTime);
+    }
+  } else {
+    var nodata = document.createElement('div');
+    nodata.className = 'empty-state';
+    nodata.textContent = tr.error || 'No data';
+    nodata.style.height = '80px';
+    nodata.style.lineHeight = '80px';
+    div.appendChild(nodata);
+    container.appendChild(div);
+  }
+}
+
 function showEventWaveforms(eventId) {
   currentWaveformEventId = eventId;
   var overlay = document.getElementById('waveform-overlay');
@@ -2546,54 +2610,124 @@ function showEventWaveforms(eventId) {
   var after = document.getElementById('wf-after').value;
   var showSpec = document.getElementById('wf-spectrogram').checked;
 
-  fetchJSON('/api/event/' + encodeURIComponent(eventId) + '/waveforms?channel=' + channel + '&window_before=' + before + '&window_after=' + after + '&spectrogram=' + showSpec)
-    .then(function(data) {
-      if (!data.traces || data.traces.length === 0) {
+  if (channel === '3C') {
+    // Fetch all 3 components and group by station
+    var channels3 = ['EHZ', 'EHN', 'EHE'];
+    var baseUrl = '/api/event/' + encodeURIComponent(eventId) + '/waveforms?window_before=' + before + '&window_after=' + after + '&spectrogram=' + showSpec;
+    Promise.all(channels3.map(function(ch) {
+      return fetchJSON(baseUrl + '&channel=' + ch);
+    })).then(function(results) {
+      body.innerHTML = '';
+      // Build station order from the first (Z) result
+      var eventTime = results[0].event_time;
+      var stationOrder = (results[0].traces || []).map(function(t) { return t.network + '.' + t.station; });
+      // Index traces by station+channel
+      var traceMap = {};
+      results.forEach(function(data, ci) {
+        (data.traces || []).forEach(function(tr) {
+          var key = tr.network + '.' + tr.station;
+          if (!traceMap[key]) traceMap[key] = {};
+          traceMap[key][channels3[ci]] = tr;
+          if (stationOrder.indexOf(key) === -1) stationOrder.push(key);
+        });
+      });
+      if (stationOrder.length === 0) {
         body.innerHTML = '<div class="empty-state">No waveform data available.</div>';
         return;
       }
-      body.innerHTML = '';
-      data.traces.forEach(function(tr) {
-        var div = document.createElement('div');
-        div.className = 'waveform-trace';
-        var label = document.createElement('div');
-        label.className = 'waveform-trace-label';
-        label.textContent = tr.network + '.' + tr.station + '.' + tr.channel + (tr.error ? ' \u2014 ' + tr.error : '');
-        div.appendChild(label);
-
-        if (tr.data && tr.data.length > 0) {
-          var canvas = document.createElement('canvas');
-          div.appendChild(canvas);
-          if (tr.spectrogram_b64) {
-            var specCanvas = document.createElement('canvas');
-            specCanvas.className = 'spectrogram-canvas';
-            div.appendChild(specCanvas);
+      stationOrder.forEach(function(staKey) {
+        var group = document.createElement('div');
+        group.className = 'review-trace-group';
+        var groupLabel = document.createElement('div');
+        groupLabel.className = 'group-label';
+        groupLabel.textContent = staKey;
+        group.appendChild(groupLabel);
+        channels3.forEach(function(ch) {
+          var tr = traceMap[staKey] && traceMap[staKey][ch];
+          if (tr) {
+            _renderWfTrace(tr, eventTime, group);
           }
-          body.appendChild(div);
-          // Set canvas buffer to match displayed size × DPR (prevents stretching and blurry text)
-          var dpr = window.devicePixelRatio || 1;
-          var dw = canvas.clientWidth || 800;
-          var dh = canvas.clientHeight || 80;
-          canvas.width = dw * dpr;
-          canvas.height = dh * dpr;
-          renderWaveformCanvas(canvas, tr, data.event_time, dw, dh, dpr);
-          if (tr.spectrogram_b64) {
-            drawSpectrogramCanvas(specCanvas, tr, data.event_time);
-          }
-        } else {
-          var nodata = document.createElement('div');
-          nodata.className = 'empty-state';
-          nodata.textContent = tr.error || 'No data';
-          nodata.style.height = '80px';
-          nodata.style.lineHeight = '80px';
-          div.appendChild(nodata);
-          body.appendChild(div);
-        }
+        });
+        body.appendChild(group);
       });
-    })
-    .catch(function() {
+    }).catch(function() {
       body.innerHTML = '<div class="empty-state">Failed to load waveforms.</div>';
     });
+  } else {
+    fetchJSON('/api/event/' + encodeURIComponent(eventId) + '/waveforms?channel=' + channel + '&window_before=' + before + '&window_after=' + after + '&spectrogram=' + showSpec)
+      .then(function(data) {
+        if (!data.traces || data.traces.length === 0) {
+          body.innerHTML = '<div class="empty-state">No waveform data available.</div>';
+          return;
+        }
+        body.innerHTML = '';
+        data.traces.forEach(function(tr) {
+          _renderWfTrace(tr, data.event_time, body);
+        });
+      })
+      .catch(function() {
+        body.innerHTML = '<div class="empty-state">Failed to load waveforms.</div>';
+      });
+  }
+}
+
+function _waveColors() {
+  var light = document.documentElement.getAttribute('data-theme') === 'light';
+  return {
+    bg:       light ? '#ffffff' : '#020617',
+    trace:    light ? '#2563eb' : '#60a5fa',
+    ot:       light ? '#334155' : '#ffffff',
+    axisText: light ? '#64748b' : '#94a3b8',
+    grid:     light ? '#e2e8f0' : '#1e293b',
+  };
+}
+
+function _formatSI(v) {
+  var a = Math.abs(v);
+  if (a === 0) return '0';
+  if (a >= 1)    return v.toFixed(1);
+  if (a >= 1e-3) return (v * 1e3).toFixed(1) + 'e-3';
+  if (a >= 1e-6) return (v * 1e6).toFixed(1) + 'e-6';
+  return v.toExponential(1);
+}
+
+function _drawYAxis(ctx, c, maxAbs, mid, amp, W, H) {
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  ctx.lineWidth = 0.5;
+
+  // Ticks: +max, +half, 0, -half, -max — overlaid on right edge
+  var ticks = [maxAbs, maxAbs * 0.5, 0, -maxAbs * 0.5, -maxAbs];
+  ticks.forEach(function(val) {
+    var y = mid - (val / maxAbs) * amp;
+    // Tick dash
+    ctx.strokeStyle = c.grid;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(W, y);
+    ctx.lineTo(W - 6, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Label with background for readability
+    var label = _formatSI(val);
+    var tw = ctx.measureText(label).width;
+    ctx.fillStyle = c.bg;
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(W - tw - 10, y - 5, tw + 4, 10);
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = c.axisText;
+    ctx.fillText(label, W - 7, y + 3);
+  });
+
+  // Unit label top-right
+  var ulw = ctx.measureText('m/s').width;
+  ctx.fillStyle = c.bg;
+  ctx.globalAlpha = 0.7;
+  ctx.fillRect(W - ulw - 6, 1, ulw + 4, 11);
+  ctx.globalAlpha = 1.0;
+  ctx.fillStyle = c.axisText;
+  ctx.fillText('m/s', W - 4, 10);
+  ctx.textAlign = 'left';
 }
 
 function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
@@ -2604,11 +2738,12 @@ function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   var data = trace.data;
   var n = data.length;
-  if (n === 0) return;
+  var c = _waveColors();
 
   // Clear
-  ctx.fillStyle = '#020617';
+  ctx.fillStyle = c.bg;
   ctx.fillRect(0, 0, W, H);
+  if (n === 0) return;
 
   // Normalize data
   var maxAbs = 0;
@@ -2618,14 +2753,17 @@ function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
   }
   if (maxAbs === 0) maxAbs = 1;
 
-  // Draw waveform
-  ctx.strokeStyle = '#60a5fa';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
+  var plotLeft = 0;
+  var plotW = W;
   var mid = H / 2;
   var amp = (H / 2) * 0.85;
+
+  // Draw waveform
+  ctx.strokeStyle = c.trace;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
   for (var j = 0; j < n; j++) {
-    var x = (j / (n - 1)) * W;
+    var x = plotLeft + (j / (n - 1)) * plotW;
     var y = mid - (data[j] / maxAbs) * amp;
     if (j === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
@@ -2643,17 +2781,17 @@ function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
       var originT = new Date(eventTime.replace('T', ' ').replace('Z', '')).getTime() / 1000;
       var otFrac = (originT - tStart) / dur;
       if (otFrac >= 0 && otFrac <= 1) {
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = c.ot;
         ctx.lineWidth = 1.5;
         ctx.setLineDash([6, 4]);
         ctx.beginPath();
-        ctx.moveTo(otFrac * W, 0);
-        ctx.lineTo(otFrac * W, H);
+        ctx.moveTo(plotLeft + otFrac * plotW, 0);
+        ctx.lineTo(plotLeft + otFrac * plotW, H);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = c.ot;
         ctx.font = 'bold 12px monospace';
-        ctx.fillText('OT', otFrac * W + 3, H - 4);
+        ctx.fillText('OT', plotLeft + otFrac * plotW + 3, H - 4);
       }
     }
 
@@ -2664,7 +2802,7 @@ function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
         var pickT = new Date(pick.time.replace('T', ' ').replace('Z', '')).getTime() / 1000;
         var frac = (pickT - tStart) / dur;
         if (frac < 0 || frac > 1) return;
-        var px = frac * W;
+        var px = plotLeft + frac * plotW;
 
         var color = pick.phase === 'P' ? '#ef4444' : '#22c55e';
         ctx.strokeStyle = color;
@@ -2683,7 +2821,21 @@ function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
         ctx.fillText(label, px + 3, 14);
       });
     }
+
+    // Time axis labels (relative to origin time or start)
+    ctx.fillStyle = c.axisText;
+    ctx.font = '10px monospace';
+    for (var t = 0; t <= 10; t++) {
+      var relSec = (t / 10) * dur;
+      var xPos = plotLeft + (t / 10) * plotW;
+      var refT = eventTime ? new Date(eventTime.replace('T', ' ').replace('Z', '')).getTime() / 1000 : tStart;
+      var relToRef = (tStart + relSec) - refT;
+      ctx.fillText((relToRef >= 0 ? '+' : '') + relToRef.toFixed(1) + 's', xPos + 2, H - 2);
+    }
   }
+
+  // Y-axis overlay (drawn last, on top of waveform)
+  _drawYAxis(ctx, c, maxAbs, mid, amp, W, H);
 }
 
 document.getElementById('wf-close').addEventListener('click', function() {
@@ -2993,8 +3145,9 @@ function drawReviewCanvas(canvas, trace) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   var data = trace.data;
   var n = data.length;
+  var c = _waveColors();
 
-  ctx.fillStyle = '#020617';
+  ctx.fillStyle = c.bg;
   ctx.fillRect(0, 0, W, H);
   if (n === 0) return;
 
@@ -3006,14 +3159,17 @@ function drawReviewCanvas(canvas, trace) {
   }
   if (maxAbs === 0) maxAbs = 1;
 
-  // Draw waveform
-  ctx.strokeStyle = '#60a5fa';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
+  var plotLeft = 0;
+  var plotW = W;
   var mid = H / 2;
   var amp = (H / 2) * 0.85;
+
+  // Draw waveform
+  ctx.strokeStyle = c.trace;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
   for (var j = 0; j < n; j++) {
-    var x = (j / (n - 1)) * W;
+    var x = plotLeft + (j / (n - 1)) * plotW;
     var y = mid - (data[j] / maxAbs) * amp;
     if (j === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
@@ -3030,17 +3186,17 @@ function drawReviewCanvas(canvas, trace) {
     var originT = parseTimeStr(reviewState.eventTime);
     var frac = (originT - tStart) / dur;
     if (frac >= 0 && frac <= 1) {
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = c.ot;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(frac * W, 0);
-      ctx.lineTo(frac * W, H);
+      ctx.moveTo(plotLeft + frac * plotW, 0);
+      ctx.lineTo(plotLeft + frac * plotW, H);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = c.ot;
       ctx.font = 'bold 13px monospace';
-      ctx.fillText('OT', frac * W + 3, H - 4);
+      ctx.fillText('OT', plotLeft + frac * plotW + 3, H - 4);
     }
   }
 
@@ -3052,7 +3208,7 @@ function drawReviewCanvas(canvas, trace) {
     var pickT = parseTimeStr(pick.time);
     var pFrac = (pickT - tStart) / dur;
     if (pFrac < 0 || pFrac > 1) return;
-    var px = pFrac * W;
+    var px = plotLeft + pFrac * plotW;
     var color = pick.phase === 'P' ? '#ef4444' : '#22c55e';
     ctx.strokeStyle = color;
     ctx.lineWidth = 2.5;
@@ -3086,13 +3242,13 @@ function drawReviewCanvas(canvas, trace) {
         ctx.lineWidth = 1.2;
         ctx.setLineDash([3, 4]);
         ctx.beginPath();
-        ctx.moveTo(tpFrac * W, 0);
-        ctx.lineTo(tpFrac * W, H);
+        ctx.moveTo(plotLeft + tpFrac * plotW, 0);
+        ctx.lineTo(plotLeft + tpFrac * plotW, H);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = '#00e5ff';
         ctx.font = '11px monospace';
-        ctx.fillText('Tp', tpFrac * W + 3, 30);
+        ctx.fillText('Tp', plotLeft + tpFrac * plotW + 3, 30);
       }
       // Draw Ts (orange dotted)
       var tsFrac = (tsPred - tStart) / dur;
@@ -3101,27 +3257,30 @@ function drawReviewCanvas(canvas, trace) {
         ctx.lineWidth = 1.2;
         ctx.setLineDash([3, 4]);
         ctx.beginPath();
-        ctx.moveTo(tsFrac * W, 0);
-        ctx.lineTo(tsFrac * W, H);
+        ctx.moveTo(plotLeft + tsFrac * plotW, 0);
+        ctx.lineTo(plotLeft + tsFrac * plotW, H);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = '#ff9800';
         ctx.font = '11px monospace';
-        ctx.fillText('Ts', tsFrac * W + 3, 30);
+        ctx.fillText('Ts', plotLeft + tsFrac * plotW + 3, 30);
       }
     }
   }
 
   // Time axis labels
-  ctx.fillStyle = '#64748b';
+  ctx.fillStyle = c.axisText;
   ctx.font = '10px monospace';
   for (var t = 0; t <= 10; t++) {
     var relSec = (t / 10) * dur;
-    var xPos = (t / 10) * W;
+    var xPos = plotLeft + (t / 10) * plotW;
     var originT2 = reviewState.eventTime ? parseTimeStr(reviewState.eventTime) : tStart;
     var relToOrigin = (tStart + relSec) - originT2;
     ctx.fillText((relToOrigin >= 0 ? '+' : '') + relToOrigin.toFixed(1) + 's', xPos + 2, H - 2);
   }
+
+  // Y-axis overlay (drawn last, on top of waveform)
+  _drawYAxis(ctx, c, maxAbs, mid, amp, W, H);
 }
 
 function parseTimeStr(s) {
@@ -3196,7 +3355,8 @@ function drawSpectrogramCanvas(canvas, trace, eventTime, picks) {
     ctx.drawImage(img, shiftPx, 0, cssW, cssH);
 
     // Frequency axis labels (right edge, with padding to avoid clipping)
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    var _light = document.documentElement.getAttribute('data-theme') === 'light';
+    ctx.fillStyle = _light ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)';
     ctx.font = '9px monospace';
     ctx.textAlign = 'right';
     var nyquist = (trace.sampling_rate || 100) / 2;
@@ -3242,7 +3402,7 @@ function drawSpectrogramCanvas(canvas, trace, eventTime, picks) {
       var originT = parseTimeStr(eventTime);
       var frac2 = (originT - tStart2) / dur2;
       if (frac2 >= 0 && frac2 <= 1) {
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = _light ? '#334155' : '#ffffff';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([6, 4]);
         ctx.beginPath();
