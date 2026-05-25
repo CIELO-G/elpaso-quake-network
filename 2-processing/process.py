@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import argparse
 import gc
+import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 # scipy >=1.15 moved window functions from scipy.signal to scipy.signal.windows;
@@ -36,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.config import load_config, load_stations
 from lib.logger import MetricsWriter, setup_logging
+from lib.pipeline_stage import iter_days, resolve_time_window
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +65,11 @@ DEFAULTS = {
     "process_latency_hours": 6,
     "default_channels": "EHZ",
     "default_location": "00",
+    # Per-station parallelism. None = auto (min(cpu_count, n_stations)).
+    # Set to 1 to force serial processing (e.g. when debugging or under
+    # tight memory pressure). Each worker holds a full StationXML + the
+    # current trace's float64 buffers, so 4-8 workers ≈ a few GB peak.
+    "max_workers": None,
 }
 
 
@@ -81,24 +89,11 @@ def find_raw_files(
     station = station_cfg["station"]
 
     matched: list[Path] = []
-
-    day = UTCDateTime(start_time.year, start_time.month, start_time.day)
-    # Subtract 1 second so midnight end times stay on the previous day
-    end_adj = end_time - 1
-    end_day = UTCDateTime(end_adj.year, end_adj.month, end_adj.day)
-
-    while day <= end_day:
-        year_str = str(day.year)
-        jday_str = f"{day.julday:03d}"
+    for year_str, jday_str, _ in iter_days(start_time, end_time):
         day_dir = raw_dir / year_str / jday_str
-
         if day_dir.is_dir():
             pattern = f"{network}.{station}.*.*.{year_str}.{jday_str}.mseed"
-            for f in sorted(day_dir.glob(pattern)):
-                matched.append(f)
-
-        day += 86400
-
+            matched.extend(sorted(day_dir.glob(pattern)))
     return matched
 
 
@@ -359,45 +354,54 @@ def main() -> None:
     logger.info("=" * 60)
 
     # Determine time window
-    if args.start and args.end:
-        start_time = UTCDateTime(args.start)
-        end_time = UTCDateTime(args.end)
-        logger.info("Explicit range: %s -> %s", start_time, end_time)
-    elif args.start or args.end:
-        logger.error("Both --start and --end are required together")
-        sys.exit(1)
-    else:
-        end_time = UTCDateTime() - config["process_latency_hours"] * 3600
-        start_time = end_time - config["process_window_hours"] * 3600
-        logger.info("Scheduled mode: %s -> %s", start_time, end_time)
+    start_time, end_time = resolve_time_window(
+        args, config,
+        window_hours_key="process_window_hours",
+        latency_hours_key="process_latency_hours",
+        logger=logger,
+    )
 
     force = args.force
     if force:
         logger.info("Force mode enabled -- reprocessing all files")
 
-    # Process each station
+    # Worker count: auto-pick min(cpu, n_stations) unless overridden in config.
+    # ObsPy's response removal + filters are dominated by FFT/numpy work that
+    # releases the GIL, so a ThreadPoolExecutor scales nearly like processes
+    # for this workload without the pickling cost.
+    n_stations = len(stations)
+    configured = config.get("max_workers")
+    if configured is None:
+        max_workers = min(os.cpu_count() or 1, n_stations)
+    else:
+        max_workers = max(1, min(int(configured), n_stations))
+    logger.info("Parallelism: %d worker(s) for %d station(s)", max_workers, n_stations)
+
     totals: dict[str, int] = {"processed": 0, "skipped": 0, "failed": 0}
 
-    for station_cfg in stations:
+    def _run_station(station_cfg: dict) -> tuple[dict, str, float]:
+        """Worker payload: process one station, return (counts, sta_id, elapsed)."""
+        sta_id = f"{station_cfg['network']}.{station_cfg['station']}"
         t0 = time.monotonic()
         try:
             counts = process_station(
                 station_cfg, config, logger, start_time, end_time, force,
             )
-            for k in totals:
-                totals[k] += counts[k]
         except Exception as exc:
             logger.error(
-                "Unexpected error processing %s.%s: %s: %s",
-                station_cfg["network"], station_cfg["station"],
-                type(exc).__name__, exc,
+                "Unexpected error processing %s: %s: %s",
+                sta_id, type(exc).__name__, exc,
             )
-        elapsed = time.monotonic() - t0
-        metrics.record(
-            "process",
-            station=f"{station_cfg['network']}.{station_cfg['station']}",
-            duration_s=round(elapsed, 1),
-        )
+            counts = {"processed": 0, "skipped": 0, "failed": 0}
+        return counts, sta_id, time.monotonic() - t0
+
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="proc") as ex:
+        futures = [ex.submit(_run_station, s) for s in stations]
+        for fut in as_completed(futures):
+            counts, sta_id, elapsed = fut.result()
+            for k in totals:
+                totals[k] += counts[k]
+            metrics.record("process", station=sta_id, duration_s=round(elapsed, 1))
 
     # Summary
     logger.info("=" * 60)
