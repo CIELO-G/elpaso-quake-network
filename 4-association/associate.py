@@ -39,6 +39,12 @@ from obspy import UTCDateTime
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.config import load_config, load_stations
+from lib.constants import (
+    DEGREES_TO_KM,
+    NETWORK_CENTER_LAT,
+    NETWORK_CENTER_LON,
+    NETWORK_HALF_WIDTH_DEG,
+)
 from lib.logger import MetricsWriter, setup_logging
 from lib.magnitude import (
     MLConfig,
@@ -46,6 +52,7 @@ from lib.magnitude import (
     compute_ml_station,
     haversine_km,
 )
+from lib.pipeline_stage import iter_days, resolve_time_window
 
 DEFAULTS = {
     "stations_file": "stations.json",
@@ -54,12 +61,12 @@ DEFAULTS = {
     "log_dir": "logs",
     "log_max_bytes": 10_485_760,
     "log_backup_count": 5,
-    "center_lat": 31.85,
-    "center_lon": -106.40,
-    "xlim_degree": 0.7,
-    "ylim_degree": 0.7,
+    "center_lat": NETWORK_CENTER_LAT,
+    "center_lon": NETWORK_CENTER_LON,
+    "xlim_degree": NETWORK_HALF_WIDTH_DEG,
+    "ylim_degree": NETWORK_HALF_WIDTH_DEG,
     "zlim_km": [0, 30],
-    "degree2km": 111.19,
+    "degree2km": DEGREES_TO_KM,
     "vel": {"P": 6.0, "S": 3.47},
     "method": "BGMM",
     "use_dbscan": True,
@@ -550,17 +557,12 @@ def main() -> None:
     logger.info("=" * 60)
 
     # Determine time window
-    if args.start and args.end:
-        start_time = UTCDateTime(args.start)
-        end_time = UTCDateTime(args.end)
-        logger.info("Explicit range: %s -> %s", start_time, end_time)
-    elif args.start or args.end:
-        logger.error("Both --start and --end are required together")
-        sys.exit(1)
-    else:
-        end_time = UTCDateTime() - config["assoc_latency_hours"] * 3600
-        start_time = end_time - config["assoc_window_hours"] * 3600
-        logger.info("Scheduled mode: %s -> %s", start_time, end_time)
+    start_time, end_time = resolve_time_window(
+        args, config,
+        window_hours_key="assoc_window_hours",
+        latency_hours_key="assoc_latency_hours",
+        logger=logger,
+    )
 
     force = args.force
     if force:
@@ -578,22 +580,13 @@ def main() -> None:
     # Iterate days
     totals: dict[str, int] = {"days": 0, "skipped": 0, "events": 0, "picks_associated": 0, "failed": 0}
 
-    day = UTCDateTime(start_time.year, start_time.month, start_time.day)
-    # Subtract 1 second so midnight end times stay on the previous day
-    end_adj = end_time - 1
-    end_day = UTCDateTime(end_adj.year, end_adj.month, end_adj.day)
-
-    while day <= end_day:
-        year = str(day.year)
-        jday = f"{day.julday:03d}"
-
+    for year, jday, day in iter_days(start_time, end_time):
         catalog_path, assignments_path = get_daily_output_paths(config["output_dir"], year, jday)
 
         # Skip check
         if catalog_path.exists() and not force:
             logger.debug("Already associated, skipping day %s/%s", year, jday)
             totals["skipped"] += 1
-            day += 86400
             continue
 
         logger.info("=== Day %s/%s ===", year, jday)
@@ -607,7 +600,6 @@ def main() -> None:
             write_catalog_csv([], catalog_path, logger)
             write_assignments_csv([], assignments_path, logger)
             totals["days"] += 1
-            day += 86400
             continue
 
         try:
@@ -616,7 +608,6 @@ def main() -> None:
             logger.error("Failed to load picks for %s/%s: %s: %s",
                          year, jday, type(exc).__name__, exc)
             totals["failed"] += 1
-            day += 86400
             continue
 
         if picks_df.empty:
@@ -624,7 +615,6 @@ def main() -> None:
             write_catalog_csv([], catalog_path, logger)
             write_assignments_csv([], assignments_path, logger)
             totals["days"] += 1
-            day += 86400
             continue
 
         # Run association
@@ -638,7 +628,6 @@ def main() -> None:
             write_assignments_csv([], assignments_path, logger)
             totals["failed"] += 1
             totals["days"] += 1
-            day += 86400
             continue
 
         # Drop events that don't span enough stations
@@ -659,7 +648,6 @@ def main() -> None:
             write_catalog_csv([], catalog_path, logger)
             write_assignments_csv([], assignments_path, logger)
             totals["days"] += 1
-            day += 86400
             continue
 
         # Format and write outputs
@@ -690,8 +678,6 @@ def main() -> None:
 
         # Explicit cleanup after each day
         gc.collect()
-
-        day += 86400
 
     # Summary
     logger.info("=" * 60)

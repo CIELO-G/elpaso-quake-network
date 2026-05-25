@@ -384,21 +384,54 @@ function renderStationHealth(healthData) {
 }
 
 // ── Render events on map (click for detail) ─────────────────────
-let lastEventCount = -1;
 let allEvents = [];
+
+// Fixed palette for non-earthquake event types. Earthquakes keep
+// magnitude-based viridis shading so scientifically meaningful events stay
+// colour-coded by size.
+var EVENT_TYPE_COLORS = {
+  quarry_blast: '#f59e0b',   // amber
+  unreviewed:   '#94a3b8',   // muted gray
+};
+
+function eventMapStyle(e) {
+  // Fill colour + stroke colour keyed to review status and event type.
+  // Earthquakes (or reviewed-without-type) keep the viridis/magnitude ramp.
+  var status = e.review_status || '';
+  var type = e.event_type || '';
+  if (status === 'confirmed') {
+    if (type === 'quarry_blast') {
+      return { fill: EVENT_TYPE_COLORS.quarry_blast, stroke: '#78350f' };
+    }
+    // Earthquake, undetermined-but-confirmed, and anything else:
+    // magnitude-based viridis.
+    return { fill: eventColor(e.magnitude), stroke: '#000' };
+  }
+  // Unreviewed (or any other non-rejected state).
+  return { fill: EVENT_TYPE_COLORS.unreviewed, stroke: '#334155' };
+}
+
+function shouldRenderEventOnMap(e) {
+  // Hide rejected events entirely. Hide confirmed noise (not an arrival
+  // worth showing on a geographic map).
+  if (e.review_status === 'rejected') return false;
+  if (e.review_status === 'confirmed' && e.event_type === 'noise') return false;
+  return true;
+}
+
 function renderEvents(events) {
   allEvents = events;
-  if (events.length === lastEventCount) return;
-  lastEventCount = events.length;
   eventLayer.clearLayers();
-  if (events.length === 0) return;
-  events.forEach(function(e, i) {
+  if (!events || events.length === 0) return;
+  events.forEach(function(e) {
     if (e.latitude == null || e.longitude == null) return;
+    if (!shouldRenderEventOnMap(e)) return;
+    var style = eventMapStyle(e);
     var radius = 2 + (e.magnitude || 0) * 1.5;
     L.circleMarker([e.latitude, e.longitude], {
       radius: radius,
-      fillColor: eventColor(e.magnitude),
-      color: '#000',
+      fillColor: style.fill,
+      color: style.stroke,
       weight: 1,
       fillOpacity: 0.8
     })
@@ -470,33 +503,24 @@ function renderStats(s) {
     document.getElementById('s-mag').textContent = '\u2014';
   }
 
+  var latestEl = document.getElementById('s-latest');
+  var latestCard = document.getElementById('stat-card-latest');
   if (s.latest_event_time) {
     var d = new Date(s.latest_event_time);
     var timeStr = d.toISOString().slice(0, 16).replace('T', ' ');
-    var el = document.getElementById('s-latest');
-    el.innerHTML = '<span style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted">' + esc(timeStr) + '</span>';
-    el.style.cursor = 'pointer';
-    el.onclick = function() {
-      // Switch to overview tab if needed
-      if (activeTab !== 'overview') {
-        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-        document.querySelector('.tab-btn[data-tab="overview"]').classList.add('active');
-        document.getElementById('tab-' + activeTab).classList.remove('active');
-        activeTab = 'overview';
-        document.getElementById('tab-overview').classList.add('active');
-        setTimeout(function() { map.invalidateSize(); }, 50);
-      }
-      // Fly to event
+    latestEl.textContent = timeStr;
+    latestCard.classList.add('clickable');
+    latestCard.onclick = function() {
+      if (activeTab !== 'monitor') switchTab('monitor');
       if (s.latest_event_lat != null && s.latest_event_lon != null) {
         map.flyTo([s.latest_event_lat, s.latest_event_lon], 13);
       }
       showEventDetail(s.latest_event_id);
     };
   } else {
-    var el = document.getElementById('s-latest');
-    el.textContent = '\u2014';
-    el.style.cursor = '';
-    el.onclick = null;
+    latestEl.textContent = '\u2014';
+    latestCard.classList.remove('clickable');
+    latestCard.onclick = null;
   }
 
   // Review progress
@@ -519,8 +543,20 @@ function renderProgress(p) {
   var badge = document.getElementById('progress-badge');
   var count = document.getElementById('progress-count');
   var txt = document.getElementById('progress-text');
+  var panel = document.getElementById('progress-panel');
   var pct = p.percent || 0;
   var isCaughtUp = pct >= 95 && p.pipeline_status !== 'running';
+
+  // Status accent on panel
+  var statusClass = 'status-idle';
+  if (p.pipeline_status === 'running') statusClass = 'status-running';
+  else if (isCaughtUp) {
+    var target = new Date(p.target_date + 'T00:00:00Z');
+    var ageDays = Math.floor((Date.now() - target.getTime()) / 86400000);
+    statusClass = ageDays > 2 ? 'status-behind' : 'status-caught-up';
+  }
+  panel.classList.remove('status-running', 'status-caught-up', 'status-behind', 'status-idle', 'status-failed');
+  panel.classList.add(statusClass);
 
   // Bar
   bar.style.width = Math.min(pct, 100) + '%';
@@ -641,11 +677,11 @@ function renderCompleteness(data) {
   maxEl.textContent = globalMax;
   rangeEl.textContent = days.length + ' days';
 
-  var LABEL_W = 52;
+  var LABEL_W = 60;
   var W = el.clientWidth || 280;
   var chartW = W - LABEL_W;
-  var ROW_H = 16;
-  var PAD_BOTTOM = 16;
+  var ROW_H = 24;
+  var PAD_BOTTOM = 20;
   var cellW = Math.max(1, chartW / days.length);
   var svgW = LABEL_W + cellW * days.length;
   var svgH = ROW_H * stations.length + PAD_BOTTOM;
@@ -653,7 +689,7 @@ function renderCompleteness(data) {
   var svg = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
   stations.forEach(function(sta, si) {
     var y = si * ROW_H;
-    svg += '<text x="' + (LABEL_W - 4) + '" y="' + (y + ROW_H - 4) + '" fill="var(--muted)" font-size="8" font-family="monospace" text-anchor="end">' + esc(sta) + '</text>';
+    svg += '<text x="' + (LABEL_W - 4) + '" y="' + (y + ROW_H / 2 + 3) + '" fill="var(--muted)" font-size="10" font-family="monospace" text-anchor="end">' + esc(sta) + '</text>';
     var row = matrix[si];
     row.forEach(function(count, di) {
       var x = LABEL_W + di * cellW;
@@ -674,7 +710,7 @@ function renderCompleteness(data) {
   if (days.length > 1) ticks2.push({ i: days.length - 1, label: days[days.length - 1].slice(5) });
   ticks2.forEach(function(item) {
     var x = LABEL_W + item.i * cellW + cellW / 2;
-    svg += '<text x="' + x + '" y="' + (baseY + PAD_BOTTOM - 3) + '" fill="var(--muted)" font-size="7" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
+    svg += '<text x="' + x + '" y="' + (baseY + PAD_BOTTOM - 4) + '" fill="var(--muted)" font-size="9" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
   });
   svg += '</svg>';
   el.innerHTML = svg;
@@ -702,18 +738,27 @@ function renderDisk(d) {
 function renderErrors(data) {
   var errs = data.errors || [];
   var el = document.getElementById('error-log');
+  var modalEl = document.getElementById('error-log-modal');
   var countEl = document.getElementById('error-count');
+  var countModalEl = document.getElementById('error-count-modal');
 
   if (errs.length === 0) {
-    el.innerHTML = '<div style="color:var(--muted)">No errors.</div>';
+    var empty = '<div style="color:var(--muted)">No errors.</div>';
+    el.innerHTML = empty;
+    modalEl.innerHTML = empty;
     countEl.textContent = '';
+    countModalEl.textContent = '';
     return;
   }
 
-  countEl.textContent = '(' + errs.length + ')';
-  el.innerHTML = errs.map(function(e) {
+  var countText = '(' + errs.length + ')';
+  countEl.textContent = countText;
+  countModalEl.textContent = countText;
+  var rowsHtml = errs.map(function(e) {
     return '<div class="el-row"><span class="el-time">' + esc(e.timestamp) + '</span><span class="el-step">[' + esc(e.step) + ']</span><span class="el-' + esc(e.level) + '">' + esc(e.message) + '</span></div>';
   }).join('');
+  el.innerHTML = rowsHtml;
+  modalEl.innerHTML = rowsHtml;
 }
 
 // ── Date filter & export ────────────────────────────────────────
@@ -886,26 +931,62 @@ setTimeout(function() { map.invalidateSize(); }, 200);
 window.addEventListener('resize', function() { map.invalidateSize(); });
 
 // ── Tab Navigation ──────────────────────────────────────────────
-var activeTab = 'overview';
-var tabDataLoaded = { overview: true, catalog: false, waveviewer: false };
+var activeTab = 'monitor';
+var tabDataLoaded = { monitor: true, pipeline: true, catalog: false, waveviewer: false };
+
+function switchTab(tab) {
+  if (tab === activeTab) return;
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  var targetBtn = document.querySelector('.tab-btn[data-tab="' + tab + '"]');
+  if (targetBtn) targetBtn.classList.add('active');
+  document.getElementById('tab-' + activeTab).classList.remove('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  activeTab = tab;
+  if (tab === 'monitor') {
+    setTimeout(function() { map.invalidateSize(); }, 50);
+  }
+  if (!tabDataLoaded[tab]) {
+    tabDataLoaded[tab] = true;
+    if (tab === 'catalog') loadCatalogTable();
+  }
+}
 
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var tab = btn.getAttribute('data-tab');
-    if (tab === activeTab) return;
-    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    document.getElementById('tab-' + activeTab).classList.remove('active');
-    document.getElementById('tab-' + tab).classList.add('active');
-    activeTab = tab;
-    if (tab === 'overview') {
-      setTimeout(function() { map.invalidateSize(); }, 50);
-    }
-    if (!tabDataLoaded[tab]) {
-      tabDataLoaded[tab] = true;
-      if (tab === 'catalog') loadCatalogTable();
-    }
+    switchTab(btn.getAttribute('data-tab'));
   });
+});
+
+// ── Pipeline stat-card click handlers ───────────────────────────
+document.getElementById('stat-card-events').addEventListener('click', function() {
+  document.getElementById('cat-review-filter').value = '';
+  catPage = 1;
+  switchTab('catalog');
+  if (tabDataLoaded.catalog) loadCatalogTable();
+});
+document.getElementById('stat-card-picks').addEventListener('click', function() {
+  document.getElementById('cat-review-filter').value = '';
+  catPage = 1;
+  switchTab('catalog');
+  if (tabDataLoaded.catalog) loadCatalogTable();
+});
+document.getElementById('stat-card-reviewed').addEventListener('click', function() {
+  document.getElementById('cat-review-filter').value = 'confirmed';
+  catPage = 1;
+  switchTab('catalog');
+  if (tabDataLoaded.catalog) loadCatalogTable();
+});
+
+// ── Error log expand modal ──────────────────────────────────────
+var errorModal = document.getElementById('error-modal');
+document.getElementById('error-log-expand').addEventListener('click', function() {
+  errorModal.classList.add('open');
+});
+document.getElementById('error-modal-close').addEventListener('click', function() {
+  errorModal.classList.remove('open');
+});
+errorModal.addEventListener('click', function(e) {
+  if (e.target === errorModal) errorModal.classList.remove('open');
 });
 
 // ── QuakeML Export ──────────────────────────────────────────────
@@ -1038,14 +1119,7 @@ function loadCatalogTable() {
       tbody.querySelectorAll('tr').forEach(function(row) {
         row.addEventListener('click', function() {
           var eid = row.getAttribute('data-eid');
-          // Switch to overview tab and show event
-          document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-          document.querySelector('.tab-btn[data-tab="overview"]').classList.add('active');
-          document.getElementById('tab-' + activeTab).classList.remove('active');
-          activeTab = 'overview';
-          document.getElementById('tab-overview').classList.add('active');
-          setTimeout(function() { map.invalidateSize(); }, 50);
-          // Fly to event on map
+          switchTab('monitor');
           var ev = data.events.find(function(x) { return x.event_id === eid; });
           if (ev && ev.latitude != null && ev.longitude != null) {
             map.flyTo([ev.latitude, ev.longitude], 13);
@@ -1897,8 +1971,12 @@ function drawReviewCanvas(canvas, trace) {
 
 function parseTimeStr(s) {
   if (!s) return 0;
-  var str = String(s).replace('T', ' ').replace('Z', '');
-  return new Date(str + 'Z').getTime() / 1000;
+  var str = String(s);
+  // If the string already carries an explicit timezone (Z, +HH:MM, -HH:MM),
+  // parse it as-is; otherwise assume UTC and append Z.
+  var hasTz = /(Z|[+-]\d{2}:?\d{2})$/.test(str);
+  var t = Date.parse(hasTz ? str : (str.replace(' ', 'T') + 'Z'));
+  return isNaN(t) ? 0 : t / 1000;
 }
 
 function haversine_km(lat1, lon1, lat2, lon2) {

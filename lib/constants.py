@@ -20,17 +20,31 @@ EVENTS_SUBDIR = "4-events"
 CATALOG_SUBDIR = "5-catalog"
 
 # ---------------------------------------------------------------------------
-# Network geometry (approximate centroid of 11 El Paso stations)
+# Network geometry (approximate centroid of El Paso stations)
 # ---------------------------------------------------------------------------
 
 NETWORK_CENTER_LAT = 31.85
 NETWORK_CENTER_LON = -106.40
+
+# Half-width (in degrees) of the GaMMA association search region, centred on
+# the network. ±0.7° ≈ ±78 km — comfortably contains all stations + locatable
+# events out to ~100 km.
+NETWORK_HALF_WIDTH_DEG = 0.7
+
+# Average degrees-to-km conversion at mid-latitude. Used to translate the
+# degree-based search region into km for GaMMA's projected frame.
+DEGREES_TO_KM = 111.19
 
 # ---------------------------------------------------------------------------
 # Pipeline operational defaults
 # ---------------------------------------------------------------------------
 
 DATA_LATENCY_HOURS = 6
+
+# Total lag for "is today's data eligible to process?" in continuous mode:
+# 24 h for the day to complete + DATA_LATENCY_HOURS FDSNWS finalisation buffer.
+CONTINUOUS_LAG_HOURS = 24 + DATA_LATENCY_HOURS
+
 DEFAULT_MAX_RETRIES = 5
 DEFAULT_RETRY_WAIT_SECONDS = 120
 PIPELINE_START_DATE_ISO = "2025-11-01"

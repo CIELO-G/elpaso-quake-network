@@ -159,6 +159,37 @@ def check_significant_events(magnitude_threshold: float = 4.0) -> list[dict]:
 # ── Validation (--validate flag) ────────────────────────────────────────────
 
 
+def check_critical_imports() -> tuple[bool, list[str]]:
+    """Verify that every package each pipeline step depends on imports cleanly.
+
+    Catches silent environment drift (e.g. a ``conda install`` that upgraded
+    numpy past numba's ceiling) so the pipeline fails fast at startup rather
+    than hours into a backfill when step 4 finally calls ``gamma``.
+
+    Returns ``(all_ok, error_messages)``.
+    """
+    # Each entry: (module_path, which_step_needs_it)
+    critical = [
+        ("obspy", "all steps (seismic I/O)"),
+        ("numpy", "all steps"),
+        ("pandas", "all steps"),
+        ("scipy", "step 2, step 4"),
+        ("yaml", "all steps (config)"),
+        ("pyproj", "step 4 (projection)"),
+        ("torch", "step 3 (PhaseNet inference)"),
+        ("seisbench", "step 3 (PhaseNet model)"),
+        ("gamma", "step 4 (GaMMA association)"),
+        ("numba", "step 4 (gamma dependency — pinned numpy<2.4)"),
+    ]
+    errors: list[str] = []
+    for name, where in critical:
+        try:
+            __import__(name)
+        except ImportError as exc:
+            errors.append(f"{name}: {exc}  (needed for {where})")
+    return (not errors), errors
+
+
 def validate_environment() -> bool:
     """Run comprehensive environment validation.
 
@@ -178,7 +209,7 @@ def validate_environment() -> bool:
     print("=" * 60)
 
     # 1. FDSNWS reachability
-    print("\n[1/6] FDSNWS endpoint...")
+    print("\n[1/7] FDSNWS endpoint...")
     fdsnws_url = "https://data.raspberryshake.org/fdsnws/dataselect/1/version"
     try:
         with urllib.request.urlopen(fdsnws_url, timeout=15) as resp:
@@ -198,14 +229,14 @@ def validate_environment() -> bool:
         print(f"  WARN: Cannot reach IRIS FDSNWS: {exc}")
 
     # 2. Disk space
-    print("\n[2/6] Disk space...")
+    print("\n[2/7] Disk space...")
     ok, msg = check_disk_space()
     print(f"  {'OK' if ok else 'WARN'}: {msg}")
     if not ok:
         all_ok = False
 
     # 3. GPU availability
-    print("\n[3/6] GPU availability...")
+    print("\n[3/7] GPU availability...")
     try:
         import torch
         if torch.cuda.is_available():
@@ -219,7 +250,7 @@ def validate_environment() -> bool:
         print(f"  WARN: PyTorch not installed -- cannot check GPU")
 
     # 4. Config files
-    print("\n[4/6] Configuration files...")
+    print("\n[4/7] Configuration files...")
     config_files = [
         "1-ingestion/config.yaml",
         "2-processing/config.yaml",
@@ -243,7 +274,7 @@ def validate_environment() -> bool:
             all_ok = False
 
     # 5. Station file
-    print("\n[5/6] Station file...")
+    print("\n[5/7] Station file...")
     stations_path = ROOT / "stations.json"
     if stations_path.exists():
         try:
@@ -256,8 +287,18 @@ def validate_environment() -> bool:
         print(f"  FAIL: stations.json not found")
         all_ok = False
 
-    # 6. Output directory writability
-    print("\n[6/6] Output directories...")
+    # 6. Critical Python imports (guards against env drift)
+    print("\n[6/7] Critical Python imports...")
+    imports_ok, import_errors = check_critical_imports()
+    if imports_ok:
+        print(f"  OK: all pipeline-step imports succeed")
+    else:
+        for err in import_errors:
+            print(f"  FAIL: {err}")
+        all_ok = False
+
+    # 7. Output directory writability
+    print("\n[7/7] Output directories...")
     for d in ["output", "logs"]:
         path = ROOT / d
         path.mkdir(parents=True, exist_ok=True)

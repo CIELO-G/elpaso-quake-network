@@ -22,6 +22,15 @@ from email.mime.text import MIMEText
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))  # allow `from lib.constants import ...`
+
+from lib.constants import (  # noqa: E402  (path setup above)
+    CONTINUOUS_LAG_HOURS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_WAIT_SECONDS,
+    PIPELINE_START_DATE_ISO,
+)
+
 STATUS_FILE = ROOT / "output" / "pipeline_status.json"
 EVENTS_DIR = ROOT / "output" / "4-events"
 STATIONS_FILE = ROOT / "stations.json"
@@ -29,10 +38,10 @@ RAW_DIR = ROOT / "output" / "1-raw"
 
 # ── continuous-mode defaults ──────────────────────────────────────────────────
 
-LAG_HOURS = 6
-MAX_RETRIES = 5
-RETRY_WAIT = 120          # seconds between retries
-PIPELINE_START = date(2025, 11, 1)
+LAG_HOURS = CONTINUOUS_LAG_HOURS
+MAX_RETRIES = DEFAULT_MAX_RETRIES
+RETRY_WAIT = DEFAULT_RETRY_WAIT_SECONDS
+PIPELINE_START = date.fromisoformat(PIPELINE_START_DATE_ISO)
 MAX_SKIP_RETRY_PASSES = 3   # retry all skipped days this many times after catching up
 SKIP_RETRY_WAIT = 600       # 10-minute cooldown between retry passes
 
@@ -809,6 +818,22 @@ def main() -> None:
         from lib.monitoring import validate_environment
         ok = validate_environment()
         sys.exit(0 if ok else 1)
+
+    # Fail fast on environment drift (e.g. numpy upgraded past numba's ceiling).
+    # Catches import-level breakage before any expensive work begins.
+    from lib.monitoring import check_critical_imports
+    imports_ok, import_errors = check_critical_imports()
+    if not imports_ok:
+        print("ERROR: critical imports failed -- the conda env is broken.", file=sys.stderr)
+        for err in import_errors:
+            print(f"  - {err}", file=sys.stderr)
+        print(
+            "\nLikely cause: an upstream package upgraded numpy past numba's ceiling.\n"
+            "Try: conda install -n elpaso-quake -y -c conda-forge 'numpy<2.4'",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     if args.gap_fill:
         gap_fill_run(args)
     elif args.continuous:

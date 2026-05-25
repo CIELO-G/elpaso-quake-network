@@ -50,13 +50,14 @@
 </div>
 
 <div class="tab-bar">
-  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn active" data-tab="monitor">Monitor</button>
+  <button class="tab-btn" data-tab="pipeline">Pipeline</button>
   <button class="tab-btn" data-tab="catalog">Catalog</button>
   <button class="tab-btn" data-tab="waveviewer">Waveviewer</button>
 </div>
 
-<!-- Tab: Overview (existing layout) -->
-<div class="main tab-content active" id="tab-overview">
+<!-- Tab: Monitor (map only) -->
+<div class="main tab-content active" id="tab-monitor">
   <div class="map-wrap">
     <div id="map"></div>
     <div class="map-style-control" id="map-style-control">
@@ -68,29 +69,57 @@
       <button class="map-toggle-btn" id="toggle-faults" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4)">Faults</button>
       <button class="map-toggle-btn" id="toggle-study-area" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4);margin-left:.35rem">Study Area</button>
     </div>
+    <div class="map-legend" id="map-legend">
+      <div class="ml-title">Events</div>
+      <div class="ml-row"><span class="ml-dot" style="background:#fde725;border-color:#000"></span>Earthquake (by M)</div>
+      <div class="ml-row"><span class="ml-dot" style="background:#f59e0b;border-color:#78350f"></span>Quarry blast</div>
+      <div class="ml-row"><span class="ml-dot" style="background:#94a3b8;border-color:#334155"></span>Unreviewed</div>
+    </div>
     <div class="event-detail-overlay" id="event-detail">
       <button class="detail-close" id="detail-close">&times;</button>
       <h3 id="detail-title">Event Detail</h3>
       <div id="detail-body"></div>
     </div>
   </div>
-  <div class="sidebar">
-    <!-- Statistics -->
-    <div class="panel">
-      <div class="panel-title">Statistics</div>
+</div>
+
+<!-- Tab: Pipeline (stats + progress + completeness + disk + errors) -->
+<div class="tab-content-full" id="tab-pipeline">
+  <div class="pipeline-grid">
+    <!-- Hero stats row -->
+    <div class="hero-stats pipeline-wide">
       <div class="panel-loading" id="loading-stats"><span class="spinner"></span></div>
-      <div class="stats-grid" id="stats-grid">
-        <div class="stat-item"><div class="stat-value" id="s-events">&mdash;</div><div class="stat-label">Events</div></div>
-        <div class="stat-item"><div class="stat-value" id="s-picks">&mdash;</div><div class="stat-label">Picks</div></div>
-        <div class="stat-item"><div class="stat-value" id="s-days">&mdash;</div><div class="stat-label">Days</div></div>
-        <div class="stat-item"><div class="stat-value" id="s-stations">&mdash;</div><div class="stat-label">Stations</div></div>
-        <div class="stat-item"><div class="stat-value" id="s-mag">&mdash;</div><div class="stat-label">Magnitude</div></div>
-        <div class="stat-item"><div class="stat-value" id="s-latest">&mdash;</div><div class="stat-label">Latest event</div></div>
-        <div class="stat-item"><div class="stat-value" id="s-reviewed">&mdash;</div><div class="stat-label">Reviewed</div></div>
+      <div class="hero-stat clickable" id="stat-card-events" data-target="catalog">
+        <div class="hero-stat-value" id="s-events">&mdash;</div>
+        <div class="hero-stat-label">Events</div>
+      </div>
+      <div class="hero-stat clickable" id="stat-card-picks" data-target="catalog">
+        <div class="hero-stat-value" id="s-picks">&mdash;</div>
+        <div class="hero-stat-label">Picks</div>
+      </div>
+      <div class="hero-stat clickable" id="stat-card-latest">
+        <div class="hero-stat-value" id="s-latest">&mdash;</div>
+        <div class="hero-stat-label">Latest event</div>
+      </div>
+      <div class="hero-stat clickable" id="stat-card-reviewed" data-target="catalog-confirmed">
+        <div class="hero-stat-value" id="s-reviewed">&mdash;</div>
+        <div class="hero-stat-label">Reviewed</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-value" id="s-days">&mdash;</div>
+        <div class="hero-stat-label">Days</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-value" id="s-stations">&mdash;</div>
+        <div class="hero-stat-label">Stations</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-value" id="s-mag">&mdash;</div>
+        <div class="hero-stat-label">Magnitude</div>
       </div>
     </div>
     <!-- Progress + Throughput -->
-    <div class="panel">
+    <div class="panel" id="progress-panel">
       <div class="panel-title">Progress</div>
       <div class="panel-loading" id="loading-progress"><span class="spinner"></span></div>
       <div style="display:flex;align-items:center;gap:.5rem">
@@ -104,8 +133,16 @@
       <div class="step-timing-bar" id="step-timing-bar"></div>
       <div class="step-timing-legend" id="step-timing-legend"></div>
     </div>
-    <!-- Data Completeness -->
+    <!-- Disk Usage -->
     <div class="panel">
+      <div class="panel-title">Disk Usage</div>
+      <div class="panel-loading" id="loading-disk"><span class="spinner"></span></div>
+      <div class="bar-outer"><div class="bar-inner" id="disk-bar"></div></div>
+      <div class="disk-text" id="disk-text">&mdash;</div>
+      <div class="disk-breakdown" id="disk-breakdown"></div>
+    </div>
+    <!-- Data Completeness -->
+    <div class="panel pipeline-wide">
       <div class="panel-title">Data Completeness <span class="error-count" id="completeness-range"></span></div>
       <div class="panel-loading" id="loading-completeness"><span class="spinner"></span></div>
       <div class="completeness-wrap" id="completeness-calendar">
@@ -116,21 +153,29 @@
         <span style="margin-left:auto">files / station / day</span>
       </div>
     </div>
-    <!-- Disk Usage -->
-    <div class="panel">
-      <div class="panel-title">Disk Usage</div>
-      <div class="panel-loading" id="loading-disk"><span class="spinner"></span></div>
-      <div class="bar-outer"><div class="bar-inner" id="disk-bar"></div></div>
-      <div class="disk-text" id="disk-text">&mdash;</div>
-      <div class="disk-breakdown" id="disk-breakdown"></div>
-    </div>
     <!-- Error Log -->
-    <div class="panel">
-      <div class="panel-title">Errors <span class="error-count" id="error-count"></span></div>
+    <div class="panel pipeline-wide">
+      <div class="panel-title">
+        Errors <span class="error-count" id="error-count"></span>
+        <button class="panel-action" id="error-log-expand" title="Expand error log">&#x2922;</button>
+      </div>
       <div class="panel-loading" id="loading-errors"><span class="spinner"></span></div>
       <div class="error-log" id="error-log">
         <div style="color:var(--muted)">No errors.</div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Error log expanded modal -->
+<div class="modal-overlay" id="error-modal">
+  <div class="modal-box modal-box-large">
+    <div class="modal-header">
+      <h3>Error Log <span class="error-count" id="error-count-modal"></span></h3>
+      <button class="detail-close" id="error-modal-close">&times;</button>
+    </div>
+    <div class="error-log error-log-expanded" id="error-log-modal">
+      <div style="color:var(--muted)">No errors.</div>
     </div>
   </div>
 </div>

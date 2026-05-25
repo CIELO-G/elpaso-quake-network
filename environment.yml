@@ -7,7 +7,7 @@ dependencies:
   - obspy=1.4.1
   - pyyaml=6.0.2
   - pyproj=3.7.0
-  - numpy=1.26.4
+  - numpy>=1.26,<2.4      # numba 0.63 rejects numpy >= 2.4 (import error)
   - scipy=1.14.1
   - matplotlib=3.9.4
   - pandas=2.2.3

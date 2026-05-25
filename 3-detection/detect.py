@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.config import load_config, load_stations
 from lib.logger import MetricsWriter, setup_logging
+from lib.pipeline_stage import iter_days, resolve_time_window
 
 DEFAULTS = {
     "stations_file": "stations.json",
@@ -335,17 +336,12 @@ def main() -> None:
     logger.info("=" * 60)
 
     # Determine time window
-    if args.start and args.end:
-        start_time = UTCDateTime(args.start)
-        end_time = UTCDateTime(args.end)
-        logger.info("Explicit range: %s -> %s", start_time, end_time)
-    elif args.start or args.end:
-        logger.error("Both --start and --end are required together")
-        sys.exit(1)
-    else:
-        end_time = UTCDateTime() - config["detect_latency_hours"] * 3600
-        start_time = end_time - config["detect_window_hours"] * 3600
-        logger.info("Scheduled mode: %s -> %s", start_time, end_time)
+    start_time, end_time = resolve_time_window(
+        args, config,
+        window_hours_key="detect_window_hours",
+        latency_hours_key="detect_latency_hours",
+        logger=logger,
+    )
 
     force = args.force
     if force:
@@ -357,21 +353,13 @@ def main() -> None:
     # Iterate over days
     totals: dict[str, int] = {"days": 0, "skipped": 0, "picks": 0}
 
-    day = UTCDateTime(start_time.year, start_time.month, start_time.day)
-    # Subtract 1 second so midnight end times stay on the previous day
-    end_adj = end_time - 1
-    end_day = UTCDateTime(end_adj.year, end_adj.month, end_adj.day)
-
-    while day <= end_day:
-        year = str(day.year)
-        jday = f"{day.julday:03d}"
+    for year, jday, day in iter_days(start_time, end_time):
         daily_csv = get_daily_picks_path(config["output_dir"], year, jday)
 
         # Skip check
         if daily_csv.exists() and not force:
             logger.debug("Already detected, skipping day %s/%s", year, jday)
             totals["skipped"] += 1
-            day += 86400
             continue
 
         logger.info("=== Day %s/%s ===", year, jday)
@@ -383,7 +371,6 @@ def main() -> None:
             logger.info("No raw data for %s/%s, writing empty CSV", year, jday)
             write_picks_csv([], daily_csv, logger)
             totals["days"] += 1
-            day += 86400
             continue
 
         with tempfile.TemporaryDirectory(prefix="phasenet_") as tmp_dir:
@@ -393,7 +380,6 @@ def main() -> None:
                 logger.warning("No valid data for %s/%s after merge", year, jday)
                 write_picks_csv([], daily_csv, logger)
                 totals["days"] += 1
-                day += 86400
                 continue
 
             logger.info("Merged %d raw file(s) -> %s", len(raw_files), merged_mseed)
@@ -416,7 +402,6 @@ def main() -> None:
                 logger.error("PhaseNet failed for %s/%s", year, jday)
                 write_picks_csv([], daily_csv, logger)
                 totals["days"] += 1
-                day += 86400
                 continue
 
             # --- Step 5: Parse picks and write daily CSV ---
@@ -438,7 +423,6 @@ def main() -> None:
                      year, jday, len(day_picks), day_elapsed)
 
         gc.collect()
-        day += 86400
 
     # Summary
     logger.info("=" * 60)
