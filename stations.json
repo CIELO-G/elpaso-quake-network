@@ -268,10 +268,11 @@
   {
     "network": "AM",
     "station": "RB27A",
+    "_coord_note": "Coordinates hand-entered (31 42 28.9N / 106 22 25.9W); FDSNWS metadata for AM.RB27A was wrong by ~11 km. Don't auto-overwrite from FDSNWS.",
     "location": "00",
     "channels": "E??",
-    "latitude": 31.756757,
-    "longitude": -106.488426,
+    "latitude": 31.708028,
+    "longitude": -106.373861,
     "elevation_m": 1185.0,
     "sample_rate_hz": 100.0,
     "start_date": "2024-11-09",

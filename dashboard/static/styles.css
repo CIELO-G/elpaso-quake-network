@@ -1,21 +1,48 @@
+  /* ============================================================
+     Design tokens
+     Foundation for the professional desktop-software aesthetic:
+     consistent spacing, type, radii, shadows, and a deliberate
+     font split between chrome (sans) and data (mono).
+     ============================================================ */
   :root {
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --border: #334155;
-    --text: #e2e8f0;
-    --muted: #94a3b8;
-    --green: #22c55e;
-    --blue: #3b82f6;
-    --red: #ef4444;
-    --amber: #f59e0b;
-    --gray: #475569;
-    --canvas-bg: #020617;
-  }
-  [data-theme="light"] {
-    --bg: #f1f5f9;
+    /* Font families */
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Cascadia Mono",
+                 monospace;
+
+    /* Spacing scale (4-px base) */
+    --space-1: 0.25rem;   /*  4 px */
+    --space-2: 0.5rem;    /*  8 px */
+    --space-3: 0.75rem;   /* 12 px */
+    --space-4: 1rem;      /* 16 px */
+    --space-5: 1.25rem;   /* 20 px */
+    --space-6: 1.5rem;    /* 24 px */
+
+    /* Type scale */
+    --text-2xs: 0.625rem;  /* 10 px — counters, axis ticks */
+    --text-xs:  0.7rem;    /* 11 px — labels, badges */
+    --text-sm:  0.8rem;    /* 13 px — controls, table rows */
+    --text-base:0.875rem;  /* 14 px — body */
+    --text-md:  1rem;      /* 16 px — small headings */
+    --text-lg:  1.125rem;  /* 18 px — page title */
+
+    /* Radii */
+    --radius-sm: 3px;
+    --radius-md: 5px;
+    --radius-lg: 8px;
+    --radius-pill: 9999px;
+
+    /* Shadows — kept very subtle for "licensed software" feel */
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, .05);
+    --shadow-md: 0 2px 4px rgba(15, 23, 42, .08);
+    --shadow-overlay: 0 8px 24px rgba(15, 23, 42, .12);
+
+    /* === Light theme (default; matches the empty data-theme attribute) === */
+    --bg: #f6f8fb;
     --surface: #ffffff;
     --border: #cbd5e1;
-    --text: #1e293b;
+    --text: #0f172a;
     --muted: #64748b;
     --green: #16a34a;
     --blue: #2563eb;
@@ -24,9 +51,131 @@
     --gray: #94a3b8;
     --canvas-bg: #ffffff;
   }
-  [data-theme="light"] .filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: none;
+
+  [data-theme="dark"] {
+    --bg: #0b1220;
+    --surface: #1a2233;
+    --border: #2d3a52;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --gray: #475569;
+    --canvas-bg: #050a14;
+
+    /* Dark needs the native calendar indicator inverted to read */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, .35);
+    --shadow-overlay: 0 8px 24px rgba(0, 0, 0, .5);
   }
+
+  [data-theme="dark"] .filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+
+  /* Utility: monospace data with tabular figures so columns line up */
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Pipeline Start / Stop block lives in the topbar (right side). Menu
+     actions also drive the same DOM (Pipeline → Start / Stop), so the
+     button and the menu items share one source of truth. */
+
+  /* ============================================================
+     Top bar: brand + in-window menubar + status pill in one row
+     ============================================================ */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 var(--space-3);
+    height: 36px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-sm);
+    user-select: none;
+    flex: 0 0 auto;
+  }
+  .brand {
+    font-weight: 600;
+    font-size: var(--text-sm);
+    color: var(--text);
+    padding-right: var(--space-3);
+    border-right: 1px solid var(--border);
+  }
+  .menubar {
+    display: flex;
+    gap: 0;
+  }
+  .menu-label {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--text-sm);
+    padding: 0 var(--space-3);
+    height: 36px;
+    cursor: default;
+    transition: background .1s ease;
+  }
+  .menu-label:hover { background: var(--border); }
+  .menu-label.active {
+    background: var(--blue);
+    color: #fff;
+  }
+  .topbar-spacer { flex: 1; }
+  .topbar .ws-indicator,
+  .topbar .badge { font-size: var(--text-xs); }
+
+  /* ============================================================
+     Dropdown panels (positioned by JS, hidden until a menu opens)
+     ============================================================ */
+  .menu-panel {
+    display: none;
+    position: absolute;
+    z-index: 4000;
+    min-width: 220px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
+    padding: var(--space-1) 0;
+    font-size: var(--text-sm);
+  }
+  .menu-panel.open { display: block; }
+  .menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-3);
+    cursor: default;
+  }
+  .menu-item:hover {
+    background: var(--blue);
+    color: #fff;
+  }
+  .menu-divider {
+    height: 1px;
+    background: var(--border);
+    margin: var(--space-1) 0;
+  }
+
+  /* Inline-SVG + text alignment for buttons that mix the two. */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .icon-btn svg { display: block; flex: 0 0 auto; }
   .theme-toggle {
     position: fixed;
     bottom: 1rem;
@@ -42,13 +191,14 @@
     display: flex;
     align-items: center;
     gap: .35rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    box-shadow: var(--shadow-md);
     transition: background .2s, color .2s, border-color .2s;
   }
   .theme-toggle:hover { color: var(--text); background: var(--border); }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
     background: var(--bg);
     color: var(--text);
     height: 100vh;
@@ -57,21 +207,9 @@
     flex-direction: column;
   }
 
-  /* header */
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: .75rem 1rem .25rem;
-    flex-wrap: wrap;
-    gap: .5rem;
-  }
-  .header h1 { font-size: 1.15rem; font-weight: 600; }
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-  }
+  /* Note: the old .header / .header-right / step-strip rules used to live
+     here. They were replaced by the .topbar block above when the menubar
+     moved in-window and the step strip + subheader were removed. */
   .badge {
     font-size: .7rem;
     padding: .15rem .5rem;
@@ -104,7 +242,7 @@
   .dropdown-menu {
     display: none; position: absolute; top: 100%; right: 0; margin-top: .25rem;
     background: var(--surface); border: 1px solid var(--border); border-radius: .35rem;
-    min-width: 160px; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,.5);
+    min-width: 160px; z-index: 2000; box-shadow: var(--shadow-overlay);
   }
   .dropdown-menu.open { display: block; }
   .dropdown-item {
@@ -188,31 +326,95 @@
   }
 
   /* date filter bar */
+  /* ============================================================
+     Catalog date filter — preset row + Custom range + active chip
+     ============================================================ */
   .filter-bar {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    padding: 0 1rem .5rem;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
     flex-wrap: wrap;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-sm);
   }
-  .filter-bar label {
-    font-size: .7rem;
+
+  /* Segmented-button preset row */
+  .filter-presets {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .filter-preset {
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--border);
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .04em;
+    font: inherit;
+    font-size: var(--text-xs);
+    padding: var(--space-1) var(--space-3);
+    cursor: pointer;
+    transition: background .1s ease, color .1s ease;
+    white-space: nowrap;
   }
-  .filter-bar input[type="date"] {
+  .filter-preset:last-child { border-right: none; }
+  .filter-preset:hover { background: var(--border); color: var(--text); }
+  .filter-preset.active {
+    background: var(--blue);
+    color: #fff;
+  }
+
+  /* Custom-range inline editor */
+  .filter-custom {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .filter-custom[hidden] { display: none; }
+  .filter-date {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
-    border-radius: .35rem;
-    padding: .2rem .4rem;
-    font-size: .7rem;
-    font-family: inherit;
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    font: inherit;
+    font-size: var(--text-xs);
   }
-  .filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.7);
+  .filter-arrow {
+    color: var(--muted);
+    font-size: var(--text-xs);
+    padding: 0 var(--space-1);
   }
+
+  /* Active-filter chip */
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 2px var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--text);
+  }
+  .filter-chip[hidden] { display: none; }
+  .filter-chip-label { font-variant-numeric: tabular-nums; }
+  .filter-chip-x {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    padding: 0 var(--space-1);
+    line-height: 1;
+  }
+  .filter-chip-x:hover { color: var(--red); }
+
+  .filter-spacer { flex: 1; }
   .btn-sm {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -263,7 +465,7 @@
     max-height: 80%;
     overflow-y: auto;
     font-size: .7rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,.4);
+    box-shadow: var(--shadow-overlay);
   }
   .event-detail-overlay.visible { display: block; }
   .event-detail-overlay .detail-close {
@@ -556,7 +758,7 @@
     padding: .4rem .55rem;
     font-size: .62rem;
     color: var(--text);
-    box-shadow: 0 2px 6px rgba(0,0,0,.4);
+    box-shadow: var(--shadow-md);
     pointer-events: none;
   }
   .map-legend .ml-title {
@@ -581,6 +783,46 @@
     border: 1px solid #000;
     flex-shrink: 0;
   }
+  /* Magnitude size scale (matches _eventRadius() in app.js) */
+  .map-legend .ml-size-row {
+    margin-top: .35rem;
+    padding-top: .25rem;
+    border-top: 1px solid var(--border);
+    gap: .25rem;
+  }
+  .map-legend .ml-size-dot {
+    display: inline-block;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: 1px solid #1e3a8a;
+    flex-shrink: 0;
+  }
+  .map-legend .ml-size-label {
+    margin-left: .25rem;
+    font-size: .5rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+  .map-legend .ml-note {
+    margin-top: .15rem;
+    font-size: .52rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .map-legend .ml-title-stations {
+    margin-top: .5rem;
+    padding-top: .35rem;
+    border-top: 1px solid var(--border);
+  }
+  /* Triangle swatch — matches station marker, fill via --tri-fill */
+  .map-legend .ml-tri {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    background: var(--tri-fill);
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  }
 
   /* map style switcher */
   .map-style-control {
@@ -592,7 +834,7 @@
     gap: 0;
     border-radius: .35rem;
     overflow: hidden;
-    box-shadow: 0 2px 6px rgba(0,0,0,.4);
+    box-shadow: var(--shadow-md);
   }
   .map-style-btn {
     background: var(--surface);
@@ -747,6 +989,21 @@
     margin-bottom: .6rem;
   }
   .modal-header h3 { font-size: .95rem; margin: 0; }
+  .cmd-output-body {
+    flex: 1;
+    overflow: auto;
+    margin: 0;
+    padding: .75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    line-height: 1.4;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
   .error-log-expanded {
     max-height: none;
     flex: 1;
@@ -1097,7 +1354,7 @@
     border-left: 2px solid var(--border);
     z-index: 2000;
     flex-direction: column;
-    box-shadow: -4px 0 24px rgba(0,0,0,.5);
+    box-shadow: var(--shadow-overlay);
     overflow: hidden;
   }
   .waveform-overlay.visible { display: flex; }

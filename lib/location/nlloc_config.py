@@ -23,15 +23,18 @@ from lib.constants import NETWORK_CENTER_LAT, NETWORK_CENTER_LON
 from lib.location.velocity_model import LayeredModel
 
 
-# Network-area grid extents (km from the projection origin). ±60 E-W ×
-# ±90 N-S comfortably encloses the El Paso array (97 × 55 km) with margin
-# for events outside it, and is small enough to keep the per-station
-# travel-time grid under ~3 MB.
-GRID_X_HALF_KM = 60.0
-GRID_Y_HALF_KM = 90.0
+# Network-area grid extents (km from the projection origin). Widened from
+# ±60×±90 to ±150×±150 so NLLoc can locate regional events (S-P up to ~30s,
+# distance ~210 km) including quarry blasts at distant mines. Pairs with the
+# GaMMA search region in 4-association/config.yaml.
+# Spacing 0.5 km matches the location-precision floor set by pick timing
+# (~10 ms PhaseNet → ~50 m equivalent) and the 1D velocity model.
+# Per-station travel-time grid ~120 MB; total ~6.8 GB across 14 stations.
+GRID_X_HALF_KM = 150.0
+GRID_Y_HALF_KM = 150.0
 GRID_Z_TOP_KM = -2.0    # negative = above sea level (elevated stations sit here)
 GRID_Z_BOTTOM_KM = 38.0
-GRID_SPACING_KM = 1.0
+GRID_SPACING_KM = 0.5
 
 
 def gardner_density(vp_km_s: float) -> float:

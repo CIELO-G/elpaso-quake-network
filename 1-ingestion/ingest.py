@@ -353,6 +353,26 @@ def process_station(
     station = station_cfg["station"]
     location = station_cfg.get("location", config["default_location"])
     channels = station_cfg.get("channels", config["default_channels"])
+    empty_counts = {"success": 0, "no_data": 0, "failed": 0, "skipped": 0}
+
+    # Skip stations that weren't online during this entire window. Without
+    # this, gap-fill on an early date would loop through every chunk for a
+    # not-yet-deployed station, eating the 5 s polite delay per chunk for
+    # nothing (FDSNWS returns "no data" but the delay still fires). The
+    # gap-scan logic in run_pipeline.py already uses start_date; this just
+    # propagates that same gate into ingest itself.
+    sta_start_raw = station_cfg.get("start_date", "")
+    if sta_start_raw:
+        try:
+            sta_start_dt = UTCDateTime(sta_start_raw)
+            if sta_start_dt >= UTCDateTime(end_time):
+                logger.info(
+                    "Skipping %s.%s -- start_date %s is after window end %s",
+                    network, station, sta_start_raw, end_time,
+                )
+                return empty_counts
+        except (ValueError, TypeError):
+            pass  # malformed date — fall through and process normally
 
     logger.info(
         "--- %s.%s (channels=%s) | %s -> %s ---",

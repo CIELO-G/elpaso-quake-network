@@ -10,28 +10,66 @@
 </head>
 <body>
 
-<div class="header">
-  <div>
-    <h1>El Paso Seismic Monitor</h1>
-    <div style="font-size:.6rem;color:var(--muted)">by Marc Garcia</div>
-  </div>
-  <div class="header-right">
-    <div class="pipeline-controls">
-      <div class="pipeline-dropdown" id="start-dropdown">
-        <button class="btn-pipeline btn-start" id="btn-start-pipeline">Start &#9662;</button>
-        <div class="dropdown-menu" id="start-menu">
-          <button class="dropdown-item" id="start-continuous">Continuous mode</button>
-          <button class="dropdown-item" id="start-backfill">Backfill date range...</button>
-        </div>
+<header class="topbar">
+  <div class="brand">El Paso Seismic Monitor</div>
+  <nav class="menubar" id="menubar">
+    <button class="menu-label" data-menu="file">File</button>
+    <button class="menu-label" data-menu="pipeline">Pipeline</button>
+    <button class="menu-label" data-menu="view">View</button>
+    <button class="menu-label" data-menu="help">Help</button>
+  </nav>
+  <div class="topbar-spacer"></div>
+  <!-- Pipeline Start / Stop quick-action, top-right. The existing dropdown
+       (Continuous vs Backfill) is preserved verbatim so its JS handlers
+       continue to attach to the same IDs. -->
+  <div class="pipeline-controls">
+    <div class="pipeline-dropdown" id="start-dropdown">
+      <button class="btn-pipeline btn-start" id="btn-start-pipeline">Start &#9662;</button>
+      <div class="dropdown-menu" id="start-menu">
+        <button class="dropdown-item" id="start-continuous">Continuous mode</button>
+        <button class="dropdown-item" id="start-backfill">Backfill date range...</button>
       </div>
-      <button class="btn-pipeline btn-stop" id="btn-stop-pipeline" style="display:none">Stop</button>
     </div>
-    <span class="ws-indicator" id="ws-indicator">polling</span>
-    <span class="badge badge-idle" id="pipeline-badge">idle</span>
+    <button class="btn-pipeline btn-stop" id="btn-stop-pipeline" style="display:none">Stop</button>
   </div>
+</header>
+
+<!-- Menu dropdown panels. Hidden until a menu label is clicked; positioned
+     just below the label by JS. Kept as siblings of the menubar (not
+     children) so they can overlap downstream content without clipping. -->
+<div class="menu-panel" id="menu-file" role="menu">
+  <button class="menu-item" data-action="export-csv">Export Catalog (CSV)&hellip;</button>
+  <button class="menu-item" data-action="export-quakeml">Export Catalog (QuakeML)&hellip;</button>
+  <div class="menu-divider"></div>
+  <button class="menu-item" data-action="backup">Backup Now</button>
+  <div class="menu-divider"></div>
+  <button class="menu-item" data-action="quit">Quit</button>
 </div>
-<div class="subheader" id="subheader"></div>
-<div class="steps" id="step-strip"></div>
+<div class="menu-panel" id="menu-pipeline" role="menu">
+  <button class="menu-item" data-action="start-continuous">Start (Continuous)</button>
+  <button class="menu-item" data-action="start-backfill">Start (Backfill Date Range)&hellip;</button>
+  <button class="menu-item" data-action="stop">Stop</button>
+  <div class="menu-divider"></div>
+  <button class="menu-item" data-action="validate">Validate Environment&hellip;</button>
+  <div class="menu-divider"></div>
+  <button class="menu-item" data-action="open-logs">Open Logs Folder</button>
+  <button class="menu-item" data-action="open-output">Open Output Folder</button>
+</div>
+<div class="menu-panel" id="menu-view" role="menu">
+  <button class="menu-item" data-action="toggle-theme">Toggle Theme</button>
+  <button class="menu-item" data-action="reload">Reload</button>
+  <div class="menu-divider"></div>
+  <button class="menu-item" data-action="tab-monitor">Monitor</button>
+  <button class="menu-item" data-action="tab-pipeline">Pipeline</button>
+  <button class="menu-item" data-action="tab-catalog">Catalog</button>
+  <button class="menu-item" data-action="tab-waveviewer">Waveviewer</button>
+</div>
+<div class="menu-panel" id="menu-help" role="menu">
+  <button class="menu-item" data-action="about">About&hellip;</button>
+  <button class="menu-item" data-action="open-readme">Open README</button>
+  <button class="menu-item" data-action="shortcuts">Keyboard Shortcuts&hellip;</button>
+</div>
+
 
 <div class="error-banner" id="error-banner">
   <span id="error-banner-text">Cannot reach API server.</span>
@@ -39,12 +77,34 @@
 </div>
 
 <div class="filter-bar">
-  <label>From</label>
-  <input type="date" id="filter-start" />
-  <label>To</label>
-  <input type="date" id="filter-end" />
-  <button class="btn-sm btn-primary" id="filter-apply">Apply</button>
-  <button class="btn-sm" id="filter-clear">Clear</button>
+  <!-- Preset row: one always-active, mutually exclusive. Selecting "Custom…"
+       reveals the explicit date inputs below; selecting any other preset
+       writes filterStartDate / filterEndDate directly and triggers a refresh. -->
+  <div class="filter-presets" id="filter-presets" role="tablist">
+    <button class="filter-preset active" data-preset="all">All</button>
+    <button class="filter-preset" data-preset="7">Last 7d</button>
+    <button class="filter-preset" data-preset="30">Last 30d</button>
+    <button class="filter-preset" data-preset="90">Last 90d</button>
+    <button class="filter-preset" data-preset="year">Year</button>
+    <button class="filter-preset" data-preset="custom">Custom&hellip;</button>
+  </div>
+
+  <!-- Revealed only in Custom mode. -->
+  <div class="filter-custom" id="filter-custom" hidden>
+    <input type="date" id="filter-start" class="filter-date" />
+    <span class="filter-arrow">&rarr;</span>
+    <input type="date" id="filter-end" class="filter-date" />
+    <button class="btn-sm btn-primary" id="filter-apply">Apply</button>
+  </div>
+
+  <!-- Active filter pill: dismissible. -->
+  <div class="filter-chip" id="filter-chip" hidden>
+    <span class="filter-chip-label" id="filter-chip-label"></span>
+    <button class="filter-chip-x" id="filter-chip-x" aria-label="Clear filter">&times;</button>
+  </div>
+
+  <div class="filter-spacer"></div>
+
   <button class="btn-sm" id="export-csv">Export CSV</button>
   <button class="btn-sm" id="export-quakeml">Export QuakeML</button>
 </div>
@@ -64,16 +124,30 @@
       <button class="map-style-btn active" data-style="dark">Dark</button>
       <button class="map-style-btn" data-style="light">Light</button>
       <button class="map-style-btn" data-style="satellite">Satellite</button>
+      <button class="map-style-btn" data-style="osm">Roads</button>
     </div>
-    <div style="position:absolute;bottom:10px;left:200px;z-index:1000">
+    <div style="position:absolute;bottom:10px;left:280px;z-index:1000">
       <button class="map-toggle-btn" id="toggle-faults" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4)">Faults</button>
       <button class="map-toggle-btn" id="toggle-study-area" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4);margin-left:.35rem">Study Area</button>
     </div>
     <div class="map-legend" id="map-legend">
       <div class="ml-title">Events</div>
-      <div class="ml-row"><span class="ml-dot" style="background:#fde725;border-color:#000"></span>Earthquake (by M)</div>
+      <div class="ml-row"><span class="ml-dot" style="background:#3b82f6;border-color:#1e3a8a"></span>Earthquake</div>
       <div class="ml-row"><span class="ml-dot" style="background:#f59e0b;border-color:#78350f"></span>Quarry blast</div>
       <div class="ml-row"><span class="ml-dot" style="background:#94a3b8;border-color:#334155"></span>Unreviewed</div>
+      <div class="ml-row ml-size-row">
+        <span class="ml-size-dot" style="width:6px;height:6px"></span>
+        <span class="ml-size-dot" style="width:10px;height:10px"></span>
+        <span class="ml-size-dot" style="width:14px;height:14px"></span>
+        <span class="ml-size-label">M0 · M2 · M4</span>
+      </div>
+      <div class="ml-note">Noise &amp; rejected events hidden</div>
+
+      <div class="ml-title ml-title-stations">Stations</div>
+      <div class="ml-row"><span class="ml-tri" style="--tri-fill:#10b981"></span>Online</div>
+      <div class="ml-row"><span class="ml-tri" style="--tri-fill:#f59e0b"></span>Intermittent</div>
+      <div class="ml-row"><span class="ml-tri" style="--tri-fill:#ef4444"></span>Offline</div>
+      <div class="ml-row"><span class="ml-tri" style="--tri-fill:#64748b"></span>Unknown</div>
     </div>
     <div class="event-detail-overlay" id="event-detail">
       <button class="detail-close" id="detail-close">&times;</button>
@@ -180,6 +254,17 @@
   </div>
 </div>
 
+<!-- Command-output modal (Backup / Validate / future admin actions) -->
+<div class="modal-overlay" id="cmd-output-modal">
+  <div class="modal-box modal-box-large">
+    <div class="modal-header">
+      <h3 id="cmd-output-title">Output</h3>
+      <button class="detail-close" id="cmd-output-close">&times;</button>
+    </div>
+    <pre class="cmd-output-body" id="cmd-output-body"></pre>
+  </div>
+</div>
+
 <!-- Tab: Catalog -->
 <div class="tab-content-full" id="tab-catalog">
   <div class="catalog-toolbar">
@@ -240,9 +325,9 @@
       <option value="3C">3-Component</option>
     </select>
     <label>Fmin</label>
-    <input type="number" id="wv-fmin" placeholder="Hz" min="0.01" max="50" step="0.5" style="width:4rem" />
+    <input type="number" id="wv-fmin" placeholder="Hz" min="1" max="50" step="1" style="width:4rem" />
     <label>Fmax</label>
-    <input type="number" id="wv-fmax" placeholder="Hz" min="0.1" max="50" step="0.5" style="width:4rem" />
+    <input type="number" id="wv-fmax" placeholder="Hz" min="1" max="50" step="1" style="width:4rem" />
     <label style="font-size:.7rem;cursor:pointer"><input type="checkbox" id="wv-spectrogram"> Spectrogram</label>
     <button class="btn-sm btn-primary" id="wv-load">Load Waveforms</button>
     <span id="wv-summary" style="margin-left:auto;font-size:.65rem;color:var(--muted)"></span>
@@ -300,8 +385,14 @@
       <option value="quarry_blast">Quarry Blast</option>
       <option value="noise">Noise</option>
     </select>
-    <button class="btn-sm" id="rv-confirm" style="color:var(--green)" title="Confirm (c)">&#10003; Confirm</button>
-    <button class="btn-sm" id="rv-reject" style="color:var(--red)" title="Reject (x)">&#10007; Reject</button>
+    <button class="btn-sm icon-btn" id="rv-confirm" style="color:var(--green)" title="Confirm (c)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      Confirm
+    </button>
+    <button class="btn-sm icon-btn" id="rv-reject" style="color:var(--red)" title="Reject (x)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Reject
+    </button>
     <button class="btn-sm" id="rv-close">&times; Close</button>
   </div>
   <div class="review-controls">
@@ -317,9 +408,9 @@
     <label>After</label>
     <input type="number" id="rv-after" value="60" min="5" max="600" step="5" />
     <label>Fmin</label>
-    <input type="number" id="rv-fmin" placeholder="Hz" min="0.01" max="50" step="0.5" />
+    <input type="number" id="rv-fmin" placeholder="Hz" min="1" max="50" step="1" />
     <label>Fmax</label>
-    <input type="number" id="rv-fmax" placeholder="Hz" min="0.1" max="50" step="0.5" />
+    <input type="number" id="rv-fmax" placeholder="Hz" min="1" max="50" step="1" />
     <button class="btn-sm btn-primary" id="rv-reload">Reload</button>
     <label style="margin-left:.5rem;font-size:.7rem;cursor:pointer"><input type="checkbox" id="rv-spectrogram"> Spectrogram</label>
     <span style="margin-left:.5rem;color:var(--muted);font-size:.62rem">PICK MODE:</span>

@@ -146,6 +146,43 @@ def main():
 
     logger.info("Discovered %d day(s) with event files", len(daily_files))
 
+    # ── Snapshot reviewed-event metadata BEFORE rebuild wipes it ─────
+    # Even in --rebuild mode we must preserve user-supplied annotations:
+    # reviewed/confirmed/rejected status, manually relocated lat/lon/depth,
+    # edited picks. Without this snapshot, every gap-fill (which fires
+    # `catalog --rebuild` via the orchestrator's --force translation) was
+    # silently obliterating hours of human review work. The snapshot is
+    # keyed by event_id, so it survives any change to the row order or to
+    # how step 4 generates daily events.
+    preserved_events: dict[str, dict] = {}      # event_id → full catalog row
+    preserved_assignments: dict[str, list] = {} # event_id → list[pick dict]
+    if args.rebuild and catalog_path.exists():
+        try:
+            snap_df = pd.read_csv(catalog_path, dtype={"event_id": str})
+            for _, row in snap_df.iterrows():
+                eid = row.get("event_id")
+                review_status = str(row.get("review_status", "") or "").strip()
+                if eid and review_status:
+                    preserved_events[eid] = row.to_dict()
+            if preserved_events and assignments_path.exists():
+                snap_assign = pd.read_csv(assignments_path, dtype={"event_id": str})
+                for _, row in snap_assign.iterrows():
+                    eid = row.get("event_id")
+                    if eid in preserved_events:
+                        preserved_assignments.setdefault(eid, []).append(row.to_dict())
+            if preserved_events:
+                logger.info(
+                    "Rebuild snapshot: preserving %d reviewed event(s) "
+                    "with %d total pick(s)",
+                    len(preserved_events),
+                    sum(len(v) for v in preserved_assignments.values()),
+                )
+        except Exception as e:
+            logger.warning(
+                "Could not snapshot reviewed events before rebuild: %s — "
+                "manual review metadata may be lost", e,
+            )
+
     # ── Load existing catalog (unless rebuilding) ────────────────────
     if args.rebuild:
         logger.info("Rebuild mode — ignoring existing catalog")
@@ -231,6 +268,58 @@ def main():
         assignments = new_assigns
     else:
         assignments = existing_assignments
+
+    # ── Restore reviewed-event rows from snapshot ────────────────────
+    # For each reviewed event_id captured before rebuild: if it still
+    # appears in the rebuilt catalog, overwrite that row entirely (so the
+    # user's manual relocation, edited picks, and review metadata win over
+    # whatever step 4's GaMMA re-generated). If the event_id no longer
+    # appears (e.g. step 4 produced a different number of events on that
+    # day), keep the reviewed row anyway as an "orphan" so the user's
+    # annotation isn't lost.
+    if preserved_events:
+        for col in ("reviewed", "review_status", "event_type"):
+            if col not in catalog.columns:
+                catalog[col] = ""
+
+        catalog_eids = set(catalog["event_id"].astype(str))
+        restored_present = 0
+        restored_orphan = 0
+        for eid, row_data in preserved_events.items():
+            if eid in catalog_eids:
+                mask = catalog["event_id"].astype(str) == eid
+                for col, val in row_data.items():
+                    if col in catalog.columns:
+                        catalog.loc[mask, col] = val
+                restored_present += 1
+            else:
+                # Reviewed event missing from new generation — append it.
+                new_row = {col: row_data.get(col, "") for col in catalog.columns}
+                catalog = pd.concat(
+                    [catalog, pd.DataFrame([new_row])], ignore_index=True,
+                )
+                restored_orphan += 1
+
+        # Replace assignments for preserved events.
+        if preserved_assignments:
+            if not assignments.empty:
+                keep_mask = ~assignments["event_id"].astype(str).isin(
+                    preserved_assignments.keys()
+                )
+                assignments = assignments[keep_mask].reset_index(drop=True)
+            rebuilt_rows = [r for rows in preserved_assignments.values() for r in rows]
+            if rebuilt_rows:
+                preserved_df = pd.DataFrame(rebuilt_rows)
+                assignments = (
+                    pd.concat([assignments, preserved_df], ignore_index=True)
+                    if not assignments.empty
+                    else preserved_df
+                )
+
+        logger.info(
+            "Restored %d reviewed row(s) in-place + %d orphan reviewed row(s)",
+            restored_present, restored_orphan,
+        )
 
     # Sort chronologically
     catalog = catalog.sort_values("time").reset_index(drop=True)

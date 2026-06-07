@@ -58,15 +58,58 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
 
 
 # ── Rate limit (per IP, in-memory) ───────────────────────────────
+# Only "action" endpoints count toward the budget. Predictable polling
+# loops and cheap browsing reads are exempt — they're bounded by their
+# setInterval cadence and don't represent an abuse vector. What we still
+# want to catch: runaway POSTs (save/relocate/admin) or someone scraping
+# waveforms in a tight loop.
 _rate_store: dict[str, list[float]] = defaultdict(list)
-RATE_LIMIT = 60       # requests per minute per IP
+RATE_LIMIT = 600      # requests per minute per IP (counted endpoints only)
 RATE_WINDOW = 60.0    # seconds
+
+# Prefixes of paths exempt from the limit. Matched with startswith().
+# Includes dashboard polling endpoints + catalog browsing + static assets.
+RATE_EXEMPT_PREFIXES: tuple[str, ...] = (
+    # Predictable polling (fire on setInterval — bounded by design)
+    "/api/status",
+    "/api/stats",
+    "/api/progress",
+    "/api/throughput",
+    "/api/disk",
+    "/api/errors",
+    "/api/station_health",
+    "/api/data_completeness",
+    "/api/health",
+    "/api/pipeline/running",
+    # User browsing — cheap CSV reads + chart endpoints
+    "/api/catalog",
+    "/api/stations",
+    "/api/event_rate",
+    "/api/magnitude_frequency",
+    "/api/depth_distribution",
+    "/api/pick_quality",
+    "/api/station_picks",
+    "/api/faults",
+    # Static assets and the main page
+    "/static/",
+    "/favicon",
+)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Sliding-window per-IP limiter. Returns 429 over budget."""
+    """Sliding-window per-IP limiter. Returns 429 over budget.
+
+    Skips exempt paths (polling, browsing, static) and WebSockets.
+    """
 
     async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        # Exempt root (the index.html page) and exempt-prefixes
+        if path == "/" or path.startswith(RATE_EXEMPT_PREFIXES):
+            return await call_next(request)
+        # WebSockets are long-lived; rate-limiting the upgrade is meaningless
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
         cutoff = now - RATE_WINDOW
@@ -74,7 +117,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if len(_rate_store[client_ip]) >= RATE_LIMIT:
             return JSONResponse(
                 status_code=429,
-                content={"detail": "Rate limit exceeded. Max 60 requests per minute."},
+                content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT} action requests per minute."},
             )
         _rate_store[client_ip].append(now)
         return await call_next(request)

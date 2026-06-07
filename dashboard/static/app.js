@@ -1,23 +1,33 @@
 // ── Theme toggle ────────────────────────────────────────────────
-var _currentAppTheme = localStorage.getItem('theme') || 'dark';
-if (_currentAppTheme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+// Light is the implicit default (matches :root in styles.css). Dark is
+// applied via data-theme="dark" so the empty/initial state never flashes
+// the wrong palette.
+var _currentAppTheme = localStorage.getItem('theme') || 'light';
+if (_currentAppTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+
+// Inline SVGs (no extra HTTP request, currentColor-tinted so they pick
+// up --text automatically across themes). Path data adapted from Feather
+// icon set — single-stroke, geometric, fits "licensed software" tone.
+var _SVG_SUN  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+var _SVG_MOON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
 function _applyThemeUI(theme) {
   var icon = document.getElementById('theme-icon');
   var label = document.getElementById('theme-label');
+  // Button shows the OPPOSITE of the current theme (the action you'd take)
   if (theme === 'light') {
-    if (icon) icon.textContent = '\u{1F319}';
+    if (icon) icon.innerHTML = _SVG_MOON;
     if (label) label.textContent = 'Dark';
   } else {
-    if (icon) icon.textContent = '\u{2600}\u{FE0F}';
+    if (icon) icon.innerHTML = _SVG_SUN;
     if (label) label.textContent = 'Light';
   }
 }
 
 function switchAppTheme(theme) {
   _currentAppTheme = theme;
-  if (theme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
   } else {
     document.documentElement.removeAttribute('data-theme');
   }
@@ -63,7 +73,175 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('theme-toggle').addEventListener('click', function() {
     switchAppTheme(_currentAppTheme === 'light' ? 'dark' : 'light');
   });
+  _initMenubar();
 });
+
+// ── In-window menubar ───────────────────────────────────────────
+// Replaces the previous pywebview-native menubar. Works identically in
+// both the native app window and a regular browser, so we keep a single
+// control surface. Menu actions either click() existing in-page buttons
+// (export, pipeline start/stop) or POST to /api/admin/* endpoints
+// (backup, validate, open folder).
+
+function _menubarCloseAll() {
+  document.querySelectorAll('.menu-panel.open').forEach(function(p) {
+    p.classList.remove('open');
+  });
+  document.querySelectorAll('.menu-label.active').forEach(function(l) {
+    l.classList.remove('active');
+  });
+}
+
+function _menubarOpen(label) {
+  _menubarCloseAll();
+  var panel = document.getElementById('menu-' + label.dataset.menu);
+  if (!panel) return;
+  var rect = label.getBoundingClientRect();
+  panel.style.left = rect.left + 'px';
+  panel.style.top = (rect.bottom + 1) + 'px';
+  panel.classList.add('open');
+  label.classList.add('active');
+}
+
+function _initMenubar() {
+  var anyOpen = function() {
+    return !!document.querySelector('.menu-panel.open');
+  };
+
+  document.querySelectorAll('.menu-label').forEach(function(label) {
+    label.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (label.classList.contains('active')) {
+        _menubarCloseAll();
+      } else {
+        _menubarOpen(label);
+      }
+    });
+    // Once any menu is open, hovering siblings flips to theirs (native feel)
+    label.addEventListener('mouseenter', function() {
+      if (anyOpen() && !label.classList.contains('active')) _menubarOpen(label);
+    });
+  });
+
+  document.querySelectorAll('.menu-item').forEach(function(item) {
+    item.addEventListener('click', function(e) {
+      e.stopPropagation();
+      _menubarCloseAll();
+      _menubarAction(item.dataset.action);
+    });
+  });
+
+  // Click anywhere else, or Escape, closes the open menu.
+  document.addEventListener('click', _menubarCloseAll);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') _menubarCloseAll();
+  });
+}
+
+function _menubarAction(action) {
+  switch (action) {
+    // File
+    case 'export-csv':       document.getElementById('export-csv').click(); break;
+    case 'export-quakeml':   document.getElementById('export-quakeml').click(); break;
+    case 'backup':           _menubarAdminPost('/api/admin/backup', 'Backup'); break;
+    case 'quit':             _menubarQuit(); break;
+    // Pipeline
+    case 'start-continuous': document.getElementById('start-continuous').click(); break;
+    case 'start-backfill':   document.getElementById('start-backfill').click(); break;
+    case 'stop':             document.getElementById('btn-stop-pipeline').click(); break;
+    case 'validate':         _menubarAdminPost('/api/admin/validate', 'Validate environment'); break;
+    case 'open-logs':        _openExternal('logs',   'logs folder'); break;
+    case 'open-output':      _openExternal('output', 'output folder'); break;
+    // View
+    case 'toggle-theme':     switchAppTheme(_currentAppTheme === 'light' ? 'dark' : 'light'); break;
+    case 'reload':           location.reload(); break;
+    case 'tab-monitor':      switchTab('monitor'); break;
+    case 'tab-pipeline':     switchTab('pipeline'); break;
+    case 'tab-catalog':      switchTab('catalog'); break;
+    case 'tab-waveviewer':   switchTab('waveviewer'); break;
+    // Help
+    case 'about':            _menubarAbout(); break;
+    case 'open-readme':      _openExternal('readme', 'README'); break;
+    case 'shortcuts':        _menubarShortcuts(); break;
+  }
+}
+
+function _openExternal(which, label) {
+  fetch('/api/admin/open-folder?which=' + encodeURIComponent(which), {method: 'POST'})
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(d) {
+        var msg = (typeof d.detail === 'string') ? d.detail : ('HTTP ' + r.status);
+        throw new Error(msg);
+      });
+    })
+    .catch(function(e) { alert('Could not open ' + label + ': ' + (e && e.message ? e.message : e)); });
+}
+
+function _menubarQuit() {
+  if (!confirm('Quit the dashboard?')) return;
+  fetch('/api/admin/quit', {method: 'POST'}).catch(function() {});
+}
+
+function _menubarAdminPost(url, label) {
+  _showCmdOutput(label + '…', 'Running…');
+  fetch(url, {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var title = label + (d.ok ? ' — OK' : ' — FAILED (exit ' + d.returncode + ')');
+      var out = (d.stdout || '').trim();
+      var err = (d.stderr || '').trim();
+      var body = '';
+      if (out) body += out;
+      if (err) body += (body ? '\n\n--- stderr ---\n' : '') + err;
+      if (!body) body = '(no output)';
+      _showCmdOutput(title, body);
+    })
+    .catch(function(e) { _showCmdOutput(label + ' — request failed', String(e)); });
+}
+
+function _showCmdOutput(title, body) {
+  var modal = document.getElementById('cmd-output-modal');
+  document.getElementById('cmd-output-title').textContent = title;
+  document.getElementById('cmd-output-body').textContent = body;
+  modal.classList.add('open');
+}
+(function() {
+  var modal = document.getElementById('cmd-output-modal');
+  var closeBtn = document.getElementById('cmd-output-close');
+  if (closeBtn) closeBtn.addEventListener('click', function() { modal.classList.remove('open'); });
+  if (modal) modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.classList.remove('open');
+  });
+})();
+
+function _menubarAbout() {
+  alert(
+    'El Paso Seismic Monitor\n\n' +
+    'Local seismic detection, association, and cataloging for the\n' +
+    'El Paso / southern Rio Grande Rift area.\n\n' +
+    '  Detection         PhaseNet (SeisBench)\n' +
+    '  Association       GaMMA (BGMM)\n' +
+    '  Bulk location     GaMMA\n' +
+    '  Review relocation NonLinLoc\n\n' +
+    'by Marc Garcia'
+  );
+}
+
+function _menubarShortcuts() {
+  alert(
+    'Review mode shortcuts\n\n' +
+    '  P / S      Add P or S pick at cursor\n' +
+    '  D          Delete-pick mode\n' +
+    '  G          Drag-pick mode\n' +
+    '  R          Relocate\n' +
+    '  Ctrl+Z     Undo\n' +
+    '  Ctrl+Y     Redo\n' +
+    '  c          Confirm event\n' +
+    '  x          Reject event\n' +
+    '  n          Next unreviewed\n' +
+    '  Esc        Close review panel'
+  );
+}
 
 // ── Constants ───────────────────────────────────────────────────
 const STEP_COLORS = {
@@ -81,7 +259,7 @@ const STEP_SHORT = {
 const STATUS_ICON = {
   pending: '', running: '\u25b6', completed: '\u2713', failed: '\u2717', skipped: '\u2014'
 };
-const HEALTH_COLORS = { ok: '#3b82f6', warning: '#f59e0b', error: '#ef4444', unknown: '#475569' };
+const HEALTH_COLORS = { ok: '#10b981', warning: '#f59e0b', error: '#ef4444', unknown: '#64748b' };
 
 // ── State ───────────────────────────────────────────────────────
 let filterStartDate = '';
@@ -102,6 +280,10 @@ var mapTileLayers = {
   }),
   satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Sources: Esri, Maxar, Earthstar',
+    maxZoom: 19
+  }),
+  osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19
   }),
 };
@@ -214,13 +396,24 @@ function showPulseMarker(lat, lon) {
 }
 
 // ── Station triangle icon (color-aware) ─────────────────────────
+// Upward triangle is the standard seismic-station symbol (USGS/IRIS).
+// Slight drop shadow for depth, white stroke for contrast on any base map,
+// rounded line joins so the apex doesn't look spiky.
 function stationIcon(color) {
-  color = color || '#3b82f6';
+  color = color || '#10b981';
   return L.divIcon({
     className: '',
-    iconSize: [14, 14],
-    iconAnchor: [7, 12],
-    html: '<svg width="14" height="14" viewBox="0 0 14 14"><polygon points="7,1 13,13 1,13" fill="' + esc(color) + '" stroke="#fff" stroke-width="1.2"/></svg>'
+    iconSize: [18, 18],
+    iconAnchor: [9, 15],
+    html:
+      '<svg width="18" height="18" viewBox="0 0 18 18" style="overflow:visible">' +
+        '<polygon points="9,2 16,15 2,15"' +
+          ' fill="' + esc(color) + '"' +
+          ' stroke="#ffffff"' +
+          ' stroke-width="1.5"' +
+          ' stroke-linejoin="round"' +
+          ' style="filter:drop-shadow(0 1px 1.5px rgba(0,0,0,0.45))"/>' +
+      '</svg>'
   });
 }
 
@@ -324,28 +517,39 @@ function renderStatus(data) {
   const p = data.pipeline;
   const steps = data.steps || [];
 
-  const badge = document.getElementById('pipeline-badge');
   const mode = p.mode || 'single';
-  const label = p.status + (mode === 'continuous' ? ' \u00b7 continuous' : '');
-  badge.textContent = label;
-  badge.className = 'badge badge-' + esc(p.status);
+
+  // Status badge, subheader, and step-strip elements were removed from the
+  // top of the page in favor of the Start/Stop button as the single state
+  // indicator. Guard against their absence so older index.html versions
+  // (and any test pages) keep working.
+  const badge = document.getElementById('pipeline-badge');
+  if (badge) {
+    const label = p.status + (mode === 'continuous' ? ' \u00b7 continuous' : '');
+    badge.textContent = label;
+    badge.className = 'badge badge-' + esc(p.status);
+  }
 
   const sub = document.getElementById('subheader');
-  let parts = [];
-  if (p.started_at) parts.push('Started: ' + formatTime(p.started_at));
-  if (mode === 'continuous' && p.continuous) {
-    parts.push('Day: ' + (p.continuous.current_day || '?'));
-  } else if (p.args && (p.args.start || p.args.end)) {
-    parts.push('Date range: ' + (p.args.start || '?') + ' to ' + (p.args.end || '?'));
+  if (sub) {
+    let parts = [];
+    if (p.started_at) parts.push('Started: ' + formatTime(p.started_at));
+    if (mode === 'continuous' && p.continuous) {
+      parts.push('Day: ' + (p.continuous.current_day || '?'));
+    } else if (p.args && (p.args.start || p.args.end)) {
+      parts.push('Date range: ' + (p.args.start || '?') + ' to ' + (p.args.end || '?'));
+    }
+    sub.textContent = parts.join(' \u00b7 ');
   }
-  sub.textContent = parts.join(' \u00b7 ');
 
   const strip = document.getElementById('step-strip');
-  strip.innerHTML = steps.map(function(s, i) {
-    var icon = STATUS_ICON[s.status] || '';
-    var chip = '<span class="step-chip st-' + esc(s.status) + '">' + (icon ? icon + ' ' : '') + esc(STEP_LABELS[s.name] || s.name) + '</span>';
-    return (i > 0 ? '<span class="arrow">\u2192</span>' : '') + chip;
-  }).join('');
+  if (strip) {
+    strip.innerHTML = steps.map(function(s, i) {
+      var icon = STATUS_ICON[s.status] || '';
+      var chip = '<span class="step-chip st-' + esc(s.status) + '">' + (icon ? icon + ' ' : '') + esc(STEP_LABELS[s.name] || s.name) + '</span>';
+      return (i > 0 ? '<span class="arrow">\u2192</span>' : '') + chip;
+    }).join('');
+  }
 
   // Sync Start/Stop buttons with pipeline state
   if (typeof updateControlButtons === 'function') {
@@ -386,29 +590,33 @@ function renderStationHealth(healthData) {
 // ── Render events on map (click for detail) ─────────────────────
 let allEvents = [];
 
-// Fixed palette for non-earthquake event types. Earthquakes keep
-// magnitude-based viridis shading so scientifically meaningful events stay
-// colour-coded by size.
+// Fixed palette per event category. One solid colour per type; magnitude
+// is encoded in dot radius (see _eventRadius), not in colour.
 var EVENT_TYPE_COLORS = {
+  earthquake:   '#3b82f6',   // blue
   quarry_blast: '#f59e0b',   // amber
   unreviewed:   '#94a3b8',   // muted gray
 };
 
 function eventMapStyle(e) {
   // Fill colour + stroke colour keyed to review status and event type.
-  // Earthquakes (or reviewed-without-type) keep the viridis/magnitude ramp.
   var status = e.review_status || '';
   var type = e.event_type || '';
   if (status === 'confirmed') {
     if (type === 'quarry_blast') {
       return { fill: EVENT_TYPE_COLORS.quarry_blast, stroke: '#78350f' };
     }
-    // Earthquake, undetermined-but-confirmed, and anything else:
-    // magnitude-based viridis.
-    return { fill: eventColor(e.magnitude), stroke: '#000' };
+    // Earthquake (and undetermined-but-confirmed): solid blue, size = magnitude.
+    return { fill: EVENT_TYPE_COLORS.earthquake, stroke: '#1e3a8a' };
   }
   // Unreviewed (or any other non-rejected state).
   return { fill: EVENT_TYPE_COLORS.unreviewed, stroke: '#334155' };
+}
+
+// Map marker radius from magnitude. Min ~3px so M~0 events stay visible;
+// climbs ~2px per magnitude unit so M2 ≈ 7px, M4 ≈ 11px.
+function _eventRadius(mag) {
+  return 3 + Math.max(0, (mag || 0)) * 2;
 }
 
 function shouldRenderEventOnMap(e) {
@@ -427,7 +635,7 @@ function renderEvents(events) {
     if (e.latitude == null || e.longitude == null) return;
     if (!shouldRenderEventOnMap(e)) return;
     var style = eventMapStyle(e);
-    var radius = 2 + (e.magnitude || 0) * 1.5;
+    var radius = _eventRadius(e.magnitude);
     L.circleMarker([e.latitude, e.longitude], {
       radius: radius,
       fillColor: style.fill,
@@ -660,7 +868,11 @@ function completenessColor(val, max) {
 }
 
 // ── Render data completeness calendar ────────────────────────────
+var lastCompletenessData = null;
 function renderCompleteness(data) {
+  if (data) lastCompletenessData = data;
+  else data = lastCompletenessData;
+  if (!data) return;
   var stations = data.stations, days = data.days, matrix = data.matrix;
   var el = document.getElementById('completeness-calendar');
   var rangeEl = document.getElementById('completeness-range');
@@ -761,22 +973,133 @@ function renderErrors(data) {
   modalEl.innerHTML = rowsHtml;
 }
 
-// ── Date filter & export ────────────────────────────────────────
-document.getElementById('filter-apply').addEventListener('click', function() {
-  filterStartDate = document.getElementById('filter-start').value || '';
-  filterEndDate = document.getElementById('filter-end').value || '';
+// ── Catalog date filter ─────────────────────────────────────────
+// Preset row + optional Custom range + dismissible active chip.
+
+function _filterIso(d) {
+  // ISO YYYY-MM-DD in local time (matches what the date input emits)
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + dd;
+}
+
+// Resolve a preset name to [start, end] (empty strings = unbounded).
+function _filterRangeForPreset(preset) {
+  var today = new Date();
+  var end = _filterIso(today);
+  if (preset === 'all')    return ['', ''];
+  if (preset === '7')      { var d = new Date(); d.setDate(d.getDate() - 7);  return [_filterIso(d), end]; }
+  if (preset === '30')     { var d = new Date(); d.setDate(d.getDate() - 30); return [_filterIso(d), end]; }
+  if (preset === '90')     { var d = new Date(); d.setDate(d.getDate() - 90); return [_filterIso(d), end]; }
+  if (preset === 'year')   return [today.getFullYear() + '-01-01', end];
+  return ['', ''];
+}
+
+function _updateFilterChip(label) {
+  var chip = document.getElementById('filter-chip');
+  var lbl = document.getElementById('filter-chip-label');
+  if (!chip || !lbl) return;
+  if (!label) {
+    chip.hidden = true;
+    return;
+  }
+  lbl.textContent = label;
+  chip.hidden = false;
+}
+
+function _setActivePreset(preset) {
+  document.querySelectorAll('.filter-preset').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.preset === preset);
+  });
+}
+
+function _applyPreset(preset) {
+  var range = _filterRangeForPreset(preset);
+  filterStartDate = range[0];
+  filterEndDate = range[1];
+  _setActivePreset(preset);
+  document.getElementById('filter-custom').hidden = true;
+
+  // Chip text. "All" hides the chip; everything else shows the range.
+  var label = null;
+  if (preset === '7')        label = 'Last 7 days';
+  else if (preset === '30')  label = 'Last 30 days';
+  else if (preset === '90')  label = 'Last 90 days';
+  else if (preset === 'year')label = 'This year';
+  _updateFilterChip(label);
+
   pollData();
   pollSlow();
+}
+
+function _applyCustomRange() {
+  var s = document.getElementById('filter-start').value || '';
+  var e = document.getElementById('filter-end').value || '';
+  if (!s && !e) return;  // nothing to apply
+  filterStartDate = s;
+  filterEndDate = e;
+  _setActivePreset('custom');
+  var label = (s || '…') + ' → ' + (e || '…');
+  _updateFilterChip(label);
+  pollData();
+  pollSlow();
+}
+
+document.querySelectorAll('.filter-preset').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var preset = btn.dataset.preset;
+    if (preset === 'custom') {
+      _setActivePreset('custom');
+      var custom = document.getElementById('filter-custom');
+      custom.hidden = false;
+      document.getElementById('filter-start').focus();
+    } else {
+      _applyPreset(preset);
+    }
+  });
 });
 
-document.getElementById('filter-clear').addEventListener('click', function() {
+document.getElementById('filter-apply').addEventListener('click', _applyCustomRange);
+
+// Pressing Enter in either date input also applies
+document.querySelectorAll('.filter-date').forEach(function(input) {
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') _applyCustomRange();
+  });
+});
+
+document.getElementById('filter-chip-x').addEventListener('click', function() {
   document.getElementById('filter-start').value = '';
   document.getElementById('filter-end').value = '';
-  filterStartDate = '';
-  filterEndDate = '';
-  pollData();
-  pollSlow();
+  _applyPreset('all');
 });
+
+// Fetch a URL and save the response body as a download. Works in pywebview
+// (where window.open() is unreliable) by routing through a blob + <a download>.
+function downloadFromUrl(url, filename) {
+  fetch(url).then(function(resp) {
+    if (!resp.ok) {
+      return resp.text().then(function(body) {
+        throw new Error('HTTP ' + resp.status + ': ' + body.slice(0, 200));
+      });
+    }
+    return resp.blob();
+  }).then(function(blob) {
+    var objUrl = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = objUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objUrl);
+    }, 100);
+  }).catch(function(err) {
+    alert('Download failed: ' + err.message);
+  });
+}
 
 document.getElementById('export-csv').addEventListener('click', function() {
   var url = '/api/catalog/export';
@@ -784,7 +1107,7 @@ document.getElementById('export-csv').addEventListener('click', function() {
   if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
   if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
   if (params.length > 0) url += '?' + params.join('&');
-  window.open(url, '_blank');
+  downloadFromUrl(url, 'catalog_export.csv');
 });
 
 // ── Build query string from date filters ────────────────────────
@@ -815,8 +1138,7 @@ function connectWebSocket() {
 
     wsConn.onopen = function() {
       var ind = document.getElementById('ws-indicator');
-      ind.textContent = 'live';
-      ind.classList.add('ws-connected');
+      if (ind) { ind.textContent = 'live'; ind.classList.add('ws-connected'); }
     };
 
     wsConn.onmessage = function(evt) {
@@ -829,8 +1151,7 @@ function connectWebSocket() {
 
     wsConn.onclose = function() {
       var ind = document.getElementById('ws-indicator');
-      ind.textContent = 'polling';
-      ind.classList.remove('ws-connected');
+      if (ind) { ind.textContent = 'polling'; ind.classList.remove('ws-connected'); }
       wsConn = null;
       // Retry after 5s
       if (useWebSocket) {
@@ -844,8 +1165,7 @@ function connectWebSocket() {
   } catch(e) {
     useWebSocket = false;
     var ind = document.getElementById('ws-indicator');
-    ind.textContent = 'polling';
-    ind.classList.remove('ws-connected');
+    if (ind) { ind.textContent = 'polling'; ind.classList.remove('ws-connected'); }
   }
 }
 
@@ -930,6 +1250,21 @@ setInterval(pollSlow, 30000);
 setTimeout(function() { map.invalidateSize(); }, 200);
 window.addEventListener('resize', function() { map.invalidateSize(); });
 
+// Re-render completeness calendar when its container resizes (window resize, tab show)
+if (typeof ResizeObserver !== 'undefined') {
+  var calEl = document.getElementById('completeness-calendar');
+  if (calEl) {
+    var lastCalW = 0;
+    new ResizeObserver(function(entries) {
+      var w = entries[0].contentRect.width;
+      if (w && Math.abs(w - lastCalW) > 4) {
+        lastCalW = w;
+        renderCompleteness();
+      }
+    }).observe(calEl);
+  }
+}
+
 // ── Tab Navigation ──────────────────────────────────────────────
 var activeTab = 'monitor';
 var tabDataLoaded = { monitor: true, pipeline: true, catalog: false, waveviewer: false };
@@ -944,6 +1279,9 @@ function switchTab(tab) {
   activeTab = tab;
   if (tab === 'monitor') {
     setTimeout(function() { map.invalidateSize(); }, 50);
+  }
+  if (tab === 'pipeline') {
+    setTimeout(function() { renderCompleteness(); }, 50);
   }
   if (!tabDataLoaded[tab]) {
     tabDataLoaded[tab] = true;
@@ -996,7 +1334,7 @@ document.getElementById('export-quakeml').addEventListener('click', function() {
   if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
   if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
   if (params.length > 0) url += '?' + params.join('&');
-  window.open(url, '_blank');
+  downloadFromUrl(url, 'catalog_export.xml');
 });
 
 // ── Catalog Table ───────────────────────────────────────────────
@@ -1357,14 +1695,27 @@ function showEventWaveforms(eventId) {
   }
 }
 
+// Light is the implicit default (no attribute on <html>) per styles.css;
+// dark is opted in via data-theme="dark". Centralised so the rest of the
+// JS doesn't re-litigate the convention.
+function _isLightTheme() {
+  return document.documentElement.getAttribute('data-theme') !== 'dark';
+}
+
 function _waveColors() {
-  var light = document.documentElement.getAttribute('data-theme') === 'light';
+  // Read from the design tokens so the canvas tracks whatever the active
+  // theme is (light, dark, or a future theme that adds new --canvas-bg
+  // etc. values).
+  var s = getComputedStyle(document.documentElement);
+  function v(name, fallback) {
+    return (s.getPropertyValue(name).trim()) || fallback;
+  }
   return {
-    bg:       light ? '#ffffff' : '#020617',
-    trace:    light ? '#2563eb' : '#60a5fa',
-    ot:       light ? '#334155' : '#ffffff',
-    axisText: light ? '#64748b' : '#94a3b8',
-    grid:     light ? '#e2e8f0' : '#1e293b',
+    bg:       v('--canvas-bg', '#ffffff'),
+    trace:    v('--blue',      '#2563eb'),
+    ot:       v('--text',      '#334155'),
+    axisText: v('--muted',     '#64748b'),
+    grid:     v('--border',    '#e2e8f0'),
   };
 }
 
@@ -1550,6 +1901,116 @@ var reviewState = {
   undoStack: [],
   redoStack: [],
 };
+
+// ── Cursor crosshair + live time readout ────────────────────────
+// One throttled redraw per animation frame. Tracks the active canvas +
+// last clientX so the crosshair re-renders on top of the wave without
+// blocking the main event loop.
+var _activeCrosshair = null;  // { canvas, trace, clientX }
+var _crosshairPending = false;
+
+function _scheduleCrosshair(canvas, trace, clientX) {
+  // Spectrogram canvases hold a pre-rendered PNG that's drawn asynchronously
+  // (Image.onload). Calling drawReviewCanvas on them paints a waveform over
+  // the spectrogram, and the obvious "repaint the spectrogram first" fix
+  // races the async load. Cleaner: just don't crosshair-overlay on them.
+  // Click handlers (add pick / delete / drag) keep working since they bind
+  // on mousedown, not mousemove.
+  if (canvas.classList && canvas.classList.contains('spectrogram-canvas')) return;
+  _activeCrosshair = { canvas: canvas, trace: trace, clientX: clientX };
+  if (_crosshairPending) return;
+  _crosshairPending = true;
+  requestAnimationFrame(function() {
+    _crosshairPending = false;
+    if (!_activeCrosshair) return;
+    var a = _activeCrosshair;
+    drawReviewCanvas(a.canvas, a.trace);
+    _drawCursorCrosshair(a.canvas, a.trace, a.clientX);
+  });
+}
+
+function _drawCursorCrosshair(canvas, trace, clientX) {
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W = canvas.width / dpr;
+  var H = canvas.height / dpr;
+  var rect = canvas.getBoundingClientRect();
+  var pxX = clientX - rect.left;
+  if (pxX < 0 || pxX > rect.width) return;
+  // Translate to canvas-CSS pixels (we already setTransform'd to dpr).
+  var cx = (pxX / rect.width) * W;
+
+  // Vertical guide line
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 3]);
+  ctx.beginPath();
+  ctx.moveTo(cx, 0);
+  ctx.lineTo(cx, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Time readout — relative to event origin, ms precision regardless of zoom
+  var view = _getTraceView(trace);
+  var tCursor = view.start + (pxX / rect.width) * view.dur;
+  var originT = parseTimeStr(reviewState.eventTime || trace.starttime);
+  var offset = tCursor - originT;
+  var label = (offset >= 0 ? '+' : '') + offset.toFixed(3) + 's';
+
+  ctx.font = 'bold 11px monospace';
+  var tw = ctx.measureText(label).width;
+  // Background pill so the label reads against any waveform colour
+  var bw = tw + 8, bh = 14;
+  // Position: prefer to the right of the cursor; flip left if near right edge
+  var bx = cx + 4;
+  if (bx + bw > W - 2) bx = cx - bw - 4;
+  ctx.fillStyle = '#3b82f6';
+  ctx.fillRect(bx, 2, bw, bh);
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, bx + 4, 2 + bh / 2);
+  ctx.textBaseline = 'alphabetic';  // restore default for any later drawing
+}
+
+// Time-window helper used by draw + click-to-time conversion. Always the
+// trace's natural extent — wheel zoom was tried and pulled (it desyncs the
+// pre-rendered spectrograms below the waveforms). Kept as a function so
+// the draw / pick code paths have one definition of "the window" if zoom
+// is ever revisited via a different mechanism.
+function _getTraceView(trace) {
+  var tStart = parseTimeStr(trace.starttime);
+  var sr = trace.sampling_rate || 100;
+  var tEnd = tStart + (trace.data ? trace.data.length / sr : 0);
+  return { start: tStart, end: tEnd, dur: tEnd - tStart, fullStart: tStart, fullEnd: tEnd };
+}
+
+// Choose a "nice" tick interval (1/2/5 × 10^n) targeting ~6-8 ticks.
+function _niceTickInterval(durSec, targetTicks) {
+  targetTicks = targetTicks || 7;
+  var rough = durSec / targetTicks;
+  var exp = Math.floor(Math.log10(rough));
+  var base = rough / Math.pow(10, exp);
+  var nice;
+  if      (base < 1.5) nice = 1;
+  else if (base < 3)   nice = 2;
+  else if (base < 7)   nice = 5;
+  else                 nice = 10;
+  return nice * Math.pow(10, exp);
+}
+
+// Format a time offset (seconds) relative to a reference time, choosing
+// precision based on the magnitude of the tick interval.
+function _formatTimeOffset(offsetSec, interval) {
+  // Decimal places driven by tick interval — 1 ms ticks need 3 decimals, etc.
+  var decimals;
+  if      (interval >= 1)    decimals = 1;
+  else if (interval >= 0.1)  decimals = 1;
+  else if (interval >= 0.01) decimals = 2;
+  else                       decimals = 3;
+  var s = offsetSec.toFixed(decimals);
+  if (offsetSec > 0 && s[0] !== '-') s = '+' + s;
+  return s + 's';
+}
 
 function openReviewMode(eventId) {
   reviewState.eventId = eventId;
@@ -1837,71 +2298,84 @@ function drawReviewCanvas(canvas, trace) {
   ctx.fillRect(0, 0, W, H);
   if (n === 0) return;
 
-  // Normalize
-  var maxAbs = 0;
-  for (var i = 0; i < n; i++) {
-    var a = Math.abs(data[i]);
-    if (a > maxAbs) maxAbs = a;
-  }
-  if (maxAbs === 0) maxAbs = 1;
+  // Visible time window (synced across all traces via reviewState).
+  // When unzoomed, view spans the whole trace.
+  var view = _getTraceView(trace);
+  var tStart = view.fullStart;
+  var sr = trace.sampling_rate || 100;
+  var viewStart = view.start, viewEnd = view.end, viewDur = view.dur;
+  if (viewDur <= 0) return;
 
   var plotLeft = 0;
   var plotW = W;
   var mid = H / 2;
   var amp = (H / 2) * 0.85;
 
-  // Draw waveform
+  // Sample indices that intersect the visible window. Clamp to trace bounds
+  // so panning past the edges just shows blank instead of crashing.
+  var iFirst = Math.max(0, Math.floor((viewStart - tStart) * sr));
+  var iLast  = Math.min(n - 1, Math.ceil((viewEnd - tStart) * sr));
+
+  // Normalise to the VISIBLE peak — zooming into a quiet patch reveals
+  // detail that the global peak would otherwise flatten. This is what
+  // makes the canvas useful for ms-accurate picking.
+  var maxAbs = 0;
+  for (var i = iFirst; i <= iLast; i++) {
+    var a = Math.abs(data[i]);
+    if (a > maxAbs) maxAbs = a;
+  }
+  if (maxAbs === 0) maxAbs = 1;
+
+  // Helper: time → canvas x.
+  function tx(timeSec) {
+    return plotLeft + ((timeSec - viewStart) / viewDur) * plotW;
+  }
+
+  // Draw waveform (visible samples only).
   ctx.strokeStyle = c.trace;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (var j = 0; j < n; j++) {
-    var x = plotLeft + (j / (n - 1)) * plotW;
+  for (var j = iFirst; j <= iLast; j++) {
+    var sampleTime = tStart + j / sr;
+    var x = tx(sampleTime);
     var y = mid - (data[j] / maxAbs) * amp;
-    if (j === 0) ctx.moveTo(x, y);
+    if (j === iFirst) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
 
-  // Time axis info
-  var tStart = parseTimeStr(trace.starttime);
-  var tEnd = tStart + n / (trace.sampling_rate || 100);
-  var dur = tEnd - tStart;
-
-  // Draw origin time
+  // Event origin time
+  var eventOriginT = reviewState.eventTime ? parseTimeStr(reviewState.eventTime) : tStart;
   if (reviewState.eventTime) {
-    var originT = parseTimeStr(reviewState.eventTime);
-    var frac = (originT - tStart) / dur;
-    if (frac >= 0 && frac <= 1) {
+    if (eventOriginT >= viewStart && eventOriginT <= viewEnd) {
+      var ox = tx(eventOriginT);
       ctx.strokeStyle = c.ot;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(plotLeft + frac * plotW, 0);
-      ctx.lineTo(plotLeft + frac * plotW, H);
+      ctx.moveTo(ox, 0); ctx.lineTo(ox, H);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = c.ot;
       ctx.font = 'bold 13px monospace';
-      ctx.fillText('OT', plotLeft + frac * plotW + 3, H - 4);
+      ctx.fillText('OT', ox + 3, H - 4);
     }
   }
 
-  // Draw picks for this station
+  // Picks for this station
   var staPicks = reviewState.picks.filter(function(p) {
     return p.station === trace.station && p.network === trace.network;
   });
   staPicks.forEach(function(pick) {
     var pickT = parseTimeStr(pick.time);
-    var pFrac = (pickT - tStart) / dur;
-    if (pFrac < 0 || pFrac > 1) return;
-    var px = plotLeft + pFrac * plotW;
+    if (pickT < viewStart || pickT > viewEnd) return;
+    var px = tx(pickT);
     var color = pick.phase === 'P' ? '#ef4444' : '#22c55e';
     ctx.strokeStyle = color;
     ctx.lineWidth = 2.5;
     ctx.setLineDash([5, 3]);
     ctx.beginPath();
-    ctx.moveTo(px, 0);
-    ctx.lineTo(px, H);
+    ctx.moveTo(px, 0); ctx.lineTo(px, H);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = color;
@@ -1909,60 +2383,71 @@ function drawReviewCanvas(canvas, trace) {
     ctx.fillText(pick.phase, px + 3, 16);
   });
 
-  // Draw theoretical travel time lines after relocation
+  // Theoretical travel time lines after relocation
   if (reviewState.locationResult && trace.latitude != null && trace.longitude != null) {
     var loc = reviewState.locationResult;
     if (loc.latitude != null && loc.longitude != null) {
       var horizDist = haversine_km(trace.latitude, trace.longitude, loc.latitude, loc.longitude);
       var depthKm = loc.depth_km || 0;
       var hypoDist = Math.sqrt(horizDist * horizDist + depthKm * depthKm);
-      var eventOriginT = parseTimeStr(loc.time || reviewState.eventTime);
-
-      var tpPred = eventOriginT + hypoDist / 5.0;
-      var tsPred = eventOriginT + hypoDist / 2.89;
-
-      // Draw Tp (cyan dotted)
-      var tpFrac = (tpPred - tStart) / dur;
-      if (tpFrac >= 0 && tpFrac <= 1) {
-        ctx.strokeStyle = '#00e5ff';
+      var refT = parseTimeStr(loc.time || reviewState.eventTime);
+      var tpPred = refT + hypoDist / 5.0;
+      var tsPred = refT + hypoDist / 2.89;
+      function _drawPred(timeSec, label, color) {
+        if (timeSec < viewStart || timeSec > viewEnd) return;
+        var px = tx(timeSec);
+        ctx.strokeStyle = color;
         ctx.lineWidth = 1.2;
         ctx.setLineDash([3, 4]);
         ctx.beginPath();
-        ctx.moveTo(plotLeft + tpFrac * plotW, 0);
-        ctx.lineTo(plotLeft + tpFrac * plotW, H);
+        ctx.moveTo(px, 0); ctx.lineTo(px, H);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = '#00e5ff';
+        ctx.fillStyle = color;
         ctx.font = '11px monospace';
-        ctx.fillText('Tp', plotLeft + tpFrac * plotW + 3, 30);
+        ctx.fillText(label, px + 3, 30);
       }
-      // Draw Ts (orange dotted)
-      var tsFrac = (tsPred - tStart) / dur;
-      if (tsFrac >= 0 && tsFrac <= 1) {
-        ctx.strokeStyle = '#ff9800';
-        ctx.lineWidth = 1.2;
-        ctx.setLineDash([3, 4]);
-        ctx.beginPath();
-        ctx.moveTo(plotLeft + tsFrac * plotW, 0);
-        ctx.lineTo(plotLeft + tsFrac * plotW, H);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#ff9800';
-        ctx.font = '11px monospace';
-        ctx.fillText('Ts', plotLeft + tsFrac * plotW + 3, 30);
-      }
+      _drawPred(tpPred, 'Tp', '#00e5ff');
+      _drawPred(tsPred, 'Ts', '#ff9800');
     }
   }
 
-  // Time axis labels
+  // Time axis: major + minor ticks. Major ticks get dashed full-height
+  // gridlines + a label; minor ticks (1/5 of major) get short marks
+  // above the label band as visual reference for sub-major intervals.
+  // Both labelled as offsets from event origin so picks align visually
+  // with the same +0.012s style across zoom levels.
+  var interval = _niceTickInterval(viewDur, 7);
+  var minorInterval = interval / 5;
+  var firstMajor = Math.ceil(viewStart / interval) * interval;
+  var firstMinor = Math.ceil(viewStart / minorInterval) * minorInterval;
   ctx.fillStyle = c.axisText;
+  ctx.strokeStyle = c.grid;
   ctx.font = '10px monospace';
-  for (var t = 0; t <= 10; t++) {
-    var relSec = (t / 10) * dur;
-    var xPos = plotLeft + (t / 10) * plotW;
-    var originT2 = reviewState.eventTime ? parseTimeStr(reviewState.eventTime) : tStart;
-    var relToOrigin = (tStart + relSec) - originT2;
-    ctx.fillText((relToOrigin >= 0 ? '+' : '') + relToOrigin.toFixed(1) + 's', xPos + 2, H - 2);
+  ctx.textAlign = 'left';
+  ctx.lineWidth = 0.5;
+
+  // Minor ticks first (so majors overlay cleanly where they coincide).
+  ctx.globalAlpha = 0.55;
+  for (var minor = firstMinor; minor <= viewEnd; minor += minorInterval) {
+    var xm = tx(minor);
+    ctx.beginPath();
+    ctx.moveTo(xm, H - 18);
+    ctx.lineTo(xm, H - 14);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1.0;
+
+  // Major ticks: dashed full-height + label
+  for (var tick = firstMajor; tick <= viewEnd; tick += interval) {
+    var xT = tx(tick);
+    ctx.setLineDash([1, 3]);
+    ctx.beginPath();
+    ctx.moveTo(xT, 0); ctx.lineTo(xT, H - 14);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    var label = _formatTimeOffset(tick - eventOriginT, interval);
+    ctx.fillText(label, xT + 2, H - 2);
   }
 
   // Y-axis overlay (drawn last, on top of waveform)
@@ -2044,9 +2529,13 @@ function drawSpectrogramCanvas(canvas, trace, eventTime, picks) {
     var shiftPx = (0.5 / dur) * cssW;
     ctx.drawImage(img, shiftPx, 0, cssW, cssH);
 
-    // Frequency axis labels (right edge, with padding to avoid clipping)
-    var _light = document.documentElement.getAttribute('data-theme') === 'light';
-    ctx.fillStyle = _light ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)';
+    // Frequency axis labels (right edge, with padding to avoid clipping).
+    // Translucent black on light, translucent white on dark so the labels
+    // read against the spectrogram regardless of the underlying colormap
+    // density at the right edge.
+    ctx.fillStyle = _isLightTheme()
+      ? 'rgba(0,0,0,0.6)'
+      : 'rgba(255,255,255,0.7)';
     ctx.font = '9px monospace';
     ctx.textAlign = 'right';
     var nyquist = (trace.sampling_rate || 100) / 2;
@@ -2133,13 +2622,15 @@ function redrawTraceCanvases(canvas, trace) {
 }
 
 function canvasToTime(canvas, clientX, trace) {
+  // Uses the (possibly-zoomed) visible window so pixel-to-time conversion
+  // gives sub-pixel accuracy when zoomed in. Clicking at pixel 400 in an
+  // 800-pixel-wide canvas over a 1s window yields exactly 0.500 s into
+  // the window, regardless of the underlying trace duration.
   var rect = canvas.getBoundingClientRect();
   var frac = (clientX - rect.left) / rect.width;
   frac = Math.max(0, Math.min(1, frac));
-  var tStart = parseTimeStr(trace.starttime);
-  var n = trace.data.length;
-  var dur = n / (trace.sampling_rate || 100);
-  return tStart + frac * dur;
+  var view = _getTraceView(trace);
+  return view.start + frac * view.dur;
 }
 
 function timeToIso(t) {
@@ -2147,11 +2638,12 @@ function timeToIso(t) {
 }
 
 function findNearestPick(canvas, clientX, trace) {
+  // Same fractional-tolerance approach as before, but in the visible
+  // window's coordinate system. Picks outside the current view are
+  // unreachable by this nearest-search (you have to zoom out / pan first).
   var rect = canvas.getBoundingClientRect();
   var clickFrac = (clientX - rect.left) / rect.width;
-  var tStart = parseTimeStr(trace.starttime);
-  var n = trace.data.length;
-  var dur = n / (trace.sampling_rate || 100);
+  var view = _getTraceView(trace);
   var tolerance = 10 / rect.width; // 10px tolerance
 
   var best = null;
@@ -2159,7 +2651,8 @@ function findNearestPick(canvas, clientX, trace) {
   reviewState.picks.forEach(function(p, idx) {
     if (p.station !== trace.station || p.network !== trace.network) return;
     var pickT = parseTimeStr(p.time);
-    var pickFrac = (pickT - tStart) / dur;
+    var pickFrac = (pickT - view.start) / view.dur;
+    if (pickFrac < 0 || pickFrac > 1) return;  // off-screen pick
     var dist = Math.abs(pickFrac - clickFrac);
     if (dist < tolerance && dist < bestDist) {
       bestDist = dist;
@@ -2277,7 +2770,28 @@ function attachCanvasEvents(canvas, trace) {
       var t = canvasToTime(canvas, e.clientX, trace);
       reviewState.dragPick.pick.time = timeToIso(t);
       redrawTraceCanvases(canvas, trace);
+      return;
     }
+    // Live cursor crosshair + time readout. Throttled to one redraw per
+    // animation frame so dragging a 1080p mouse across the canvas at high
+    // dpi doesn't queue dozens of redraws per second.
+    _scheduleCrosshair(canvas, trace, e.clientX);
+  });
+
+  canvas.addEventListener('mouseleave', function() {
+    // Clear crosshair when leaving the canvas, and release any in-progress
+    // pick-drag (the existing behavior — cancel the drag if the cursor
+    // leaves the canvas, since we can't tell where they're letting go).
+    _activeCrosshair = null;
+    if (reviewState.dragPick && reviewState.dragCanvas === canvas) {
+      reviewState.dragPick = null;
+      reviewState.dragCanvas = null;
+      canvas.style.cursor = 'crosshair';
+    }
+    // Same skip as _scheduleCrosshair — don't paint a waveform over a
+    // spectrogram canvas when the cursor leaves it.
+    if (canvas.classList && canvas.classList.contains('spectrogram-canvas')) return;
+    drawReviewCanvas(canvas, trace);
   });
 
   canvas.addEventListener('mouseup', function(e) {
@@ -2297,14 +2811,6 @@ function attachCanvasEvents(canvas, trace) {
     }
   });
 
-  canvas.addEventListener('mouseleave', function() {
-    if (reviewState.dragPick && reviewState.dragCanvas === canvas) {
-      reviewState.dragPick = null;
-      reviewState.dragCanvas = null;
-      canvas.style.cursor = 'crosshair';
-      redrawTraceCanvases(canvas, trace);
-    }
-  });
 }
 
 function updatePickStatus() {
@@ -2379,6 +2885,7 @@ document.querySelectorAll('.pick-mode-btn').forEach(function(btn) {
     reviewState.pickMode = btn.getAttribute('data-mode');
   });
 });
+
 
 // Relocate
 document.getElementById('rv-relocate').addEventListener('click', function() {
@@ -2808,6 +3315,7 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
+  // Pick mode keyboard shortcuts
   var modeMap = { p: 'addP', s: 'addS', d: 'delete', g: 'drag' };
   if (modeMap[key]) {
     reviewState.pickMode = modeMap[key];

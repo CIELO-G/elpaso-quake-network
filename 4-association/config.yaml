@@ -23,9 +23,11 @@ center_lon: -106.40
 
 # -----------------------------------------------------------------------------
 # Search region (degrees from center)
+# Widened 0.7 → 1.5 to capture quarry blasts at distant mines (Carlsbad ~130km)
+# and regional events. Pairs with the NLLoc grid extent in lib/location/nlloc_config.py.
 # -----------------------------------------------------------------------------
-xlim_degree: 0.7
-ylim_degree: 0.7
+xlim_degree: 1.5
+ylim_degree: 1.5
 zlim_km: [0, 30]
 
 # Degrees-to-km conversion at this latitude
@@ -55,7 +57,7 @@ dbscan_min_samples: 3
 # -----------------------------------------------------------------------------
 min_picks_per_eq: 4          # At least 4 phase picks total (3P + 1S minimum)
 min_p_picks: 3                # minimum P-phase picks per event
-min_s_picks: 2                # minimum S-phase picks per event
+min_s_picks: 1                # minimum S-phase picks per event (lowered from 2 to 1)
 min_stations_per_eq: 3        # minimum unique stations per event (post-association QC)
 max_sigma11: 2.0          # max time residual std (s)
 max_sigma22: 2.0          # max amplitude residual std (log10)

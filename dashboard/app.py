@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from dashboard.deps import STATIC_DIR
 from dashboard.middleware import BasicAuthMiddleware, RateLimitMiddleware
 from dashboard.routes import (
+    admin as admin_routes,
     catalog as catalog_routes,
     export as export_routes,
     pipeline as pipeline_routes,
@@ -55,3 +56,4 @@ app.include_router(catalog_routes.router)
 app.include_router(waveforms_routes.router)
 app.include_router(review_routes.router)
 app.include_router(export_routes.router)
+app.include_router(admin_routes.router)
