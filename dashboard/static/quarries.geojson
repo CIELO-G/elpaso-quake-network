@@ -1,0 +1,7415 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2625,
+          32.348056
+        ]
+      },
+      "properties": {
+        "mine_id": "2900885",
+        "name": "Carlsbad Airport Pit",
+        "operator": "United Materials, LLP",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.041111,
+          32.304444
+        ]
+      },
+      "properties": {
+        "mine_id": "2901785",
+        "name": "New Mexico Salt & Minerals LLC",
+        "operator": "New Mexico Salt & Minerals LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Nonmetal",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.114167,
+          32.490556
+        ]
+      },
+      "properties": {
+        "mine_id": "2902028",
+        "name": "Intrepid Potash North",
+        "operator": "Intrepid Potash-New Mexico, LLC",
+        "type": "Facility",
+        "status": "Active",
+        "commodity": "Nonmetal",
+        "state": "NM",
+        "county": "Lea",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.658333,
+          32.158889
+        ]
+      },
+      "properties": {
+        "mine_id": "2902128",
+        "name": "Vado Quarry",
+        "operator": "GCC Sun City Materials LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "NM",
+        "county": "Dona Ana",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.587778,
+          32.447778
+        ]
+      },
+      "properties": {
+        "mine_id": "2902295",
+        "name": "Toro Aggregates",
+        "operator": "GCC Sun City Materials LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "NM",
+        "county": "Dona Ana",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.071111,
+          32.325
+        ]
+      },
+      "properties": {
+        "mine_id": "2902340",
+        "name": "Fisher Industries Plant 38",
+        "operator": "Fisher Sand & Gravel Company",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.696667,
+          32.164444
+        ]
+      },
+      "properties": {
+        "mine_id": "2902383",
+        "name": "Mesquite Pit",
+        "operator": "Quattro Materials Center, LLC.",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Dona Ana",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.239167,
+          32.388611
+        ]
+      },
+      "properties": {
+        "mine_id": "2902408",
+        "name": "Boyd Pit",
+        "operator": "United Materials, LLP",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.594722,
+          32.140833
+        ]
+      },
+      "properties": {
+        "mine_id": "2902411",
+        "name": "Vado Quarry",
+        "operator": "Jobe Materials LP",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Dona Ana",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.594722,
+          32.140833
+        ]
+      },
+      "properties": {
+        "mine_id": "2902413",
+        "name": "Vado Pit",
+        "operator": "JMC & Sons Sand & Gravel",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Dona Ana",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.641389,
+          32.196111
+        ]
+      },
+      "properties": {
+        "mine_id": "2902442",
+        "name": "Mesquite Quarry",
+        "operator": "GCC Sun City Materials LLC",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Dona Ana",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.099722,
+          31.872778
+        ]
+      },
+      "properties": {
+        "mine_id": "2902450",
+        "name": "Bonito Pit",
+        "operator": "Black Rock Services LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Valencia",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.286944,
+          32.476111
+        ]
+      },
+      "properties": {
+        "mine_id": "2902471",
+        "name": "Sweatt Bar 5 pit",
+        "operator": "Sweatt Construction Inc",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.367222,
+          31.848611
+        ]
+      },
+      "properties": {
+        "mine_id": "2902520",
+        "name": "Inertia Model W50001040 Crusher",
+        "operator": "Good Times Trucking LLC",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.328611,
+          32.296667
+        ]
+      },
+      "properties": {
+        "mine_id": "2902537",
+        "name": "Thunder Stone Quarry LLC",
+        "operator": "Thunder Stone Quarry LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.182222,
+          32.323611
+        ]
+      },
+      "properties": {
+        "mine_id": "2902545",
+        "name": "Portable KPI-JCI Serial #603894",
+        "operator": "SB Weed Control LLC",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.24,
+          32.406667
+        ]
+      },
+      "properties": {
+        "mine_id": "2902552",
+        "name": "Cactus Pit",
+        "operator": "J & H Services Inc",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.24,
+          32.406667
+        ]
+      },
+      "properties": {
+        "mine_id": "2902556",
+        "name": "WIPP Road #1",
+        "operator": "Halo Services, Inc",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.656,
+          32.1348
+        ]
+      },
+      "properties": {
+        "mine_id": "2902558",
+        "name": "Mesquite Pit",
+        "operator": "Neo Trucking LLC",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "NM",
+        "county": "Dona Ana",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.186944,
+          32.336667
+        ]
+      },
+      "properties": {
+        "mine_id": "2902566",
+        "name": "Whiskey Pit",
+        "operator": "Rio Pecos Material, LLC",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "NM",
+        "county": "Eddy",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.469722,
+          31.816389
+        ]
+      },
+      "properties": {
+        "mine_id": "4100046",
+        "name": "McKelligon Canyon",
+        "operator": "GCC Sun City Materials LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.830833,
+          31.039722
+        ]
+      },
+      "properties": {
+        "mine_id": "4100867",
+        "name": "TP CLAIMS 1 & 2 /ROSA BLANCA",
+        "operator": "Dal-Tile Corporation",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Nonmetal",
+        "state": "TX",
+        "county": "Hudspeth",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.003611,
+          31.078056
+        ]
+      },
+      "properties": {
+        "mine_id": "4100869",
+        "name": "Allamore Mill",
+        "operator": "Dal-Tile Corporation",
+        "type": "Facility",
+        "status": "Intermittent",
+        "commodity": "Nonmetal",
+        "state": "TX",
+        "county": "Hudspeth",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.8475,
+          31.428611
+        ]
+      },
+      "properties": {
+        "mine_id": "4100995",
+        "name": "Marble Canyon Mine",
+        "operator": "Texas Architectural Aggregate Inc",
+        "type": "Underground",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Culberson",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.830833,
+          31.039722
+        ]
+      },
+      "properties": {
+        "mine_id": "4102828",
+        "name": "Hudspeth County Pits",
+        "operator": "Texas Architectural Aggregate Inc",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Culberson",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.119167,
+          31.801111
+        ]
+      },
+      "properties": {
+        "mine_id": "4103278",
+        "name": "South Quarry",
+        "operator": "GCC Sun City Materials LLC",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.134444,
+          31.657778
+        ]
+      },
+      "properties": {
+        "mine_id": "4103711",
+        "name": "MTI Sandpit Cascade Division",
+        "operator": "Mullen-Telles Inc",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.241667,
+          31.720833
+        ]
+      },
+      "properties": {
+        "mine_id": "4103807",
+        "name": "Soto's  Rock",
+        "operator": "Soto's  Rock",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.250556,
+          31.749167
+        ]
+      },
+      "properties": {
+        "mine_id": "4103816",
+        "name": "EAST LOOP 375 SAND PLT",
+        "operator": "GCC Sun City Materials LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.069444,
+          31.822778
+        ]
+      },
+      "properties": {
+        "mine_id": "4103916",
+        "name": "MACIAS PIT",
+        "operator": "Macias Quarry",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.130278,
+          31.682778
+        ]
+      },
+      "properties": {
+        "mine_id": "4104017",
+        "name": "Rock Dimension Pit",
+        "operator": "Soto Company",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.334722,
+          31.709444
+        ]
+      },
+      "properties": {
+        "mine_id": "4104224",
+        "name": "Roadrunner Sand Pit",
+        "operator": "Desert Rock Company",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.135278,
+          31.855833
+        ]
+      },
+      "properties": {
+        "mine_id": "4104347",
+        "name": "Hueco Quarry Inc",
+        "operator": "Hueco Quarry Inc",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.408889,
+          31.986944
+        ]
+      },
+      "properties": {
+        "mine_id": "4104366",
+        "name": "Victorio Sand Pit",
+        "operator": "Victorio Trail Sand Products",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.069444,
+          31.822778
+        ]
+      },
+      "properties": {
+        "mine_id": "4104369",
+        "name": "D. S. QUARRY",
+        "operator": "D R S  Rock Materials, LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.346944,
+          31.167222
+        ]
+      },
+      "properties": {
+        "mine_id": "4104484",
+        "name": "Antelope Hills Quarry",
+        "operator": "Desert Rock Company",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.330833,
+          31.749167
+        ]
+      },
+      "properties": {
+        "mine_id": "4104548",
+        "name": "Section 14",
+        "operator": "Jobe Materials LP",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.099722,
+          31.872778
+        ]
+      },
+      "properties": {
+        "mine_id": "4104561",
+        "name": "Sun City Rock, Inc.",
+        "operator": "Sun City Rock, Inc.",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.113056,
+          31.828611
+        ]
+      },
+      "properties": {
+        "mine_id": "4104568",
+        "name": "Ned Finney Quarry",
+        "operator": "Jobe Materials LP",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.448056,
+          31.861389
+        ]
+      },
+      "properties": {
+        "mine_id": "4104605",
+        "name": "Portable Crusher #3",
+        "operator": "J. Lee Milligan, Inc.",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Oldham",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.168889,
+          31.639167
+        ]
+      },
+      "properties": {
+        "mine_id": "4104637",
+        "name": "Trini Fine Materials",
+        "operator": "El Paso Star Ready Mix Inc",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Nonmetal",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.423611,
+          31.986944
+        ]
+      },
+      "properties": {
+        "mine_id": "4104672",
+        "name": "Hitt Canyon Quarry Mine",
+        "operator": "Jobe Materials LP",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.346944,
+          31.171389
+        ]
+      },
+      "properties": {
+        "mine_id": "4104680",
+        "name": "Sierra Blanca Quarry",
+        "operator": "Sierra Blanca Quarry, LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Hudspeth",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.360278,
+          31.956389
+        ]
+      },
+      "properties": {
+        "mine_id": "4104712",
+        "name": "Dyer Sand Pit",
+        "operator": "Jobe Materials LP",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.576667,
+          31.863611
+        ]
+      },
+      "properties": {
+        "mine_id": "4104795",
+        "name": "Avispa Canyon Quarry",
+        "operator": "Jobe Materials LP",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.241667,
+          31.720833
+        ]
+      },
+      "properties": {
+        "mine_id": "4104803",
+        "name": "H&R Rock LLC",
+        "operator": "H&R Rock LLC",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.084444,
+          31.831667
+        ]
+      },
+      "properties": {
+        "mine_id": "4104811",
+        "name": "Garcia Rock Co",
+        "operator": "Garcia Rock Co",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.241667,
+          31.720833
+        ]
+      },
+      "properties": {
+        "mine_id": "4104825",
+        "name": "JDF Materials LLC",
+        "operator": "JDF Materials",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.134444,
+          31.657778
+        ]
+      },
+      "properties": {
+        "mine_id": "4104900",
+        "name": "Pipeline Quarry",
+        "operator": "Drs Rock Materials LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.285278,
+          31.747778
+        ]
+      },
+      "properties": {
+        "mine_id": "4104965",
+        "name": "Horizon Mine",
+        "operator": "McNutt Construction",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.861111,
+          31.035278
+        ]
+      },
+      "properties": {
+        "mine_id": "4105238",
+        "name": "Van Horn Quarry",
+        "operator": "Jobe Materials, L.P.",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Culberson",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.357778,
+          31.125
+        ]
+      },
+      "properties": {
+        "mine_id": "4105318",
+        "name": "Sierra Red Quarry",
+        "operator": "Desert Rock Co.",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Hudspeth",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.135278,
+          31.452222
+        ]
+      },
+      "properties": {
+        "mine_id": "4105467",
+        "name": "Sand Plant No. 2",
+        "operator": "Jobe Materials, L.P.",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3625,
+          31.902222
+        ]
+      },
+      "properties": {
+        "mine_id": "4105473",
+        "name": "Alligator 45-61-1",
+        "operator": "Wise Aggregate, LLC",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Culberson",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.024722,
+          31.876944
+        ]
+      },
+      "properties": {
+        "mine_id": "4105487",
+        "name": "Portable #5",
+        "operator": "Thompson Materials",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Reeves",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.399167,
+          31.987222
+        ]
+      },
+      "properties": {
+        "mine_id": "4105518",
+        "name": "McCombs Sand Pit",
+        "operator": "Jobe Materials, L.P.",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.004167,
+          31.886389
+        ]
+      },
+      "properties": {
+        "mine_id": "4105672",
+        "name": "Honey Hole",
+        "operator": "Caliche now llc.",
+        "type": "Surface",
+        "status": "Active",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "Reeves",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.205833,
+          31.173889
+        ]
+      },
+      "properties": {
+        "mine_id": "4105776",
+        "name": "Coyote Run River Pit",
+        "operator": "Desert Rock Co.",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Nonmetal",
+        "state": "TX",
+        "county": "Hudspeth",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.064167,
+          31.755833
+        ]
+      },
+      "properties": {
+        "mine_id": "4105802",
+        "name": "Cascabeles",
+        "operator": "Quest Contracting, Inc.",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.157778,
+          31.686667
+        ]
+      },
+      "properties": {
+        "mine_id": "4105805",
+        "name": "Soto Sand and Gravel Pit",
+        "operator": "Soto Sand and Gravel, Inc.",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "SandAndGravel",
+        "state": "TX",
+        "county": "El Paso",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.599722,
+          31.213333
+        ]
+      },
+      "properties": {
+        "mine_id": "4105833",
+        "name": "Van Halen",
+        "operator": "Helmcamp Materials, Ltd.",
+        "type": "Surface",
+        "status": "Intermittent",
+        "commodity": "Stone",
+        "state": "TX",
+        "county": "Culberson",
+        "source": "MSHA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.5005128,
+          31.1873504
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120031",
+        "name": "Bonanza Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.9249411,
+          31.1390201
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120051",
+        "name": "Blackshaft Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.0018854,
+          30.7679169
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120052",
+        "name": "Black Diamond Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.9243856,
+          31.1359646
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120077",
+        "name": "Hackberry Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.9004966,
+          31.1706862
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120081",
+        "name": "Hazel Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.9566091,
+          31.1615195
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120114",
+        "name": "Mohawk Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0957551,
+          31.7098479
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120140",
+        "name": "Kyle Quarry",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.939664,
+          31.1442978
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120171",
+        "name": "Sancho Panza Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.9338303,
+          31.1384645
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120173",
+        "name": "Saint Elmo Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.0254972,
+          30.7493061
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120183",
+        "name": "Purple Sage Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.9538614,
+          31.6867805
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120187",
+        "name": "Old Padre Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1585344,
+          31.6684593
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120190",
+        "name": "Old Michigan Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.9221604,
+          30.8779148
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369120278",
+        "name": "Plata Verde Mines",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "TX",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.106373,
+          32.3917625
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369151962",
+        "name": "Alice Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5538858,
+          32.4617567
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369151988",
+        "name": "Black Prince Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4858283,
+          32.4939784
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369151995",
+        "name": "Bonney Spring Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6002758,
+          32.4023136
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152047",
+        "name": "Empire Zinc Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1085957,
+          32.4125954
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152051",
+        "name": "Garnet Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3710679,
+          32.4765041
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152060",
+        "name": "Golden Eagle Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5986063,
+          32.1948185
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152066",
+        "name": "Herbert Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5580526,
+          32.4575901
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152076",
+        "name": "Hilltop Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1241518,
+          32.4225951
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152093",
+        "name": "Iron Queen Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0985951,
+          32.3970401
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152099",
+        "name": "Little Joe Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1005397,
+          32.4056512
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152131",
+        "name": "Mannie Baird Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5797187,
+          32.3439817
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152136",
+        "name": "Modoc Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5633305,
+          32.4445348
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152169",
+        "name": "Silver King Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5047169,
+          32.4403684
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152174",
+        "name": "Rock of Ages Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.7507834,
+          32.0778902
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152417",
+        "name": "Guadalupe Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.8194438,
+          31.9970444
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152800",
+        "name": "Weaver Federal Number One",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.4694049,
+          32.4501133
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152832",
+        "name": "Lepee Claims",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2296705,
+          32.4062291
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152834",
+        "name": "Townsite Salt",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3716235,
+          32.4767818
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152837",
+        "name": "Lone Eagle",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.8066201,
+          32.1584428
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152839",
+        "name": "El Paso Gap",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.4716258,
+          32.4181688
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369152846",
+        "name": "Little Walt Canyon",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5977758,
+          32.4045357
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369153440",
+        "name": "Ruby Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.4657935,
+          32.4462245
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154625",
+        "name": "Rocky Arroyo",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.9977835,
+          31.8620464
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154731",
+        "name": "Federal 'H' Number One Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.9116763,
+          32.4223117
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154744",
+        "name": "Gilliland",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.9438992,
+          32.3945344
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154750",
+        "name": "Iron Hill District",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5730532,
+          32.4553679
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154924",
+        "name": "Merrimac Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.506106,
+          32.448146
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154931",
+        "name": "Golden Lily Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4930506,
+          32.4928673
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154933",
+        "name": "Bighorn Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5877725,
+          32.196763
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154935",
+        "name": "Blue Star Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5794409,
+          32.3431484
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369154937",
+        "name": "Fillmore Canyon Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6397178,
+          32.1339866
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155012",
+        "name": "Vado Quarry Number One",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6428147,
+          32.1373656
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155014",
+        "name": "Vado Pit",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5880503,
+          32.196763
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155016",
+        "name": "Blue Star",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5199956,
+          32.4634233
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155019",
+        "name": "Black Hawk Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6030506,
+          32.17843
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155021",
+        "name": "Brick Shale",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5322157,
+          32.2617613
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155023",
+        "name": "White Spar",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5694419,
+          32.4487014
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155025",
+        "name": "Cobre Grande",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5852723,
+          32.1900964
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155030",
+        "name": "Conklings Cave",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.726946,
+          32.2648172
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155032",
+        "name": "Las Alturas Estates Wells",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5505472,
+          32.0631551
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155037",
+        "name": "Copiapo Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5697196,
+          32.4425904
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155039",
+        "name": "Crested Butte Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5602746,
+          32.4342573
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155475",
+        "name": "Ben Nevis",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.8766747,
+          32.3817576
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155586",
+        "name": "Willis Groups",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.9169542,
+          32.4162007
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155593",
+        "name": "Gilliland Claim",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.8972299,
+          32.2912042
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155614",
+        "name": "Lauer Claims",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5730532,
+          32.4559234
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155806",
+        "name": "Merrimac",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5022169,
+          32.4442572
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155807",
+        "name": "Maggie G",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5102727,
+          32.445646
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155809",
+        "name": "Mineral Hill",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5077727,
+          32.4475904
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155810",
+        "name": "Pagoda Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5872189,
+          32.3373151
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155811",
+        "name": "Orejon",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5922204,
+          32.4356462
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155812",
+        "name": "Philadelphia",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5158287,
+          32.4584234
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155813",
+        "name": "Pharmacist Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.59458,
+          32.3675327
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155815",
+        "name": "Hayner Ruby Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5047169,
+          32.4400906
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155817",
+        "name": "Rock of Ages Procpect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5869427,
+          32.4559234
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155818",
+        "name": "Old Tough Nut Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5549945,
+          32.2784276
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155820",
+        "name": "Rucker Canyon",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5699979,
+          32.4853672
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155822",
+        "name": "Smith",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.54554,
+          32.2927149
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155824",
+        "name": "Soledad Canyon",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5116593,
+          32.2684277
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155826",
+        "name": "South Canyon Magnesite",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4894389,
+          32.4553681
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155831",
+        "name": "Tennesee",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5130494,
+          32.3492593
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155833",
+        "name": "Texas Canyon Group",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4963834,
+          32.450646
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155835",
+        "name": "Tiberius",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5772204,
+          32.4778674
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155837",
+        "name": "Silver Jim",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4744387,
+          32.4584237
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155847",
+        "name": "Sunshine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5705532,
+          32.4603678
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369155850",
+        "name": "Swanson-Lauer",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.559997,
+          32.4489792
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156102",
+        "name": "Silver Coinage",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5774962,
+          32.3312042
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156104",
+        "name": "Silver Cliff",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6005536,
+          32.4023136
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156108",
+        "name": "Stevenson-Bennett",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5561078,
+          32.433424
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156110",
+        "name": "San Agustin Pass",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5630528,
+          32.4556457
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156111",
+        "name": "Rickardite",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6986118,
+          32.2909275
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156113",
+        "name": "Santiago",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.47555,
+          32.4709234
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156115",
+        "name": "Santa Cruz Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5930537,
+          32.4284241
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156133",
+        "name": "Torpedo",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4849947,
+          32.479812
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156141",
+        "name": "Sunol",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5819411,
+          32.3478705
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156145",
+        "name": "Trapizoid Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5661086,
+          32.4562012
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156147",
+        "name": "Little Buck",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5180498,
+          32.3684255
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156149",
+        "name": "Mica Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5066615,
+          32.4459237
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156159",
+        "name": "Lady Hopkins Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5558301,
+          32.4398127
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156171",
+        "name": "Quickstrike",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5655528,
+          32.4475903
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156173",
+        "name": "R C and R J Lodge Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5724974,
+          32.4381461
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156175",
+        "name": "Old Homestead Lode",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5855533,
+          32.4203687
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156177",
+        "name": "Poor Mans Friend",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5011063,
+          32.4834229
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156178",
+        "name": "Mormon",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.508329,
+          32.4981448
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156180",
+        "name": "Mountain Chief",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5913871,
+          32.4412015
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156182",
+        "name": "Memphis",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5799964,
+          32.3442595
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156184",
+        "name": "Modoc",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.508858,
+          32.0362191
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156466",
+        "name": "Cornudas Mountain Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5924981,
+          32.4314796
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156668",
+        "name": "Copper Bar Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5786076,
+          32.3434261
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156670",
+        "name": "Fillmore Canyon",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5730532,
+          32.4523124
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156674",
+        "name": "Copper Buckle",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5094394,
+          32.4470348
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156676",
+        "name": "Dummy B Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5047171,
+          32.4528681
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156678",
+        "name": "Dona Dora",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5197179,
+          32.46509
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156682",
+        "name": "Eureka Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5883316,
+          32.452868
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156684",
+        "name": "Chippewa Lode",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.8658946,
+          32.0937479
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156686",
+        "name": "Grimm Well",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6363036,
+          32.132566
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156694",
+        "name": "Vado Quarry Number Two",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5427744,
+          32.4689788
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156696",
+        "name": "Buck Deer Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5888869,
+          32.4381461
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156700",
+        "name": "Black Quart Lode",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.7430585,
+          32.3237045
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156702",
+        "name": "Burn Pit",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6925004,
+          32.2923164
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156710",
+        "name": "Hoffer MN Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5630525,
+          32.4284241
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156720",
+        "name": "Gray Eagle",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4849947,
+          32.4781455
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156722",
+        "name": "Green Girl Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5852725,
+          32.200374
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156724",
+        "name": "Bishops Cap Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5358294,
+          32.4495347
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156726",
+        "name": "H and H Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.598054,
+          32.4359239
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156728",
+        "name": "Homestake",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5680529,
+          32.4489792
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156730",
+        "name": "Iron Mask and Ophelia Claims",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6938893,
+          32.2909275
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156732",
+        "name": "Jones",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5963839,
+          32.1953741
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369156734",
+        "name": "Grant Prospect",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5422161,
+          32.2639835
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369157107",
+        "name": "Devils Canyon Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.4505014,
+          32.0367847
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369157857",
+        "name": "Old Wallace Smith",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3324466,
+          32.217617
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369158172",
+        "name": "Anna B Byrd",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1618918,
+          32.4478964
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369158182",
+        "name": "New Mexico Salt Company",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6958339,
+          32.2889832
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369159856",
+        "name": "SK Standard Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5419383,
+          32.2637057
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369160159",
+        "name": "Devils Canyon Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5630527,
+          32.4484236
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369160256",
+        "name": "Copper Bullion and Cobre Grand Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.7047232,
+          32.2920386
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369160290",
+        "name": "Manganese Number Two Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6961117,
+          32.2906498
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369160291",
+        "name": "Tortugas Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4891615,
+          32.4817564
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369160300",
+        "name": "Sally Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6674993,
+          32.2889831
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369160345",
+        "name": "Tortugas Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.57722,
+          32.4484236
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369160418",
+        "name": "Big Three Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5344379,
+          32.2570391
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn369160420",
+        "name": "Devils Canyon Mine",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.7832592,
+          32.3275334
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn585368216",
+        "name": "Donna Mountain",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5925308,
+          32.3662369
+        ]
+      },
+      "properties": {
+        "mine_id": "osmn652382922",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6394868,
+          32.215634
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw59149309",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.7088449,
+          32.3023848
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw62057508",
+        "name": "Bill Inman Pit #1",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2594084,
+          32.3630612
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw192502686",
+        "name": "Eddy County Pits",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "NM",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1687716,
+          31.6062187
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197058591",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1722644,
+          31.6139194
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197058743",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1768977,
+          31.6230648
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197058765",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1166434,
+          31.7928244
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197059841",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0088284,
+          31.7234589
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197065430",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.01576,
+          31.7308273
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197065446",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0042318,
+          31.7259634
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197065451",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0077562,
+          31.7292122
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197065452",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.9991327,
+          31.7218737
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197066417",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0133182,
+          31.7391358
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197066423",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0155445,
+          31.7406135
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197066433",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.9865781,
+          31.7103555
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197067727",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0258553,
+          31.76305
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197068533",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0237085,
+          31.7510851
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197068536",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0927689,
+          31.8270566
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw197110199",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4759428,
+          31.8173162
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw223780419",
+        "name": "Toro Quarry",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.471553,
+          30.8922565
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw235872978",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5628476,
+          30.6102189
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw235914022",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5762677,
+          30.6014241
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw235914108",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6131378,
+          30.5811842
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw236494018",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4447482,
+          31.4184371
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw264631203",
+        "name": "Cemex",
+        "operator": "",
+        "type": "industrial",
+        "status": "OSM-tagged",
+        "commodity": "Mine",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1127187,
+          31.8401516
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082451",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1032823,
+          31.8473858
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082452",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1198078,
+          31.8523023
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082453",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0888868,
+          31.8392012
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082455",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0720103,
+          31.8372051
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082456",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0698378,
+          31.8377292
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082457",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.0621556,
+          31.8288283
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082460",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1060365,
+          31.8377018
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082462",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1075224,
+          31.8328619
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082463",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1059934,
+          31.8269472
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw372082464",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4704235,
+          30.8929444
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw407749030",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4754885,
+          30.8935501
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw407749031",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4842215,
+          30.8953174
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw407749032",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.3554369,
+          31.3307411
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw450859657",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4609774,
+          31.5919667
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw636462677",
+        "name": "Solvay Fluor Mexico",
+        "operator": "",
+        "type": "industrial",
+        "status": "OSM-tagged",
+        "commodity": "Mine",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5972874,
+          31.3801443
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw833374757",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5950113,
+          31.3775607
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw833374758",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5808986,
+          32.4530018
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw835502722",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5870769,
+          32.4552312
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw835502723",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5419342,
+          31.9377485
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108112804",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.3456483,
+          31.9914116
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108141062",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5740457,
+          31.9678771
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108150382",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.2246702,
+          31.7303343
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108150424",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.2420378,
+          31.7477402
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108155874",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.2309988,
+          31.7567587
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108155876",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6348869,
+          32.1348455
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108294591",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5909836,
+          31.7904634
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108306665",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.675721,
+          31.8756533
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108306672",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1618944,
+          31.621536
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108484435",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1834334,
+          31.6287809
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1108484438",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0000212,
+          32.0873655
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1214123565",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.53846,
+          31.6302305
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1263150448",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.510143,
+          31.6869043
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1263150449",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6939632,
+          31.954878
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1263781908",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4747695,
+          31.4374803
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1263855652",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0384842,
+          32.2448559
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1273304945",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5542045,
+          31.6479937
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1274536974",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0677758,
+          32.1152691
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1274689768",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0639036,
+          32.183792
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1274988143",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0615995,
+          32.0261708
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1275093283",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0625167,
+          32.1996822
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1275451505",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1057575,
+          32.2126114
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1276721696",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0913985,
+          32.2000186
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1276739116",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.141013,
+          32.213199
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1278002678",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1108938,
+          32.1754563
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1278268797",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0824377,
+          32.1949971
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1280024593",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0096338,
+          32.2979548
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1280163039",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1194111,
+          32.0407742
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1280746022",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0390523,
+          32.2655489
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1282250367",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0419758,
+          32.2800986
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1282278527",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.039383,
+          32.2098749
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1282466840",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2023027,
+          32.2407828
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1283132310",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2779341,
+          32.1476793
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1283190296",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2574104,
+          32.0811325
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1283284799",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2267445,
+          32.0415279
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1283292662",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2517796,
+          32.1428143
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1283538373",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0573311,
+          32.2883072
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1284132249",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.3900347,
+          30.6381792
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1310712790",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105.482576,
+          31.2809778
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1311919255",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4892382,
+          31.6437894
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1340678036",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5616124,
+          31.6215476
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1340678045",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0590608,
+          32.33988
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1360221403",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0426088,
+          32.4298923
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1360392437",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0558659,
+          32.4319324
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1360392463",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0943039,
+          32.4827668
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1361932346",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1609293,
+          32.4019917
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1368289124",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1443877,
+          32.3914883
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1368289197",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0676644,
+          32.3063559
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1370792069",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0643565,
+          32.3066248
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1370792070",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0683826,
+          32.3139321
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1370792108",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.6805707,
+          31.5835431
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1371003260",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1774732,
+          32.3681633
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1374314197",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1720357,
+          32.3641584
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1374314222",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1413311,
+          32.3609037
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1374959812",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1449326,
+          32.3457096
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1374959832",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1408519,
+          32.3463681
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1374959834",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1251578,
+          32.3332687
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1375836319",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2064389,
+          32.3231039
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1376357573",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1972686,
+          32.3196174
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1376357610",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1561735,
+          32.277456
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1376900079",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2243385,
+          32.2303724
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1376909671",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3012561,
+          32.2160673
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1377036790",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3461366,
+          32.1859438
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1377225891",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3458845,
+          32.1647596
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1377225903",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1236234,
+          32.3318387
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1377344245",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0586321,
+          32.3304812
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1377929923",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.089647,
+          32.236966
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1377976294",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1209671,
+          32.2215196
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1378247583",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1856757,
+          32.3298434
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1381565595",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.3244111,
+          31.4127511
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1410963604",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.4997648,
+          31.3045505
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1411638394",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5258818,
+          31.6289284
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1411678390",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5321665,
+          31.6253158
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1411678391",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5375685,
+          31.7667041
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1419474191",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.4017901,
+          32.4944844
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1424916123",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3097028,
+          32.4348044
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1425112757",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3295614,
+          32.453592
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1425440764",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3499571,
+          32.4815003
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1425440801",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3818473,
+          32.500192
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1425440810",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.4233434,
+          32.4847481
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1425473583",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2893155,
+          32.3069954
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1425535912",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2794282,
+          32.3078405
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1425535943",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3225072,
+          32.329715
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1425535998",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.4443801,
+          32.470093
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1433512282",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.3205792,
+          32.2946124
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1435889256",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1593481,
+          32.4343718
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1446942858",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0152095,
+          31.8403992
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1489190271",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0769168,
+          31.8190093
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1489210110",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1026016,
+          31.8278373
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1489241372",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0632987,
+          31.8791121
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1489636221",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0452794,
+          31.9028291
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1490456395",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0949584,
+          31.8775106
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1491076375",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0870261,
+          31.9166083
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1491121183",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2168118,
+          31.8437018
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1493335391",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0863306,
+          31.9961086
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1493552372",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2082909,
+          31.8690472
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1493996518",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.186847,
+          31.9553675
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1494099778",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0713332,
+          31.958234
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1494157643",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0944468,
+          31.7458087
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1495399313",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2165688,
+          31.958335
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1495996156",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2253721,
+          31.8410017
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1496900741",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.2247043,
+          31.837703
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1496900742",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0037038,
+          31.7464454
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1497297355",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.8861734,
+          31.0263195
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1498001512",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.0887435,
+          31.63517
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1500740127",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1364947,
+          31.9535729
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1500950141",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5308316,
+          31.7693091
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1510583126",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.5035976,
+          31.6762172
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1510583146",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.1262775,
+          31.6569425
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1517270578",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "Chihuahua",
+        "county": "",
+        "source": "OSM"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -106.1219162,
+          32.3962638
+        ]
+      },
+      "properties": {
+        "mine_id": "osmw1520589990",
+        "name": "Unnamed (OSM)",
+        "operator": "",
+        "type": "quarry",
+        "status": "OSM-tagged",
+        "commodity": "Stone",
+        "state": "",
+        "county": "",
+        "source": "OSM"
+      }
+    }
+  ],
+  "_meta": {
+    "sources": [
+      "MSHA",
+      "OSM Overpass"
+    ],
+    "bbox": {
+      "lat_min": 30.5,
+      "lat_max": 32.5,
+      "lon_min": -107.0,
+      "lon_max": -104.0
+    },
+    "active_statuses_msha": [
+      "Active",
+      "Intermittent",
+      "NonProducing Active"
+    ],
+    "total_features": 352
+  }
+}

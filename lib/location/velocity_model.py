@@ -120,26 +120,29 @@ class LayeredModel:
 
 
 # ---------------------------------------------------------------------------
-# Starting 1D model for the West Texas / Permian Basin region.
+# 1D model for El Paso / southern Rio Grande Rift.
 #
-# Approximate, consistent with published operational TexNet-style 1D models
-# for the Delaware / Permian Basin area (cf. Frohlich et al.; Savvaidis
-# et al., TexNet; Sheng et al.). This is a reasonable starting point for
-# local induced-seismicity location but is not meant to substitute for the
-# user's preferred published reference — swap in the exact layer values
-# from your chosen paper before publication by constructing a new
-# ``LayeredModel(...)``.
+# Originally derived from TexNet-style Permian Basin models (Frohlich et al.;
+# Savvaidis et al.). Top three layers slowed ~5-8% from the published
+# Permian values to account for the Hueco Bolson sedimentary basin under
+# El Paso (Rio Grande Rift fill is slower than Permian sed cover); deeper
+# crust + mantle are well-established regionally and unchanged.
+#
+# This is a calibration starting point — observed S-wave residuals on
+# distant events (e.g. Carlsbad blasts ~130 km) suggested the original
+# values were systematically too fast. Iterate further if residuals
+# still show structure with distance or azimuth.
 #
 # Vp/Vs ~ 1.75 throughout (slightly above Poisson 1.732, typical of
 # basement / crustal rocks with some saturation).
 # ---------------------------------------------------------------------------
 DEFAULT_WEST_TEXAS_MODEL = LayeredModel(
     [
-        Layer(top_km=0.0, vp=3.60, vs=2.05),    # Permian sedimentary cover
-        Layer(top_km=1.0, vp=5.20, vs=3.00),    # Consolidated sediments
-        Layer(top_km=3.0, vp=5.80, vs=3.35),    # Upper crust / Precambrian basement
-        Layer(top_km=10.0, vp=6.20, vs=3.58),   # Mid crust
-        Layer(top_km=20.0, vp=6.60, vs=3.81),   # Lower crust
-        Layer(top_km=35.0, vp=7.90, vs=4.56),   # Uppermost mantle (Moho)
+        Layer(top_km=0.0, vp=3.30, vs=1.88),    # Hueco Bolson / basin fill (slowed from 3.60)
+        Layer(top_km=1.0, vp=4.85, vs=2.80),    # Consolidated seds (slowed from 5.20)
+        Layer(top_km=3.0, vp=5.50, vs=3.15),    # Upper crust / Precambrian basement (slowed from 5.80)
+        Layer(top_km=10.0, vp=6.20, vs=3.58),   # Mid crust (unchanged)
+        Layer(top_km=20.0, vp=6.60, vs=3.81),   # Lower crust (unchanged)
+        Layer(top_km=35.0, vp=7.90, vs=4.56),   # Uppermost mantle / Moho (unchanged)
     ]
 )

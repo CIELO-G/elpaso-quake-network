@@ -23,11 +23,14 @@ center_lon: -106.40
 
 # -----------------------------------------------------------------------------
 # Search region (degrees from center)
-# Widened 0.7 → 1.5 to capture quarry blasts at distant mines (Carlsbad ~130km)
-# and regional events. Pairs with the NLLoc grid extent in lib/location/nlloc_config.py.
+# Narrowed 1.5 → 1.0 (~110 km half-extent) to focus on local seismicity:
+# El Paso network footprint + Vado/Anthony quarry belt + Las Cruces.
+# Regional events (>110 km) had bad azimuthal geometry anyway and only
+# contributed to noisy boundary locations. Pairs with the NLLoc grid in
+# lib/location/nlloc_config.py.
 # -----------------------------------------------------------------------------
-xlim_degree: 1.5
-ylim_degree: 1.5
+xlim_degree: 1.0
+ylim_degree: 1.0
 zlim_km: [0, 30]
 
 # Degrees-to-km conversion at this latitude

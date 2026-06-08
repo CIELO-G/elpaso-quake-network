@@ -823,6 +823,115 @@
     background: var(--tri-fill);
     clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
   }
+  /* Event swatches — match the SVG icons on the map (shockwave + burst) */
+  .map-legend .ml-shock,
+  .map-legend .ml-burst {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background-color: var(--ev-fill, #94a3b8);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+  /* Shockwave: 8 spokes + centre dot */
+  .map-legend .ml-shock {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><g stroke='black' stroke-width='2' stroke-linecap='round' fill='none'><line x1='10' y1='0.5' x2='10' y2='4.5'/><line x1='10' y1='19.5' x2='10' y2='15.5'/><line x1='0.5' y1='10' x2='4.5' y2='10'/><line x1='19.5' y1='10' x2='15.5' y2='10'/><line x1='3.2' y1='3.2' x2='6' y2='6'/><line x1='16.8' y1='3.2' x2='14' y2='6'/><line x1='3.2' y1='16.8' x2='6' y2='14'/><line x1='16.8' y1='16.8' x2='14' y2='14'/></g><circle cx='10' cy='10' r='3.6' fill='black'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><g stroke='black' stroke-width='2' stroke-linecap='round' fill='none'><line x1='10' y1='0.5' x2='10' y2='4.5'/><line x1='10' y1='19.5' x2='10' y2='15.5'/><line x1='0.5' y1='10' x2='4.5' y2='10'/><line x1='19.5' y1='10' x2='15.5' y2='10'/><line x1='3.2' y1='3.2' x2='6' y2='6'/><line x1='16.8' y1='3.2' x2='14' y2='6'/><line x1='3.2' y1='16.8' x2='6' y2='14'/><line x1='16.8' y1='16.8' x2='14' y2='14'/></g><circle cx='10' cy='10' r='3.6' fill='black'/></svg>");
+  }
+  /* Burst: 8-point jagged star */
+  .map-legend .ml-burst {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><polygon points='10,1 11.38,6.96 16.36,3.64 13.04,8.62 19,10 13.04,11.38 16.36,16.36 11.38,13.04 10,19 8.62,13.04 3.64,16.36 6.96,11.38 1,10 6.96,8.62 3.64,3.64 8.62,6.96' fill='black'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><polygon points='10,1 11.38,6.96 16.36,3.64 13.04,8.62 19,10 13.04,11.38 16.36,16.36 11.38,13.04 10,19 8.62,13.04 3.64,16.36 6.96,11.38 1,10 6.96,8.62 3.64,3.64 8.62,6.96' fill='black'/></svg>");
+  }
+
+  /* Crossed pick+hammer swatch — matches quarry marker, fill via --pick-fill */
+  .map-legend .ml-pick {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background-color: var(--pick-fill, #94a3b8);
+    /* SVG mask: same crossed-pick silhouette as the map marker */
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><line x1='5' y1='5' x2='16' y2='16' stroke='black' stroke-width='2.5' stroke-linecap='round'/><line x1='15' y1='5' x2='4' y2='16' stroke='black' stroke-width='2.5' stroke-linecap='round'/><path d='M 0.5 3.5 L 6.5 0.5 L 6 7 Z' fill='black'/><path d='M 12.5 0.5 L 19.5 0.5 L 19.5 5.5 L 13.5 5.5 Z' fill='black'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><line x1='5' y1='5' x2='16' y2='16' stroke='black' stroke-width='2.5' stroke-linecap='round'/><line x1='15' y1='5' x2='4' y2='16' stroke='black' stroke-width='2.5' stroke-linecap='round'/><path d='M 0.5 3.5 L 6.5 0.5 L 6 7 Z' fill='black'/><path d='M 12.5 0.5 L 19.5 0.5 L 19.5 5.5 L 13.5 5.5 Z' fill='black'/></svg>");
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+  }
+  .map-legend .ml-pick-osm {
+    --pick-fill: #9ca3af;
+    opacity: 0.7;
+  }
+
+  /* map zoom slider + buttons (top-right) */
+  .map-zoom-control {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: .35rem;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    user-select: none;
+  }
+  .map-zoom-control .mz-btn {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    width: 30px;
+    height: 26px;
+    cursor: pointer;
+    font-size: .95rem;
+    line-height: 1;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .map-zoom-control .mz-btn:hover { background: var(--border); }
+  .map-zoom-control .mz-btn:active { background: var(--blue); color: #fff; }
+  .map-zoom-control .mz-fit { font-size: .85rem; }
+  .map-zoom-control .mz-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+  }
+  .map-zoom-control .mz-slider-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 120px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(to bottom,
+      var(--surface) 0%,
+      color-mix(in srgb, var(--text) 5%, var(--surface)) 100%);
+  }
+  /* Vertical slider — WebKit uses appearance, Firefox uses orient=vertical attr */
+  .map-zoom-control .mz-slider {
+    -webkit-appearance: slider-vertical;
+    appearance: slider-vertical;
+    width: 6px;
+    height: 105px;
+    background: var(--border);
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    accent-color: var(--blue);
+  }
 
   /* map style switcher */
   .map-style-control {

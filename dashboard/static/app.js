@@ -267,7 +267,15 @@ let filterEndDate = '';
 let apiFailCount = 0;
 
 // ── Map setup ───────────────────────────────────────────────────
-const map = L.map('map', { zoomControl: true }).setView([31.85, -106.40], 10);
+const MAP_INIT_VIEW = [31.85, -106.40];
+const MAP_INIT_ZOOM = 10;
+const map = L.map('map', {
+  zoomControl: false,        // we render a custom control top-right (see below)
+  zoomSnap: 0,               // allow any fractional zoom level — smooth feel
+  zoomDelta: 0.5,            // half-step per +/- click instead of full integer
+  wheelPxPerZoomLevel: 60,   // scroll responsiveness — lower = faster zoom per scroll tick
+  zoomAnimation: true,
+}).setView(MAP_INIT_VIEW, MAP_INIT_ZOOM);
 
 var mapTileLayers = {
   dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -307,9 +315,12 @@ document.querySelectorAll('.map-style-btn').forEach(function(btn) {
   });
 });
 
-// Study area bounds (center ±0.7°) — togglable, hidden by default
+// Study area bounds (center ±1.0° ≈ ±110 km) — togglable, hidden by default.
+// Matches the NLLoc travel-time grid extent (GRID_X_HALF_KM / GRID_Y_HALF_KM
+// in lib/location/nlloc_config.py), so the rectangle visually represents
+// the boundary beyond which NLLoc cannot precisely locate events.
 var studyAreaRect = L.rectangle(
-  [[31.85 - 0.7, -106.40 - 0.7], [31.85 + 0.7, -106.40 + 0.7]],
+  [[31.85 - 1.0, -106.40 - 1.0], [31.85 + 1.0, -106.40 + 1.0]],
   { color: '#ef4444', weight: 1.5, dashArray: '6 4', fill: false, interactive: false }
 );
 var studyAreaVisible = false;
@@ -369,6 +380,108 @@ document.getElementById('toggle-faults').addEventListener('click', function() {
       btn.classList.add('active');
     } else {
       map.removeLayer(faultLayer);
+      btn.classList.remove('active');
+    }
+  }
+});
+
+// ── Quarry layer (MSHA + OSM — lazy-load on toggle) ──
+// Markers are diamonds (distinct from event circles + station triangles).
+// MSHA features (authoritative + currently active) render bigger and in
+// commodity colours; OSM features (community-tagged, may not be active)
+// render smaller and muted so the visual hierarchy reflects data quality.
+map.createPane('quarries').style.zIndex = 360;
+var quarryLayer = L.layerGroup({ pane: 'quarries' });
+var quarriesVisible = false;
+var quarriesLoaded = false;
+
+var QUARRY_COLORS = {
+  'Stone':         '#a855f7',   // purple
+  'SandAndGravel': '#eab308',   // mustard
+  'Nonmetal':      '#06b6d4',   // cyan
+  'Mine':          '#fb923c',   // orange
+  'default':       '#94a3b8',   // slate
+};
+
+function _quarryColor(commodity) {
+  return QUARRY_COLORS[commodity] || QUARRY_COLORS.default;
+}
+
+// Crossed hammer + pick — the standard USGS topo-map symbol for mines.
+// Larger + saturated for MSHA (verified active); smaller + muted for OSM.
+function _quarryIcon(commodity, source) {
+  var size = source === 'MSHA' ? 20 : 16;
+  var fill = source === 'MSHA' ? _quarryColor(commodity) : '#9ca3af';
+  var handle = source === 'MSHA' ? '#451a03' : '#6b7280';  // dark wood / gray
+  var opacity = source === 'MSHA' ? 1.0 : 0.7;
+  // SVG coords in a 20-unit viewBox; scales to 'size' via width/height
+  var svg =
+    '<svg width="' + size + '" height="' + size + '" viewBox="0 0 20 20"' +
+      ' style="overflow:visible;opacity:' + opacity +
+      ';filter:drop-shadow(0 1px 1.5px rgba(0,0,0,0.45))">' +
+      // Pickaxe handle: upper-left to lower-right diagonal
+      '<line x1="5" y1="5" x2="16" y2="16" stroke="' + handle +
+        '" stroke-width="2" stroke-linecap="round"/>' +
+      // Hammer handle: upper-right to lower-left diagonal
+      '<line x1="15" y1="5" x2="4" y2="16" stroke="' + handle +
+        '" stroke-width="2" stroke-linecap="round"/>' +
+      // Pickaxe head: narrow triangle, upper-left
+      '<path d="M 0.5 3.5 L 6.5 0.5 L 6 7 Z" fill="' + fill +
+        '" stroke="#fff" stroke-width="0.8" stroke-linejoin="round"/>' +
+      // Hammer head: blocky rectangle, upper-right
+      '<path d="M 12.5 0.5 L 19.5 0.5 L 19.5 5.5 L 13.5 5.5 Z" fill="' + fill +
+        '" stroke="#fff" stroke-width="0.8" stroke-linejoin="round"/>' +
+    '</svg>';
+  return L.divIcon({
+    className: '',
+    iconSize: [size, size],
+    // Anchor at the visual center of the crossed handles (~60% down)
+    iconAnchor: [size / 2, Math.round(size * 0.6)],
+    html: svg,
+  });
+}
+
+document.getElementById('toggle-quarries').addEventListener('click', function() {
+  var btn = this;
+  if (!quarriesLoaded) {
+    btn.textContent = 'Loading…';
+    fetch('/api/quarries').then(function(r) { return r.json(); }).then(function(data) {
+      (data.features || []).forEach(function(feature) {
+        if (!feature.geometry || !feature.geometry.coordinates) return;
+        var c = feature.geometry.coordinates;  // [lon, lat]
+        var p = feature.properties || {};
+        var srcBadge = p.source === 'MSHA'
+          ? '<span style="background:var(--blue);color:#fff;padding:1px 5px;border-radius:3px;font-size:.55rem">MSHA · ' + esc(p.status || '') + '</span>'
+          : '<span style="background:var(--border);color:var(--muted);padding:1px 5px;border-radius:3px;font-size:.55rem">OSM</span>';
+        var html =
+          '<b>' + esc(p.name || 'Unnamed quarry') + '</b> &nbsp;' + srcBadge +
+          (p.operator ? '<br>Operator: ' + esc(p.operator) : '') +
+          (p.type ? '<br>Type: ' + esc(p.type) : '') +
+          '<br>Commodity: ' + esc(p.commodity || '—') +
+          (p.county || p.state
+            ? '<br>' + esc([p.county, p.state].filter(Boolean).join(', '))
+            : '') +
+          '<br><span style="color:var(--muted);font-size:.6rem">ID: ' + esc(p.mine_id || '') + '</span>';
+        L.marker([c[1], c[0]], {
+          pane: 'quarries',
+          icon: _quarryIcon(p.commodity, p.source),
+        }).bindPopup(html).addTo(quarryLayer);
+      });
+      quarryLayer.addTo(map);
+      quarriesLoaded = true;
+      quarriesVisible = true;
+      btn.classList.add('active');
+      btn.textContent = 'Quarries';
+    }).catch(function() {
+      btn.textContent = 'Quarries';
+    });
+  } else {
+    quarriesVisible = !quarriesVisible;
+    if (quarriesVisible) {
+      quarryLayer.addTo(map);
+      btn.classList.add('active');
+    } else {
+      map.removeLayer(quarryLayer);
       btn.classList.remove('active');
     }
   }
@@ -619,6 +732,72 @@ function _eventRadius(mag) {
   return 3 + Math.max(0, (mag || 0)) * 2;
 }
 
+// Build an event marker icon based on type (sized by magnitude). Three shapes:
+//   earthquake   → shockwave: centre dot + 8 radiating spokes (propagating wavefront)
+//   quarry_blast → explosion burst: 8-point jagged star (sudden energy release)
+//   unreviewed   → simple filled circle (unclassified)
+// All shapes use a 20×20 SVG viewBox so the same coords scale to any pixel size.
+function _eventIconSVG(type, sizePx, fill, stroke) {
+  var inner = '';
+  if (type === 'quarry_blast') {
+    // 16 alternating outer/inner vertices → 8-point burst star
+    var pts = [];
+    for (var i = 0; i < 16; i++) {
+      var ang = (i / 16) * Math.PI * 2 - Math.PI / 2;
+      var r = (i % 2 === 0) ? 9.0 : 3.6;
+      pts.push((10 + r * Math.cos(ang)).toFixed(2) + ',' + (10 + r * Math.sin(ang)).toFixed(2));
+    }
+    inner =
+      '<polygon points="' + pts.join(' ') + '" fill="' + fill +
+        '" stroke="' + stroke + '" stroke-width="1" stroke-linejoin="round"/>';
+  } else if (type === 'earthquake') {
+    // 8 spokes (cardinal + diagonals) + filled centre dot
+    inner =
+      '<g stroke="' + fill + '" stroke-width="1.6" stroke-linecap="round" fill="none">' +
+        '<line x1="10" y1="0.5" x2="10" y2="4.5"/>' +
+        '<line x1="10" y1="19.5" x2="10" y2="15.5"/>' +
+        '<line x1="0.5" y1="10" x2="4.5" y2="10"/>' +
+        '<line x1="19.5" y1="10" x2="15.5" y2="10"/>' +
+        '<line x1="3.2" y1="3.2" x2="6.0" y2="6.0"/>' +
+        '<line x1="16.8" y1="3.2" x2="14.0" y2="6.0"/>' +
+        '<line x1="3.2" y1="16.8" x2="6.0" y2="14.0"/>' +
+        '<line x1="16.8" y1="16.8" x2="14.0" y2="14.0"/>' +
+      '</g>' +
+      '<circle cx="10" cy="10" r="3.6" fill="' + fill +
+        '" stroke="' + stroke + '" stroke-width="1"/>';
+  } else {
+    // Unreviewed / default — simple disc
+    inner =
+      '<circle cx="10" cy="10" r="6" fill="' + fill +
+        '" stroke="' + stroke + '" stroke-width="1.2"/>';
+  }
+  return '<svg width="' + sizePx + '" height="' + sizePx + '"' +
+    ' viewBox="0 0 20 20" style="overflow:visible;' +
+    'filter:drop-shadow(0 1px 1px rgba(0,0,0,0.35))">' +
+    inner + '</svg>';
+}
+
+function _eventIcon(e) {
+  var style = eventMapStyle(e);
+  // Pick shape: confirmed earthquake / quarry_blast / everything else = unreviewed
+  var type;
+  if (e.review_status === 'confirmed') {
+    type = (e.event_type === 'quarry_blast') ? 'quarry_blast' : 'earthquake';
+  } else {
+    type = 'unreviewed';
+  }
+  // Detail icons (spokes / points) need a bit more space than a filled circle
+  // to stay readable; bump min size + use radius*2.5 instead of *2.
+  var minSize = (type === 'unreviewed') ? 8 : 14;
+  var sizePx = Math.max(minSize, _eventRadius(e.magnitude) * 2.5);
+  return L.divIcon({
+    className: '',
+    iconSize: [sizePx, sizePx],
+    iconAnchor: [sizePx / 2, sizePx / 2],
+    html: _eventIconSVG(type, sizePx, style.fill, style.stroke),
+  });
+}
+
 function shouldRenderEventOnMap(e) {
   // Hide rejected events entirely. Hide confirmed noise (not an arrival
   // worth showing on a geographic map).
@@ -634,15 +813,7 @@ function renderEvents(events) {
   events.forEach(function(e) {
     if (e.latitude == null || e.longitude == null) return;
     if (!shouldRenderEventOnMap(e)) return;
-    var style = eventMapStyle(e);
-    var radius = _eventRadius(e.magnitude);
-    L.circleMarker([e.latitude, e.longitude], {
-      radius: radius,
-      fillColor: style.fill,
-      color: style.stroke,
-      weight: 1,
-      fillOpacity: 0.8
-    })
+    L.marker([e.latitude, e.longitude], { icon: _eventIcon(e) })
     .bindTooltip(
       '<b>' + esc(e.event_id) + '</b><br>' + esc(e.time) + '<br>M ' + (e.magnitude != null ? e.magnitude.toFixed(1) : '?') + ' \u00b7 ' + (e.depth_km != null ? e.depth_km.toFixed(1) : '?') + ' km<br>' + (e.num_picks || 0) + ' picks',
       { className: '' }
@@ -1249,6 +1420,38 @@ setInterval(pollSlow, 30000);
 // Fix map size after layout settles
 setTimeout(function() { map.invalidateSize(); }, 200);
 window.addEventListener('resize', function() { map.invalidateSize(); });
+
+// ── Custom zoom control (top-right, replaces Leaflet's default) ─────
+(function wireMapZoomControl() {
+  var slider = document.getElementById('mz-slider');
+  var btnIn = document.getElementById('mz-in');
+  var btnOut = document.getElementById('mz-out');
+  var btnFit = document.getElementById('mz-fit');
+  if (!slider || !btnIn || !btnOut || !btnFit) return;
+
+  // Initialize slider to current zoom
+  slider.value = map.getZoom();
+
+  // Slider → map (smooth: setZoom respects zoomAnimation + fractional via zoomSnap=0)
+  slider.addEventListener('input', function() {
+    var z = parseFloat(slider.value);
+    if (!isNaN(z)) map.setZoom(z);
+  });
+
+  // Buttons → map (zoomIn/zoomOut step by zoomDelta = 0.5)
+  btnIn.addEventListener('click', function() { map.zoomIn(); });
+  btnOut.addEventListener('click', function() { map.zoomOut(); });
+
+  // Reset → initial view (smooth pan + zoom)
+  btnFit.addEventListener('click', function() {
+    map.flyTo(MAP_INIT_VIEW, MAP_INIT_ZOOM, { duration: 0.6 });
+  });
+
+  // Map → slider (keep in sync when user scrolls, pinches, double-clicks, etc.)
+  map.on('zoom', function() {
+    slider.value = map.getZoom();
+  });
+})();
 
 // Re-render completeness calendar when its container resizes (window resize, tab show)
 if (typeof ResizeObserver !== 'undefined') {

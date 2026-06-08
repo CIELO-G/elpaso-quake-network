@@ -120,6 +120,16 @@
 <div class="main tab-content active" id="tab-monitor">
   <div class="map-wrap">
     <div id="map"></div>
+    <div class="map-zoom-control" id="map-zoom-control">
+      <button class="mz-btn" id="mz-in" title="Zoom in">+</button>
+      <div class="mz-slider-wrap">
+        <input type="range" class="mz-slider" id="mz-slider"
+               min="5" max="19" step="0.5" value="10" orient="vertical" />
+      </div>
+      <button class="mz-btn" id="mz-out" title="Zoom out">&minus;</button>
+      <div class="mz-divider"></div>
+      <button class="mz-btn mz-fit" id="mz-fit" title="Reset view">&#x29BE;</button>
+    </div>
     <div class="map-style-control" id="map-style-control">
       <button class="map-style-btn active" data-style="dark">Dark</button>
       <button class="map-style-btn" data-style="light">Light</button>
@@ -128,12 +138,19 @@
     </div>
     <div style="position:absolute;bottom:10px;left:280px;z-index:1000">
       <button class="map-toggle-btn" id="toggle-faults" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4)">Faults</button>
+      <button class="map-toggle-btn" id="toggle-quarries" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4);margin-left:.35rem">Quarries</button>
       <button class="map-toggle-btn" id="toggle-study-area" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4);margin-left:.35rem">Study Area</button>
     </div>
     <div class="map-legend" id="map-legend">
       <div class="ml-title">Events</div>
-      <div class="ml-row"><span class="ml-dot" style="background:#3b82f6;border-color:#1e3a8a"></span>Earthquake</div>
-      <div class="ml-row"><span class="ml-dot" style="background:#f59e0b;border-color:#78350f"></span>Quarry blast</div>
+      <div class="ml-row">
+        <span class="ml-shock" style="--ev-fill:#3b82f6;--ev-stroke:#1e3a8a"></span>
+        Earthquake
+      </div>
+      <div class="ml-row">
+        <span class="ml-burst" style="--ev-fill:#f59e0b;--ev-stroke:#78350f"></span>
+        Quarry blast
+      </div>
       <div class="ml-row"><span class="ml-dot" style="background:#94a3b8;border-color:#334155"></span>Unreviewed</div>
       <div class="ml-row ml-size-row">
         <span class="ml-size-dot" style="width:6px;height:6px"></span>
@@ -148,6 +165,12 @@
       <div class="ml-row"><span class="ml-tri" style="--tri-fill:#f59e0b"></span>Intermittent</div>
       <div class="ml-row"><span class="ml-tri" style="--tri-fill:#ef4444"></span>Offline</div>
       <div class="ml-row"><span class="ml-tri" style="--tri-fill:#64748b"></span>Unknown</div>
+
+      <div class="ml-title ml-title-stations">Quarries</div>
+      <div class="ml-row"><span class="ml-pick" style="--pick-fill:#a855f7"></span>Stone</div>
+      <div class="ml-row"><span class="ml-pick" style="--pick-fill:#eab308"></span>Sand &amp; gravel</div>
+      <div class="ml-row"><span class="ml-pick" style="--pick-fill:#06b6d4"></span>Nonmetal</div>
+      <div class="ml-row"><span class="ml-pick ml-pick-osm"></span>OSM (unverified)</div>
     </div>
     <div class="event-detail-overlay" id="event-detail">
       <button class="detail-close" id="detail-close">&times;</button>

@@ -39,6 +39,7 @@ EVENTS_DIR = OUTPUT_DIR / "4-events"
 RAW_DIR = OUTPUT_DIR / "1-raw"
 PROCESSED_DIR = OUTPUT_DIR / "2-processed"
 FAULTS_FILE = STATIC_DIR / "faults.geojson"
+QUARRIES_FILE = STATIC_DIR / "quarries.geojson"
 
 PIPELINE_SCRIPT = ROOT / "run_pipeline.py"
 PIPELINE_PID_FILE = OUTPUT_DIR / "pipeline.pid"

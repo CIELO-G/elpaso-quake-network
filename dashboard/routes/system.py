@@ -24,6 +24,7 @@ from dashboard.cache import etag_response, get_cached, set_cached
 from dashboard.deps import (
     CATALOG_FILE,
     FAULTS_FILE,
+    QUARRIES_FILE,
     LOG_LINE_RE,
     LOGS_DIR,
     MAX_LOG_BYTES,
@@ -53,6 +54,14 @@ async def faults():
     if not FAULTS_FILE.exists():
         return JSONResponse({"type": "FeatureCollection", "features": []})
     return FileResponse(FAULTS_FILE, media_type="application/geo+json")
+
+
+@router.get("/api/quarries")
+async def quarries():
+    """Active MSHA-registered mines / quarries within the El Paso bbox."""
+    if not QUARRIES_FILE.exists():
+        return JSONResponse({"type": "FeatureCollection", "features": []})
+    return FileResponse(QUARRIES_FILE, media_type="application/geo+json")
 
 
 # ── Health ───────────────────────────────────────────────────────
