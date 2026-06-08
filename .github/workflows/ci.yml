@@ -72,10 +72,13 @@ jobs:
           fi
 
   # ── Docker Build & Push (on merge to main only) ───────────────────────────
+  # Disabled: no Dockerfile in repo (user runs locally on Mac, not in container).
+  # Re-enable when a Dockerfile exists by changing the `if:` condition back to:
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: false
     needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
