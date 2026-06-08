@@ -46,6 +46,46 @@ _WAVEFORM_MAX_DURATION = 600  # seconds (10 min hard cap on a single request)
 # changes (rare; recompute on demand by deleting the cache dir).
 _SPEC_CACHE_DIR = OUTPUT_DIR / "cache" / "spectrograms"
 
+# Eviction ceiling — without this the cache grows monotonically forever
+# (one PNG per unique event_id+station+channel+window+filter+size key).
+# Configurable via SPECTROGRAM_CACHE_MAX_MB; check every N saves to amortize cost.
+_SPEC_CACHE_MAX_BYTES = int(os.environ.get("SPECTROGRAM_CACHE_MAX_MB", "1024")) * 1024 * 1024
+_SPEC_CACHE_CHECK_EVERY = 50
+_spec_save_counter = 0
+
+
+def _evict_spec_cache_if_over_quota() -> None:
+    """Drop oldest-mtime PNGs until cache is under the quota (down to 90%)."""
+    if not _SPEC_CACHE_DIR.exists():
+        return
+    try:
+        files = []
+        total = 0
+        for f in _SPEC_CACHE_DIR.iterdir():
+            if not f.is_file() or not f.name.endswith(".png"):
+                continue
+            try:
+                st = f.stat()
+                files.append((st.st_mtime, st.st_size, f))
+                total += st.st_size
+            except OSError:
+                continue
+        if total <= _SPEC_CACHE_MAX_BYTES:
+            return
+        # Free down to 90% of quota so we don't evict on every save once full
+        target_free = total - int(_SPEC_CACHE_MAX_BYTES * 0.9)
+        files.sort(key=lambda t: t[0])  # oldest first
+        for _, sz, path in files:
+            if target_free <= 0:
+                break
+            try:
+                path.unlink()
+                target_free -= sz
+            except OSError:
+                pass
+    except OSError:
+        pass
+
 
 def _spec_cache_key(
     *,
@@ -85,6 +125,7 @@ def _load_cached_spec(key: str) -> Optional[str]:
 
 def _save_cached_spec(key: str, b64: str) -> None:
     """Best-effort: write base64-decoded PNG to the cache dir."""
+    global _spec_save_counter
     if not b64:
         return
     try:
@@ -92,6 +133,10 @@ def _save_cached_spec(key: str, b64: str) -> None:
         (_SPEC_CACHE_DIR / f"{key}.png").write_bytes(base64.b64decode(b64))
     except OSError:
         pass  # missing cache is not an error; we'll just recompute next time
+    _spec_save_counter += 1
+    if _spec_save_counter >= _SPEC_CACHE_CHECK_EVERY:
+        _spec_save_counter = 0
+        _evict_spec_cache_if_over_quota()
 
 
 def _spectrogram_or_cached(

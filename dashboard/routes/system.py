@@ -142,6 +142,27 @@ async def _broadcast_status() -> None:
     _ws_clients.difference_update(dead)
 
 
+# Background watcher: poll STATUS_FILE mtime ~every second and broadcast on
+# change. Without this, broadcasts only fire from /api/status — but the
+# frontend skips HTTP polling when WS is connected, so all-WS-clients =
+# status freezes forever. Started by dashboard/app.py on app startup.
+async def status_broadcast_loop(interval_s: float = 1.0) -> None:
+    """Long-running task: push to WS clients whenever pipeline_status.json changes."""
+    import asyncio
+    last_mtime = 0.0
+    while True:
+        try:
+            if STATUS_FILE.exists():
+                mtime = STATUS_FILE.stat().st_mtime
+                if mtime != last_mtime and _ws_clients:
+                    await _broadcast_status()
+                    last_mtime = mtime
+        except Exception:
+            # Never let the loop die on a transient error (e.g. mid-write read)
+            pass
+        await asyncio.sleep(interval_s)
+
+
 @router.get("/api/status")
 async def api_status(request: Request):
     entry = get_cached("status", ttl=2.0, watch_file=STATUS_FILE)

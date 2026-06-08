@@ -351,7 +351,7 @@ def main() -> None:
     pn_stations = build_phasenet_stations(stations)
 
     # Iterate over days
-    totals: dict[str, int] = {"days": 0, "skipped": 0, "picks": 0}
+    totals: dict[str, int] = {"days": 0, "skipped": 0, "picks": 0, "failed": 0}
 
     for year, jday, day in iter_days(start_time, end_time):
         daily_csv = get_daily_picks_path(config["output_dir"], year, jday)
@@ -399,9 +399,13 @@ def main() -> None:
 
             # --- Step 4: Run PhaseNet ---
             if not run_phasenet(config, tmp_dir, logger):
-                logger.error("PhaseNet failed for %s/%s", year, jday)
-                write_picks_csv([], daily_csv, logger)
-                totals["days"] += 1
+                # PhaseNet failures are transient (OOM, GPU error, killed
+                # subprocess). DO NOT write an empty picks CSV here — that
+                # would mark the day as "done" and prevent retry forever.
+                # Leave daily_csv absent; record the failure; orchestrator
+                # exit code will be non-zero so retries kick in.
+                logger.error("PhaseNet failed for %s/%s — leaving day unmarked for retry", year, jday)
+                totals["failed"] += 1
                 continue
 
             # --- Step 5: Parse picks and write daily CSV ---
@@ -427,10 +431,19 @@ def main() -> None:
     # Summary
     logger.info("=" * 60)
     logger.info(
-        "Done. days=%d  skipped=%d  picks=%d",
-        totals["days"], totals["skipped"], totals["picks"],
+        "Done. days=%d  skipped=%d  picks=%d  failed=%d",
+        totals["days"], totals["skipped"], totals["picks"], totals["failed"],
     )
     logger.info("=" * 60)
+
+    # Non-zero exit on PhaseNet failure so the orchestrator retries (was
+    # writing empty CSV and marking day "done" forever).
+    if totals["failed"] > 0:
+        logger.error(
+            "%d day(s) had PhaseNet failures and were left unmarked. "
+            "Re-run will retry them.", totals["failed"],
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

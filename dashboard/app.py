@@ -29,6 +29,20 @@ from dashboard.routes import (
 
 app = FastAPI(title="El Paso Seismic Monitor")
 
+
+# ── Background tasks ─────────────────────────────────────────────
+@app.on_event("startup")
+async def _start_background_tasks() -> None:
+    """Spawn the WebSocket status broadcaster.
+
+    Without this, /api/status was the only thing that fanned out to WS
+    clients — but the frontend skips HTTP polling when a WS is up, so
+    all-WS-connected = status frozen forever. The broadcaster watches
+    pipeline_status.json's mtime and pushes on change.
+    """
+    import asyncio
+    asyncio.create_task(system_routes.status_broadcast_loop())
+
 # ── CORS ─────────────────────────────────────────────────────────
 _CORS_ORIGINS = os.environ.get(
     "CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"

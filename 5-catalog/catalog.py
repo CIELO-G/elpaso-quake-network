@@ -24,6 +24,7 @@ import pandas as pd
 # Allow imports from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from lib.atomic_io import atomic_write_df
 from lib.config import load_config, load_stations
 from lib.logger import setup_logging
 
@@ -119,6 +120,55 @@ def load_existing_assignments(assignments_path, logger):
     return df
 
 
+def write_reviews_sidecar(
+    sidecar_path: Path,
+    events: dict[str, dict],
+    assignments: dict[str, list],
+) -> int:
+    """Append every reviewed event + its picks to an append-only JSON Lines file.
+
+    Each line is a self-contained record with ``timestamp``, ``event_id``,
+    full ``event`` row, and ``picks`` list. The file is never rewritten or
+    truncated — if a future rebuild loses an event, you can grep this file
+    by event_id and take the most recent record to reconstruct it.
+
+    Returns the number of records appended.
+    """
+    import json
+    if not events:
+        return 0
+    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    n = 0
+    # Append-only: open in 'a' mode; never read or rewrite the file here.
+    with sidecar_path.open("a", encoding="utf-8") as f:
+        for eid, ev in events.items():
+            record = {
+                "timestamp": ts,
+                "event_id": eid,
+                "event": _jsonable(ev),
+                "picks": [_jsonable(p) for p in assignments.get(eid, [])],
+            }
+            f.write(json.dumps(record, default=str) + "\n")
+            n += 1
+        f.flush()
+    return n
+
+
+def _jsonable(row: dict) -> dict:
+    """Convert pandas/numpy scalars to JSON-serializable Python primitives."""
+    out = {}
+    for k, v in row.items():
+        # pandas NaN floats are not JSON; serialize as None
+        if v is None or (isinstance(v, float) and v != v):
+            out[k] = None
+        elif hasattr(v, "item"):  # numpy scalar
+            out[k] = v.item()
+        else:
+            out[k] = v
+    return out
+
+
 def main():
     args = parse_args()
 
@@ -157,31 +207,52 @@ def main():
     preserved_events: dict[str, dict] = {}      # event_id → full catalog row
     preserved_assignments: dict[str, list] = {} # event_id → list[pick dict]
     if args.rebuild and catalog_path.exists():
+        # Two-layer protection for human review work:
+        #   1. In-memory snapshot (preserved_events) — restored into the new
+        #      catalog at the end of this run.
+        #   2. Append-only reviews.jsonl sidecar (write_reviews_sidecar) — a
+        #      crash-safe record of every reviewed event ever seen. If the
+        #      catalog ever gets corrupted, you can reconstruct reviews from
+        #      this file. Never rewritten, only appended.
         try:
             snap_df = pd.read_csv(catalog_path, dtype={"event_id": str})
-            for _, row in snap_df.iterrows():
+            reviewed_mask = snap_df["review_status"].fillna("").astype(str).str.strip() != ""
+            # to_dict('records') is C-level (much faster than iterrows())
+            for row in snap_df[reviewed_mask].to_dict("records"):
                 eid = row.get("event_id")
-                review_status = str(row.get("review_status", "") or "").strip()
-                if eid and review_status:
-                    preserved_events[eid] = row.to_dict()
+                if eid:
+                    preserved_events[eid] = row
             if preserved_events and assignments_path.exists():
                 snap_assign = pd.read_csv(assignments_path, dtype={"event_id": str})
-                for _, row in snap_assign.iterrows():
+                keep_mask = snap_assign["event_id"].isin(preserved_events)
+                for row in snap_assign[keep_mask].to_dict("records"):
                     eid = row.get("event_id")
-                    if eid in preserved_events:
-                        preserved_assignments.setdefault(eid, []).append(row.to_dict())
+                    preserved_assignments.setdefault(eid, []).append(row)
+            # Write sidecar BEFORE proceeding with destructive rebuild
+            sidecar_count = write_reviews_sidecar(
+                catalog_path.parent / "reviews.jsonl",
+                preserved_events, preserved_assignments,
+            )
             if preserved_events:
                 logger.info(
                     "Rebuild snapshot: preserving %d reviewed event(s) "
-                    "with %d total pick(s)",
+                    "with %d total pick(s) (also appended %d records to reviews.jsonl)",
                     len(preserved_events),
                     sum(len(v) for v in preserved_assignments.values()),
+                    sidecar_count,
                 )
         except Exception as e:
-            logger.warning(
-                "Could not snapshot reviewed events before rebuild: %s — "
-                "manual review metadata may be lost", e,
+            # FAIL FAST. Previously this was a warning, which let the rebuild
+            # proceed with empty preserves and silently obliterated reviews.
+            # Refuse to continue — a user has to investigate the snapshot
+            # failure before deciding to lose review state.
+            logger.error(
+                "Cannot snapshot reviewed events before rebuild: %s. "
+                "Refusing to proceed — re-run without --rebuild, or fix the "
+                "snapshot error first. (Reviewed-event preservation is the "
+                "whole point of this safeguard.)", e,
             )
+            sys.exit(2)
 
     # ── Load existing catalog (unless rebuilding) ────────────────────
     if args.rebuild:
@@ -326,12 +397,15 @@ def main():
     if not assignments.empty:
         assignments = assignments.sort_values("time").reset_index(drop=True)
 
-    # ── Write ────────────────────────────────────────────────────────
-    catalog.to_csv(catalog_path, index=False)
+    # ── Write (atomic: temp + fsync + replace) ───────────────────────
+    # catalog.csv is the only file containing reviewed-event state. A bare
+    # to_csv() that's killed mid-write (kill -9, full disk, OOM) leaves it
+    # truncated and there is no other source of truth. Use atomic_write_df.
+    atomic_write_df(catalog, catalog_path, index=False)
     logger.info("Wrote catalog: %s (%d events)", catalog_path, len(catalog))
 
     if not assignments.empty:
-        assignments.to_csv(assignments_path, index=False)
+        atomic_write_df(assignments, assignments_path, index=False)
         logger.info("Wrote assignments: %s (%d rows)", assignments_path, len(assignments))
 
     # ── Summary ──────────────────────────────────────────────────────

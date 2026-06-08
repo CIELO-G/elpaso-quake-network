@@ -8,6 +8,7 @@ update on the very next request.
 
 from __future__ import annotations
 
+import asyncio
 import math
 from datetime import datetime, timezone
 
@@ -25,6 +26,14 @@ from dashboard.deps import (
 from dashboard.locators import init_grid_search_locator, init_nlloc_locator
 
 router = APIRouter()
+
+# Serializes catalog/assignments read-modify-write across concurrent reviewers.
+# Without this, two reviewers saving simultaneously (3-user Tailscale deploy)
+# would both read the same starting state and the second write would silently
+# overwrite the first. asyncio.Lock is sufficient because uvicorn runs as a
+# single-process single-worker — if we ever scale to multi-worker uvicorn this
+# needs to become an fcntl.flock on a sentinel file.
+_catalog_write_lock = asyncio.Lock()
 
 # Fallback columns when the catalog is being created from empty for the
 # first time (otherwise we inherit the columns from existing rows).
@@ -214,56 +223,60 @@ async def event_save(event_id: str, request: Request):
 
     now_utc = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    # ── Update the matching catalog row in-place ──
-    catalog_rows = read_catalog()
-    found = False
-    for row in catalog_rows:
-        if row.get("event_id") == event_id:
-            row["latitude"] = str(round(float(location["latitude"]), 6))
-            row["longitude"] = str(round(float(location["longitude"]), 6))
-            row["depth_km"] = str(round(float(location["depth_km"]), 2))
-            row["time"] = location.get("time", row.get("time", ""))
-            row["sigma_time"] = str(round(float(location.get("sigma_time", 0)), 4))
-            row["sigma_amp"] = str(round(float(location.get("sigma_amp", 0)), 4))
-            row["num_picks"] = str(location.get("num_picks", row.get("num_picks", 0)))
-            if magnitude.get("ml") is not None:
-                row["magnitude"] = str(round(float(magnitude["ml"]), 2))
-                row["magnitude_type"] = "ML"
-            if magnitude.get("ml_err") is not None:
-                row["ml_err"] = str(round(float(magnitude["ml_err"]), 2))
-            if magnitude.get("num_ml_sta") is not None:
-                row["num_ml_sta"] = str(magnitude["num_ml_sta"])
-            row["reviewed"] = now_utc
-            row["review_status"] = body.get("review_status", "confirmed")
-            row["event_type"] = body.get("event_type", row.get("event_type", "undetermined"))
-            found = True
-            break
+    # Whole read-modify-write must be serialized: concurrent reviewers
+    # saving at the same time would both read the same starting state and
+    # the second writer would overwrite the first writer's edits.
+    async with _catalog_write_lock:
+        # ── Update the matching catalog row in-place ──
+        catalog_rows = read_catalog()
+        found = False
+        for row in catalog_rows:
+            if row.get("event_id") == event_id:
+                row["latitude"] = str(round(float(location["latitude"]), 6))
+                row["longitude"] = str(round(float(location["longitude"]), 6))
+                row["depth_km"] = str(round(float(location["depth_km"]), 2))
+                row["time"] = location.get("time", row.get("time", ""))
+                row["sigma_time"] = str(round(float(location.get("sigma_time", 0)), 4))
+                row["sigma_amp"] = str(round(float(location.get("sigma_amp", 0)), 4))
+                row["num_picks"] = str(location.get("num_picks", row.get("num_picks", 0)))
+                if magnitude.get("ml") is not None:
+                    row["magnitude"] = str(round(float(magnitude["ml"]), 2))
+                    row["magnitude_type"] = "ML"
+                if magnitude.get("ml_err") is not None:
+                    row["ml_err"] = str(round(float(magnitude["ml_err"]), 2))
+                if magnitude.get("num_ml_sta") is not None:
+                    row["num_ml_sta"] = str(magnitude["num_ml_sta"])
+                row["reviewed"] = now_utc
+                row["review_status"] = body.get("review_status", "confirmed")
+                row["event_type"] = body.get("event_type", row.get("event_type", "undetermined"))
+                found = True
+                break
 
-    if not found:
-        raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
+        if not found:
+            raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
 
-    atomic_write_csv(
-        CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows)
-    )
+        atomic_write_csv(
+            CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows)
+        )
 
-    # ── Replace assignments for this event with the new pick set ──
-    others = [a for a in read_assignments() if a.get("event_id") != event_id]
-    for p in picks_input:
-        others.append({
-            "event_id": event_id,
-            "network": p.get("network", ""),
-            "station": p.get("station", ""),
-            "location": p.get("location", ""),
-            "channel": p.get("channel", ""),
-            "phase": p.get("phase", ""),
-            "time": p.get("time", ""),
-            "probability": str(p.get("probability", "")),
-            "amplitude": str(p.get("amplitude", "")),
-            "amplitude_channel": p.get("amplitude_channel", ""),
-        })
-    atomic_write_csv(ASSIGNMENTS_FILE, others, _ASSIGNMENT_COLUMNS)
+        # ── Replace assignments for this event with the new pick set ──
+        others = [a for a in read_assignments() if a.get("event_id") != event_id]
+        for p in picks_input:
+            others.append({
+                "event_id": event_id,
+                "network": p.get("network", ""),
+                "station": p.get("station", ""),
+                "location": p.get("location", ""),
+                "channel": p.get("channel", ""),
+                "phase": p.get("phase", ""),
+                "time": p.get("time", ""),
+                "probability": str(p.get("probability", "")),
+                "amplitude": str(p.get("amplitude", "")),
+                "amplitude_channel": p.get("amplitude_channel", ""),
+            })
+        atomic_write_csv(ASSIGNMENTS_FILE, others, _ASSIGNMENT_COLUMNS)
 
-    clear_caches()
+        clear_caches()
 
     for row in catalog_rows:
         if row.get("event_id") == event_id:
@@ -284,24 +297,26 @@ async def event_review_status(event_id: str, request: Request):
 
     now_utc = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    catalog_rows = read_catalog()
-    found = False
-    for row in catalog_rows:
-        if row.get("event_id") == event_id:
-            row["review_status"] = status
-            row["reviewed"] = now_utc
-            if "event_type" in body:
-                row["event_type"] = body["event_type"]
-            found = True
-            break
+    # Lock the read-modify-write — see comment on _catalog_write_lock above.
+    async with _catalog_write_lock:
+        catalog_rows = read_catalog()
+        found = False
+        for row in catalog_rows:
+            if row.get("event_id") == event_id:
+                row["review_status"] = status
+                row["reviewed"] = now_utc
+                if "event_type" in body:
+                    row["event_type"] = body["event_type"]
+                found = True
+                break
 
-    if not found:
-        raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
+        if not found:
+            raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
 
-    atomic_write_csv(
-        CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows)
-    )
-    clear_caches()
+        atomic_write_csv(
+            CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows)
+        )
+        clear_caches()
 
     for row in catalog_rows:
         if row.get("event_id") == event_id:

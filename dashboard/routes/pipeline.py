@@ -18,7 +18,9 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from dashboard.cache import etag_response, get_cached, set_cached
 from dashboard.deps import (
+    CATALOG_FILE,
     EVENTS_DIR,
     LAG_HOURS,
     LOGS_DIR,
@@ -113,7 +115,13 @@ def _count_days_with_data(base: Path, glob_pattern: str, require_rows: bool = Fa
 
 # ── Progress ─────────────────────────────────────────────────────
 @router.get("/api/progress")
-async def progress():
+async def progress(request: Request):
+    # Cache: walks 4 directory trees on every call, called every 10s by
+    # pollData. 5s TTL + STATUS_FILE invalidation = at most 1 walk per pipeline
+    # step transition, free hits the rest of the time.
+    entry = get_cached("progress", ttl=5.0, watch_file=STATUS_FILE)
+    if entry:
+        return etag_response(entry.data, entry.etag, request)
     target_date = (
         datetime.now(timezone.utc) - timedelta(hours=LAG_HOURS)
     ).date()
@@ -160,7 +168,7 @@ async def progress():
     done = min(days_ingested, days_processed, days_detected, days_associated)
     percent = round((done / total_days) * 100, 1) if total_days > 0 else 0
 
-    return {
+    data = {
         "start_date": PIPELINE_START_DATE.isoformat(),
         "target_date": target_date.isoformat(),
         "total_days": total_days,
@@ -183,6 +191,8 @@ async def progress():
         "last_detected": last_detected,
         "last_associated": last_associated,
     }
+    etag = set_cached("progress", data, watch_file=STATUS_FILE)
+    return etag_response(data, etag, request)
 
 
 # ── Throughput / ETA ─────────────────────────────────────────────
@@ -396,7 +406,12 @@ async def station_health():
 
 # ── Raw data completeness matrix (calendar heatmap) ──────────────
 @router.get("/api/data_completeness")
-async def data_completeness():
+async def data_completeness(request: Request):
+    # Walks year/jday/file in RAW_DIR — at 14 stations × 365 days × 3 chan
+    # = ~15k iterdir() calls. Cache 60s; new mseeds only land at ingest cadence.
+    entry = get_cached("data_completeness", ttl=60.0)
+    if entry:
+        return etag_response(entry.data, entry.etag, request)
     stations_data = load_stations()
     station_names = [s["station"] for s in stations_data]
 
@@ -427,12 +442,19 @@ async def data_completeness():
         row = [counts.get(sta, {}).get(d, 0) for d in all_days]
         matrix.append(row)
 
-    return {"stations": station_names, "days": all_days, "matrix": matrix}
+    data = {"stations": station_names, "days": all_days, "matrix": matrix}
+    etag = set_cached("data_completeness", data)
+    return etag_response(data, etag, request)
 
 
 # ── Pick probability distribution ────────────────────────────────
 @router.get("/api/pick_quality")
-async def pick_quality():
+async def pick_quality(request: Request):
+    # Walks + parses every picks CSV. Heavy. Cache 120s; new picks only
+    # appear at detect cadence (per-day, hours apart).
+    entry = get_cached("pick_quality", ttl=120.0)
+    if entry:
+        return etag_response(entry.data, entry.etag, request)
     bins = [0] * 10
     total = 0
     p_count = 0
@@ -455,18 +477,24 @@ async def pick_quality():
         except (OSError, ValueError):
             pass
 
-    return {
+    data = {
         "bins": bins,
         "bin_edges": [round(i * 0.1, 1) for i in range(11)],
         "total": total,
         "p_count": p_count,
         "s_count": s_count,
     }
+    etag = set_cached("pick_quality", data)
+    return etag_response(data, etag, request)
 
 
 # ── Per-station daily pick counts (activity heatmap) ─────────────
 @router.get("/api/station_picks")
-async def station_picks():
+async def station_picks(request: Request):
+    # Walks + parses every picks CSV. Heavy. Cache 120s (matches pick_quality).
+    entry = get_cached("station_picks", ttl=120.0)
+    if entry:
+        return etag_response(entry.data, entry.etag, request)
     stations_data = load_stations()
     station_names = [s["station"] for s in stations_data]
 
@@ -492,4 +520,6 @@ async def station_picks():
         row = [counts.get(sta, {}).get(d, 0) for d in all_days]
         matrix.append(row)
 
-    return {"stations": station_names, "days": all_days, "matrix": matrix}
+    data = {"stations": station_names, "days": all_days, "matrix": matrix}
+    etag = set_cached("station_picks", data)
+    return etag_response(data, etag, request)

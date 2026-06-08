@@ -170,7 +170,12 @@ def file_mtime(path: Path) -> float | None:
 
 # ── Atomic CSV writer ────────────────────────────────────────────
 def atomic_write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
-    """Write CSV via temp file + ``os.replace`` for crash safety."""
+    """Write CSV via temp file + fsync + ``os.replace`` for crash safety.
+
+    fsync is what guarantees durability across power loss / OS crash;
+    ``os.replace`` alone only guarantees atomic visibility of whatever
+    happens to be in the page cache at rename time.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(
         dir=str(path.parent), suffix=".tmp", prefix=path.stem + "_"
@@ -181,6 +186,8 @@ def atomic_write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> Non
             writer.writeheader()
             for row in rows:
                 writer.writerow(row)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp_path, str(path))
     except Exception:
         try:
