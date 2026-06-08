@@ -26,7 +26,7 @@ import warnings
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from obspy import Stream, UTCDateTime, read
+from obspy import Stream, read
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -68,7 +68,12 @@ def write_detection_rows(rows: list[dict]) -> None:
         return
     DETECTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
-        "detect_time", "template_id", "correlation", "threshold", "n_chans", "day",
+        "detect_time",
+        "template_id",
+        "correlation",
+        "threshold",
+        "n_chans",
+        "day",
     ]
     write_header = not DETECTIONS_PATH.exists()
     with DETECTIONS_PATH.open("a", newline="") as f:
@@ -83,19 +88,30 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", required=True, help="Start date YYYY-MM-DD")
     parser.add_argument("--end", help="End date YYYY-MM-DD (default = start)")
-    parser.add_argument("--threshold", type=float, default=8.0,
-                        help="Detection threshold (default 8 for MAD type)")
-    parser.add_argument("--threshold-type", default="MAD",
-                        choices=["MAD", "absolute", "av_chan_corr"],
-                        help="Threshold type (default MAD)")
-    parser.add_argument("--trig-int", type=float, default=6.0,
-                        help="Min seconds between two detections of the same template")
-    parser.add_argument("--templates", type=Path, default=TEMPLATES_PATH,
-                        help="Template tribe archive")
-    parser.add_argument("--cores", type=int, default=4,
-                        help="Parallel cores for matched-filter (default 4)")
-    parser.add_argument("--fresh", action="store_true",
-                        help="Wipe existing detections.csv before running")
+    parser.add_argument(
+        "--threshold", type=float, default=8.0, help="Detection threshold (default 8 for MAD type)"
+    )
+    parser.add_argument(
+        "--threshold-type",
+        default="MAD",
+        choices=["MAD", "absolute", "av_chan_corr"],
+        help="Threshold type (default MAD)",
+    )
+    parser.add_argument(
+        "--trig-int",
+        type=float,
+        default=6.0,
+        help="Min seconds between two detections of the same template",
+    )
+    parser.add_argument(
+        "--templates", type=Path, default=TEMPLATES_PATH, help="Template tribe archive"
+    )
+    parser.add_argument(
+        "--cores", type=int, default=4, help="Parallel cores for matched-filter (default 4)"
+    )
+    parser.add_argument(
+        "--fresh", action="store_true", help="Wipe existing detections.csv before running"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -160,22 +176,25 @@ def main():
         rows = []
         for family in party:
             for det in family:
-                rows.append({
-                    "detect_time": str(det.detect_time),
-                    "template_id": det.template_name,
-                    "correlation": round(float(det.detect_val), 4),
-                    "threshold": round(float(det.threshold), 4),
-                    "n_chans": det.no_chans,
-                    "day": day_iso,
-                })
+                rows.append(
+                    {
+                        "detect_time": str(det.detect_time),
+                        "template_id": det.template_name,
+                        "correlation": round(float(det.detect_val), 4),
+                        "threshold": round(float(det.threshold), 4),
+                        "n_chans": det.no_chans,
+                        "day": day_iso,
+                    }
+                )
         write_detection_rows(rows)
         total_dets += len(rows)
         days_processed += 1
         logger.info("%s — %d detections", day_iso, len(rows))
 
     logger.info("=" * 50)
-    logger.info("Done. days=%d  skipped=%d  total_detections=%d",
-                days_processed, days_skipped, total_dets)
+    logger.info(
+        "Done. days=%d  skipped=%d  total_detections=%d", days_processed, days_skipped, total_dets
+    )
     logger.info("Output: %s", DETECTIONS_PATH)
 
 

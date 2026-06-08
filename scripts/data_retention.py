@@ -78,9 +78,7 @@ def main() -> None:
                 continue
 
             # Calculate size before deletion
-            dir_size = sum(
-                f.stat().st_size for f in doy_dir.rglob("*") if f.is_file()
-            )
+            dir_size = sum(f.stat().st_size for f in doy_dir.rglob("*") if f.is_file())
 
             if args.dry_run:
                 print(f"  Would delete: {doy_dir} ({dir_date}, {dir_size / 1e6:.1f} MB)")
@@ -99,8 +97,10 @@ def main() -> None:
                 year_dir.rmdir()
                 print(f"  Removed empty year dir: {year_dir}")
 
-    print(f"\n{'Would delete' if args.dry_run else 'Deleted'}: "
-          f"{deleted_dirs} day directories, {freed_bytes / 1e9:.2f} GB freed")
+    print(
+        f"\n{'Would delete' if args.dry_run else 'Deleted'}: "
+        f"{deleted_dirs} day directories, {freed_bytes / 1e9:.2f} GB freed"
+    )
 
 
 if __name__ == "__main__":

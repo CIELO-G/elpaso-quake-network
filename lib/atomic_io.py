@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 def atomic_write_df(
-    df: "pd.DataFrame",
+    df: pd.DataFrame,
     path: Path,
     *,
     index: bool = False,
@@ -36,9 +36,7 @@ def atomic_write_df(
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(
-        dir=str(path.parent), suffix=".tmp", prefix=path.stem + "_"
-    )
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp", prefix=path.stem + "_")
     try:
         with os.fdopen(fd, "w", newline="") as f:
             df.to_csv(f, index=index, **to_csv_kwargs)
@@ -57,9 +55,7 @@ def atomic_write_text(text: str, path: Path) -> None:
     """Write a string to ``path`` atomically (temp + fsync + replace)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(
-        dir=str(path.parent), suffix=".tmp", prefix=path.stem + "_"
-    )
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp", prefix=path.stem + "_")
     try:
         with os.fdopen(fd, "w") as f:
             f.write(text)

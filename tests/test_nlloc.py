@@ -32,7 +32,7 @@ from lib.location import (
 )
 
 # Skip the whole module unless NLLoc + grids are available.
-_NLLOC_BIN = (PROJECT_ROOT.parent / "NonLinLoc" / "src" / "bin" / "NLLoc")
+_NLLOC_BIN = PROJECT_ROOT.parent / "NonLinLoc" / "src" / "bin" / "NLLoc"
 _NLLOC_GRIDS = PROJECT_ROOT / "output" / "nlloc" / "grids" / "time"
 
 if not _NLLOC_BIN.exists():
@@ -79,7 +79,10 @@ def grid_search_reference(stations) -> GridSearchLocator:
 
 def _synthesize_picks(
     locator: GridSearchLocator,
-    true_lat: float, true_lon: float, true_depth_km: float, true_t0: float,
+    true_lat: float,
+    true_lon: float,
+    true_depth_km: float,
+    true_t0: float,
 ) -> list[Pick]:
     """Generate noise-free synthetic picks for a known hypocentre.
 
@@ -88,6 +91,7 @@ def _synthesize_picks(
     same model the NLLoc grids were built from.
     """
     import numpy as np
+
     from lib.projection import latlon_to_km
 
     true_x, true_y = latlon_to_km(true_lat, true_lon, proj=locator._proj)
@@ -97,8 +101,7 @@ def _synthesize_picks(
         for phase in ("P", "S"):
             tt = float(locator._tt[(sta_id, phase)].lookup(true_depth_km, dist))
             if np.isfinite(tt):
-                picks.append(Pick(station_id=sta_id, phase=phase,
-                                  time_s=true_t0 + tt))
+                picks.append(Pick(station_id=sta_id, phase=phase, time_s=true_t0 + tt))
     return picks
 
 
@@ -108,7 +111,6 @@ def _synthesize_picks(
 
 
 class TestConstruction:
-
     def test_requires_stations(self):
         with pytest.raises(ValueError, match="at least one station"):
             NLLocLocator([])
@@ -124,21 +126,18 @@ class TestConstruction:
 
 
 class TestSyntheticRoundTrip:
-
     def test_recovers_hypocentre(self, locator, grid_search_reference):
         # A shallow event in the centre of the El Paso array
         true_lat, true_lon, true_depth = 31.86, -106.45, 8.0
         true_t0 = 1700000000.0  # arbitrary Unix epoch
-        picks = _synthesize_picks(
-            grid_search_reference, true_lat, true_lon, true_depth, true_t0
-        )
+        picks = _synthesize_picks(grid_search_reference, true_lat, true_lon, true_depth, true_t0)
         assert len(picks) >= 4, f"need ≥4 picks, got {len(picks)}"
 
         result = locator.locate(picks, ref_epoch_unix=None, min_picks=4)
 
         # NLLoc with default 1 km grid + bilinear-interp TT tables
         # in synthesis: expect agreement within ~1 km horizontal, ~2 km depth
-        assert abs(result.latitude - true_lat) < 0.02   # ~2 km lat
+        assert abs(result.latitude - true_lat) < 0.02  # ~2 km lat
         assert abs(result.longitude - true_lon) < 0.02  # ~2 km lon
         assert abs(result.depth_km - true_depth) < 3.0
         # Origin time is in Unix epoch when ref_epoch_unix=None
@@ -146,9 +145,7 @@ class TestSyntheticRoundTrip:
 
     def test_result_shape_for_dashboard(self, locator, grid_search_reference):
         """Verify every field the dashboard /relocate response touches."""
-        picks = _synthesize_picks(
-            grid_search_reference, 31.86, -106.45, 8.0, 1700000000.0
-        )
+        picks = _synthesize_picks(grid_search_reference, 31.86, -106.45, 8.0, 1700000000.0)
         result = locator.locate(picks, ref_epoch_unix=None, min_picks=4)
 
         # Scalar location/uncertainty fields
@@ -178,7 +175,6 @@ class TestSyntheticRoundTrip:
 
 
 class TestErrorPaths:
-
     def test_rejects_too_few_picks(self, locator):
         picks = [
             Pick("AM.R0F2D", "P", 0.0, sigma_s=0.1),
@@ -189,14 +185,10 @@ class TestErrorPaths:
             locator.locate(picks, ref_epoch_unix=None, min_picks=4)
 
     def test_ignores_unknown_stations(self, locator, grid_search_reference):
-        good_picks = _synthesize_picks(
-            grid_search_reference, 31.86, -106.45, 8.0, 1700000000.0
-        )
+        good_picks = _synthesize_picks(grid_search_reference, 31.86, -106.45, 8.0, 1700000000.0)
         # Add a pick from a station the locator doesn't know about
         ghost = Pick("NET.GHOST", "P", good_picks[0].time_s, sigma_s=0.1)
-        result = locator.locate(
-            [ghost] + good_picks, ref_epoch_unix=None, min_picks=4
-        )
+        result = locator.locate([ghost] + good_picks, ref_epoch_unix=None, min_picks=4)
         # Ghost pick is silently dropped — recovery should still work
         assert abs(result.latitude - 31.86) < 0.05
 
@@ -213,32 +205,37 @@ class TestCrossCheckAgainstGridSearch:
     rather than method differences."""
 
     def test_agreement_within_uncertainty(self, locator, grid_search_reference):
-        picks = _synthesize_picks(
-            grid_search_reference, 31.86, -106.45, 8.0, 1700000000.0
-        )
+        picks = _synthesize_picks(grid_search_reference, 31.86, -106.45, 8.0, 1700000000.0)
         ref_epoch = min(p.time_s for p in picks)
         picks_rel = [
-            Pick(station_id=p.station_id, phase=p.phase,
-                 time_s=p.time_s - ref_epoch, sigma_s=p.sigma_s)
+            Pick(
+                station_id=p.station_id,
+                phase=p.phase,
+                time_s=p.time_s - ref_epoch,
+                sigma_s=p.sigma_s,
+            )
             for p in picks
         ]
 
         r_nl = locator.locate(picks, ref_epoch_unix=None, min_picks=4)
         r_gs = grid_search_reference.locate(
-            picks_rel, x_half_width_km=40, y_half_width_km=40,
-            horizontal_spacing_km=0.5, depth_max_km=20,
-            depth_spacing_km=0.25, min_picks=4,
+            picks_rel,
+            x_half_width_km=40,
+            y_half_width_km=40,
+            horizontal_spacing_km=0.5,
+            depth_max_km=20,
+            depth_spacing_km=0.25,
+            min_picks=4,
         )
 
         # Both methods should agree within ~2 km horizontal on a noise-free
         # synthetic event. (Larger disagreement would indicate a wrapper
         # bug rather than acceptable method-to-method scatter.)
         import math
+
         dlat_km = (r_nl.latitude - r_gs.latitude) * 111.32
-        dlon_km = (r_nl.longitude - r_gs.longitude) * 111.32 * math.cos(
-            math.radians(r_nl.latitude)
-        )
-        horiz_offset_km = math.sqrt(dlat_km ** 2 + dlon_km ** 2)
+        dlon_km = (r_nl.longitude - r_gs.longitude) * 111.32 * math.cos(math.radians(r_nl.latitude))
+        horiz_offset_km = math.sqrt(dlat_km**2 + dlon_km**2)
         assert horiz_offset_km < 2.5, (
             f"NLLoc vs GridSearch horizontal offset {horiz_offset_km:.2f} km "
             "exceeds wrapper-correctness tolerance (2.5 km)"

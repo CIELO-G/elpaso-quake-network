@@ -36,7 +36,12 @@ def _run_capture(cmd: list[str], timeout: int = 60) -> dict:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        return {"ok": False, "returncode": -1, "stdout": "", "stderr": f"Timed out after {timeout}s"}
+        return {
+            "ok": False,
+            "returncode": -1,
+            "stdout": "",
+            "stderr": f"Timed out after {timeout}s",
+        }
     except FileNotFoundError as exc:
         return {"ok": False, "returncode": -1, "stdout": "", "stderr": str(exc)}
     return {
@@ -59,9 +64,12 @@ async def admin_backup():
 async def admin_validate():
     """Run run_pipeline.py --validate (env / FDSNWS / disk / imports check)."""
     if not _VALIDATE_SCRIPT.exists():
-        raise HTTPException(status_code=500, detail=f"run_pipeline.py not found at {_VALIDATE_SCRIPT}")
+        raise HTTPException(
+            status_code=500, detail=f"run_pipeline.py not found at {_VALIDATE_SCRIPT}"
+        )
     return _run_capture(
-        [sys.executable, str(_VALIDATE_SCRIPT), "--validate"], timeout=60,
+        [sys.executable, str(_VALIDATE_SCRIPT), "--validate"],
+        timeout=60,
     )
 
 
@@ -89,6 +97,7 @@ async def admin_open_folder(which: str = Query(..., pattern=r"^(logs|output|root
 async def admin_quit():
     """Terminate the dashboard process (also closes the pywebview window)."""
     import threading
+
     # Defer the exit slightly so this response can flush before the process dies.
     threading.Timer(0.2, lambda: os._exit(0)).start()
     return {"quitting": True}

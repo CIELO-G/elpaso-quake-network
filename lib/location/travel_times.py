@@ -15,8 +15,8 @@ given source depth (super-critical geometry), the returned travel time is
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 import numpy as np
 
@@ -31,9 +31,7 @@ _P_MAX_SAFETY = 1.0 - 1e-6
 _DEFAULT_N_SLOWNESS = 800
 
 
-def _layer_boundaries_between(
-    model: LayeredModel, z_lo: float, z_hi: float
-) -> list[float]:
+def _layer_boundaries_between(model: LayeredModel, z_lo: float, z_hi: float) -> list[float]:
     """Return interior layer tops strictly between ``z_lo`` and ``z_hi``.
 
     Boundaries exactly at an endpoint are excluded. Result is sorted
@@ -41,9 +39,7 @@ def _layer_boundaries_between(
     """
     if z_lo > z_hi:
         z_lo, z_hi = z_hi, z_lo
-    return sorted(
-        layer.top_km for layer in model.layers if z_lo < layer.top_km < z_hi
-    )
+    return sorted(layer.top_km for layer in model.layers if z_lo < layer.top_km < z_hi)
 
 
 def _integrate_ray(
@@ -110,14 +106,12 @@ def _scan_slowness(
     # Nonlinear sampling: more density near p_max where dx grows fast.
     # A power-law transform concentrates samples near the upper end.
     u = np.linspace(0.0, 1.0, n_samples)
-    p_arr = p_max * u ** 1.5
+    p_arr = p_max * u**1.5
 
     dx = np.empty(n_samples)
     dt = np.empty(n_samples)
     for i, p in enumerate(p_arr):
-        dx_i, dt_i = _integrate_ray(
-            source_depth_km, receiver_depth_km, float(p), model, phase
-        )
+        dx_i, dt_i = _integrate_ray(source_depth_km, receiver_depth_km, float(p), model, phase)
         dx[i] = dx_i
         dt[i] = dt_i
 
@@ -144,13 +138,9 @@ def travel_time(
     if epicentral_distance_km < 0:
         raise ValueError("epicentral distance must be non-negative")
     if epicentral_distance_km == 0.0:
-        _, t = _integrate_ray(
-            source_depth_km, receiver_depth_km, 0.0, model, phase
-        )
+        _, t = _integrate_ray(source_depth_km, receiver_depth_km, 0.0, model, phase)
         return t
-    dx, dt = _scan_slowness(
-        source_depth_km, receiver_depth_km, model, phase, n_samples
-    )
+    dx, dt = _scan_slowness(source_depth_km, receiver_depth_km, model, phase, n_samples)
     if epicentral_distance_km > dx[-1]:
         return float("nan")
     # Linear interpolation of dt as a function of dx.
@@ -186,9 +176,7 @@ class TravelTimeTable:
     receiver_depth_km: float
     phase: Phase
 
-    def lookup(
-        self, source_depths_km: np.ndarray, distances_km: np.ndarray
-    ) -> np.ndarray:
+    def lookup(self, source_depths_km: np.ndarray, distances_km: np.ndarray) -> np.ndarray:
         """Bilinear-interpolate travel times.
 
         Both inputs are broadcast to a common shape. Depths or distances
@@ -227,10 +215,7 @@ class TravelTimeTable:
         t21 = self.tt[iz + 1, idx]
         t22 = self.tt[iz + 1, idx + 1]
 
-        t = (
-            (1 - wz) * ((1 - wd) * t11 + wd * t12)
-            + wz * ((1 - wd) * t21 + wd * t22)
-        )
+        t = (1 - wz) * ((1 - wd) * t11 + wd * t12) + wz * ((1 - wd) * t21 + wd * t22)
 
         # Propagate NaN: if any corner is NaN, result is NaN. Clean up the
         # np.where result.
@@ -269,9 +254,7 @@ def build_tt_table(
 
     tt = np.full((len(sd), len(dd)), np.nan, dtype=float)
     for i, z in enumerate(sd):
-        dx, dt = _scan_slowness(
-            float(z), receiver_depth_km, model, phase, n_slowness
-        )
+        dx, dt = _scan_slowness(float(z), receiver_depth_km, model, phase, n_slowness)
         # Interpolate only on the reachable portion; beyond dx[-1], leave NaN.
         reachable = dd <= dx[-1]
         if reachable.any():

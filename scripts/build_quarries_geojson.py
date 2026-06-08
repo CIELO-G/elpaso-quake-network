@@ -97,21 +97,23 @@ def load_msha() -> list[dict]:
             if (row.get("COAL_METAL_IND") or "").strip() == "C":
                 continue
             n_kept += 1
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                "properties": {
-                    "mine_id": (row.get("MINE_ID") or "").strip(),
-                    "name": (row.get("CURRENT_MINE_NAME") or "Unknown").strip(),
-                    "operator": (row.get("CURRENT_OPERATOR_NAME") or "").strip(),
-                    "type": (row.get("CURRENT_MINE_TYPE") or "").strip(),
-                    "status": status,
-                    "commodity": (row.get("PRIMARY_CANVASS") or "").strip() or "Unknown",
-                    "state": (row.get("STATE") or "").strip(),
-                    "county": (row.get("FIPS_CNTY_NM") or "").strip(),
-                    "source": "MSHA",
-                },
-            })
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                    "properties": {
+                        "mine_id": (row.get("MINE_ID") or "").strip(),
+                        "name": (row.get("CURRENT_MINE_NAME") or "Unknown").strip(),
+                        "operator": (row.get("CURRENT_OPERATOR_NAME") or "").strip(),
+                        "type": (row.get("CURRENT_MINE_TYPE") or "").strip(),
+                        "status": status,
+                        "commodity": (row.get("PRIMARY_CANVASS") or "").strip() or "Unknown",
+                        "state": (row.get("STATE") or "").strip(),
+                        "county": (row.get("FIPS_CNTY_NM") or "").strip(),
+                        "source": "MSHA",
+                    },
+                }
+            )
     print(f"MSHA: {n_total:,} total → {n_bbox} in bbox → {n_active} active → {n_kept} kept")
     return features
 
@@ -176,21 +178,23 @@ def load_osm() -> list[dict]:
 
         # Crude US/MX split by longitude+latitude: anything south of 31.78 is MX
         in_mexico = lat < 31.78
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [lon, lat]},
-            "properties": {
-                "mine_id": f"osm{elem['type'][0]}{elem.get('id', '')}",
-                "name": tags.get("name") or tags.get("operator") or "Unnamed (OSM)",
-                "operator": tags.get("operator", ""),
-                "type": tags.get("landuse") or tags.get("industrial") or "",
-                "status": "OSM-tagged",
-                "commodity": commodity,
-                "state": "Chihuahua" if in_mexico else "",
-                "county": tags.get("addr:state", ""),
-                "source": "OSM",
-            },
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "properties": {
+                    "mine_id": f"osm{elem['type'][0]}{elem.get('id', '')}",
+                    "name": tags.get("name") or tags.get("operator") or "Unnamed (OSM)",
+                    "operator": tags.get("operator", ""),
+                    "type": tags.get("landuse") or tags.get("industrial") or "",
+                    "status": "OSM-tagged",
+                    "commodity": commodity,
+                    "state": "Chihuahua" if in_mexico else "",
+                    "county": tags.get("addr:state", ""),
+                    "source": "OSM",
+                },
+            }
+        )
     print(f"OSM: {len(features)} features in bbox")
     return features
 
@@ -219,7 +223,8 @@ def dedup(features: list[dict]) -> list[dict]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--no-osm", action="store_true",
+        "--no-osm",
+        action="store_true",
         help="Skip OSM/Overpass fetch (MSHA only)",
     )
     args = parser.parse_args()

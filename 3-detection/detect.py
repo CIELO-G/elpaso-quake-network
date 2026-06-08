@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 
 import pandas as pd
-from obspy import UTCDateTime, Stream, read
+from obspy import Stream, read
 
 # Allow imports from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -44,7 +44,7 @@ DEFAULTS = {
     "log_max_bytes": 10_485_760,
     "log_backup_count": 5,
     "phasenet_model_dir": "3-detection/model/190703-214543",
-    "phasenet_python": None,       # Python with TF; None = same interpreter
+    "phasenet_python": None,  # Python with TF; None = same interpreter
     "p_threshold": 0.4,
     "s_threshold": 0.4,
     "highpass_freq": 3.0,
@@ -54,9 +54,16 @@ DEFAULTS = {
 }
 
 CSV_COLUMNS = [
-    "network", "station", "location", "channel",
-    "phase", "time", "probability", "model",
-    "amplitude", "amplitude_channel",
+    "network",
+    "station",
+    "location",
+    "channel",
+    "phase",
+    "time",
+    "probability",
+    "model",
+    "amplitude",
+    "amplitude_channel",
 ]
 
 
@@ -64,26 +71,25 @@ CSV_COLUMNS = [
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Detect and pick seismic phases using standalone PhaseNet",
     )
-    parser.add_argument("--config", required=True,
-                        help="Path to YAML configuration file")
-    parser.add_argument("--start",
-                        help="Start date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
-    parser.add_argument("--end",
-                        help="End date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
-    parser.add_argument("--force", action="store_true",
-                        help="Redetect even if output CSV already exists")
-    parser.add_argument("--debug", action="store_true",
-                        help="Enable debug-level logging")
+    parser.add_argument("--config", required=True, help="Path to YAML configuration file")
+    parser.add_argument("--start", help="Start date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
+    parser.add_argument("--end", help="End date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
+    parser.add_argument(
+        "--force", action="store_true", help="Redetect even if output CSV already exists"
+    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug-level logging")
     return parser.parse_args()
 
 
 # ---------------------------------------------------------------------------
 # PhaseNet station format conversion
 # ---------------------------------------------------------------------------
+
 
 def build_phasenet_stations(stations: list[dict]) -> dict:
     """Convert our stations.json to PhaseNet's station dict format.
@@ -143,6 +149,7 @@ def build_phasenet_stations(stations: list[dict]) -> dict:
 # Raw data handling
 # ---------------------------------------------------------------------------
 
+
 def find_raw_files(input_dir: str, year: str, jday: str) -> list[Path]:
     """Find all raw mseed files for a given day."""
     raw_dir = Path(input_dir) / "1-raw" / year / jday
@@ -173,6 +180,7 @@ def merge_raw_data(raw_files: list[Path], output_path: Path, logger) -> bool:
 # PhaseNet subprocess
 # ---------------------------------------------------------------------------
 
+
 def _resolve_python(config: dict, logger) -> list[str]:
     """Build the command prefix for running PhaseNet.
 
@@ -198,19 +206,31 @@ def run_phasenet(config: dict, tmp_dir: str, logger) -> bool:
     python_cmd = _resolve_python(config, logger)
 
     cmd = [
-        *python_cmd, predict_py,
-        "--model_dir", model_dir,
-        "--data_list", os.path.join(tmp_dir, "fnames.csv"),
-        "--data_dir", tmp_dir,
-        "--stations", os.path.join(tmp_dir, "phasenet_stations.json"),
-        "--format", "mseed_array",
+        *python_cmd,
+        predict_py,
+        "--model_dir",
+        model_dir,
+        "--data_list",
+        os.path.join(tmp_dir, "fnames.csv"),
+        "--data_dir",
+        tmp_dir,
+        "--stations",
+        os.path.join(tmp_dir, "phasenet_stations.json"),
+        "--format",
+        "mseed_array",
         "--amplitude",
-        "--highpass_filter", str(config["highpass_freq"]),
-        "--min_p_prob", str(config["p_threshold"]),
-        "--min_s_prob", str(config["s_threshold"]),
-        "--mpd", str(config.get("min_peak_distance", 50)),
-        "--result_dir", os.path.join(tmp_dir, "results"),
-        "--result_fname", "picks",
+        "--highpass_filter",
+        str(config["highpass_freq"]),
+        "--min_p_prob",
+        str(config["p_threshold"]),
+        "--min_s_prob",
+        str(config["s_threshold"]),
+        "--mpd",
+        str(config.get("min_peak_distance", 50)),
+        "--result_dir",
+        os.path.join(tmp_dir, "results"),
+        "--result_fname",
+        "picks",
     ]
 
     logger.info("Running PhaseNet: %s", " ".join(cmd))
@@ -223,14 +243,15 @@ def run_phasenet(config: dict, tmp_dir: str, logger) -> bool:
     if result.returncode != 0:
         logger.error(
             "PhaseNet failed (rc=%d):\nstdout: %s\nstderr: %s",
-            result.returncode, result.stdout[-2000:], result.stderr[-2000:],
+            result.returncode,
+            result.stdout[-2000:],
+            result.stderr[-2000:],
         )
         return False
 
     logger.info("PhaseNet: %s", result.stdout.strip())
     if result.stderr.strip():
-        logger.debug("PhaseNet stderr (last 1000 chars): %s",
-                     result.stderr.strip()[-1000:])
+        logger.debug("PhaseNet stderr (last 1000 chars): %s", result.stderr.strip()[-1000:])
 
     return True
 
@@ -238,6 +259,7 @@ def run_phasenet(config: dict, tmp_dir: str, logger) -> bool:
 # ---------------------------------------------------------------------------
 # Parse PhaseNet output
 # ---------------------------------------------------------------------------
+
 
 def parse_phasenet_picks(picks_csv: str, logger) -> list[dict]:
     """Parse PhaseNet output CSV and map to our pick format.
@@ -282,18 +304,20 @@ def parse_phasenet_picks(picks_csv: str, logger) -> list[dict]:
                 amplitude = f"{amp_val:.6e}"
                 amplitude_channel = chan_prefix + "Z"
 
-        results.append({
-            "network": net,
-            "station": sta,
-            "location": loc,
-            "channel": chan_prefix + "Z",
-            "phase": row["phase_type"],
-            "time": row["phase_time"],
-            "probability": f"{float(row['phase_score']):.4f}",
-            "model": "PhaseNet:standalone",
-            "amplitude": amplitude,
-            "amplitude_channel": amplitude_channel,
-        })
+        results.append(
+            {
+                "network": net,
+                "station": sta,
+                "location": loc,
+                "channel": chan_prefix + "Z",
+                "phase": row["phase_type"],
+                "time": row["phase_time"],
+                "probability": f"{float(row['phase_score']):.4f}",
+                "model": "PhaseNet:standalone",
+                "amplitude": amplitude,
+                "amplitude_channel": amplitude_channel,
+            }
+        )
 
     return results
 
@@ -301,6 +325,7 @@ def parse_phasenet_picks(picks_csv: str, logger) -> list[dict]:
 # ---------------------------------------------------------------------------
 # CSV output
 # ---------------------------------------------------------------------------
+
 
 def get_daily_picks_path(output_dir: str, year: str, jday: str) -> Path:
     """Return the CSV path for a day's picks."""
@@ -322,6 +347,7 @@ def write_picks_csv(picks_list: list[dict], output_path: Path, logger) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     args = parse_args()
 
@@ -331,13 +357,13 @@ def main() -> None:
     metrics = MetricsWriter(Path(config["log_dir"]) / "metrics.jsonl")
 
     logger.info("=" * 60)
-    logger.info("Phase detection & picking (standalone PhaseNet) -- %d station(s)",
-                len(stations))
+    logger.info("Phase detection & picking (standalone PhaseNet) -- %d station(s)", len(stations))
     logger.info("=" * 60)
 
     # Determine time window
     start_time, end_time = resolve_time_window(
-        args, config,
+        args,
+        config,
         window_hours_key="detect_window_hours",
         latency_hours_key="detect_latency_hours",
         logger=logger,
@@ -404,7 +430,9 @@ def main() -> None:
                 # would mark the day as "done" and prevent retry forever.
                 # Leave daily_csv absent; record the failure; orchestrator
                 # exit code will be non-zero so retries kick in.
-                logger.error("PhaseNet failed for %s/%s — leaving day unmarked for retry", year, jday)
+                logger.error(
+                    "PhaseNet failed for %s/%s — leaving day unmarked for retry", year, jday
+                )
                 totals["failed"] += 1
                 continue
 
@@ -423,8 +451,7 @@ def main() -> None:
             picks=len(day_picks),
             duration_s=round(day_elapsed, 1),
         )
-        logger.info("Day %s/%s: %d picks in %.1fs",
-                     year, jday, len(day_picks), day_elapsed)
+        logger.info("Day %s/%s: %d picks in %.1fs", year, jday, len(day_picks), day_elapsed)
 
         gc.collect()
 
@@ -432,7 +459,10 @@ def main() -> None:
     logger.info("=" * 60)
     logger.info(
         "Done. days=%d  skipped=%d  picks=%d  failed=%d",
-        totals["days"], totals["skipped"], totals["picks"], totals["failed"],
+        totals["days"],
+        totals["skipped"],
+        totals["picks"],
+        totals["failed"],
     )
     logger.info("=" * 60)
 
@@ -440,8 +470,8 @@ def main() -> None:
     # writing empty CSV and marking day "done" forever).
     if totals["failed"] > 0:
         logger.error(
-            "%d day(s) had PhaseNet failures and were left unmarked. "
-            "Re-run will retry them.", totals["failed"],
+            "%d day(s) had PhaseNet failures and were left unmarked. Re-run will retry them.",
+            totals["failed"],
         )
         sys.exit(1)
 

@@ -35,8 +35,8 @@ Assumptions / known limits
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Iterable, Mapping, Sequence
 
 import numpy as np
 
@@ -308,9 +308,7 @@ class GridSearchLocator:
                 )
             usable.append((pick, self._station_xy[pick.station_id]))
         if len(usable) < min_picks:
-            raise ValueError(
-                f"need at least {min_picks} usable picks, got {len(usable)}"
-            )
+            raise ValueError(f"need at least {min_picks} usable picks, got {len(usable)}")
 
         # 2. Default search centre = station-weighted pick centroid.
         if center_xy_km is None:

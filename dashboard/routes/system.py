@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import shutil
 import time
-from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -24,11 +23,11 @@ from dashboard.cache import etag_response, get_cached, set_cached
 from dashboard.deps import (
     CATALOG_FILE,
     FAULTS_FILE,
-    QUARRIES_FILE,
     LOG_LINE_RE,
     LOGS_DIR,
     MAX_LOG_BYTES,
     OUTPUT_DIR,
+    QUARRIES_FILE,
     ROOT,
     STATIC_DIR,
     STATUS_FILE,
@@ -149,6 +148,7 @@ async def _broadcast_status() -> None:
 async def status_broadcast_loop(interval_s: float = 1.0) -> None:
     """Long-running task: push to WS clients whenever pipeline_status.json changes."""
     import asyncio
+
     last_mtime = 0.0
     while True:
         try:
@@ -212,9 +212,9 @@ async def disk(request: Request):
         return etag_response(entry.data, entry.etag, request)
 
     usage = shutil.disk_usage(ROOT)
-    total_gb = round(usage.total / (1024 ** 3), 1)
-    used_gb = round(usage.used / (1024 ** 3), 1)
-    free_gb = round(usage.free / (1024 ** 3), 1)
+    total_gb = round(usage.total / (1024**3), 1)
+    used_gb = round(usage.used / (1024**3), 1)
+    free_gb = round(usage.free / (1024**3), 1)
     usage_percent = round((usage.used / usage.total) * 100, 1) if usage.total else 0
 
     step_dirs = ["1-raw", "1-metadata", "2-processed", "3-picks", "4-events", "5-catalog"]
@@ -222,13 +222,13 @@ async def disk(request: Request):
     output_total = 0
     for d in step_dirs:
         size = dir_size(OUTPUT_DIR / d)
-        breakdown[d] = round(size / (1024 ** 3), 3)
+        breakdown[d] = round(size / (1024**3), 3)
         output_total += size
 
     db_file = OUTPUT_DIR / "1-downloads.db"
     if db_file.exists():
         db_size = db_file.stat().st_size
-        breakdown["1-downloads.db"] = round(db_size / (1024 ** 3), 3)
+        breakdown["1-downloads.db"] = round(db_size / (1024**3), 3)
         output_total += db_size
 
     data = {
@@ -236,7 +236,7 @@ async def disk(request: Request):
         "used_gb": used_gb,
         "free_gb": free_gb,
         "usage_percent": usage_percent,
-        "output_size_gb": round(output_total / (1024 ** 3), 2),
+        "output_size_gb": round(output_total / (1024**3), 2),
         "breakdown": breakdown,
     }
     etag = set_cached("disk", data)
@@ -256,12 +256,14 @@ async def errors(limit: int = Query(default=50, ge=1, le=500)):
             for line in log_path.read_text().splitlines():
                 m = LOG_LINE_RE.match(line)
                 if m:
-                    entries.append({
-                        "timestamp": m.group(1),
-                        "level": m.group(2),
-                        "step": step_name,
-                        "message": m.group(3),
-                    })
+                    entries.append(
+                        {
+                            "timestamp": m.group(1),
+                            "level": m.group(2),
+                            "step": step_name,
+                            "message": m.group(3),
+                        }
+                    )
         except OSError:
             pass
 
@@ -270,12 +272,14 @@ async def errors(limit: int = Query(default=50, ge=1, le=500)):
             status_data = json.loads(STATUS_FILE.read_text())
             for s in status_data.get("steps", []):
                 if s.get("status") == "failed":
-                    entries.append({
-                        "timestamp": s.get("finished_at", ""),
-                        "level": "CRITICAL",
-                        "step": s["name"],
-                        "message": f"Step {s['name']} failed (exit code {s.get('return_code')})",
-                    })
+                    entries.append(
+                        {
+                            "timestamp": s.get("finished_at", ""),
+                            "level": "CRITICAL",
+                            "step": s["name"],
+                            "message": f"Step {s['name']} failed (exit code {s.get('return_code')})",
+                        }
+                    )
         except (json.JSONDecodeError, OSError):
             pass
 

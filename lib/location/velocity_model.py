@@ -11,8 +11,9 @@ the same velocity as at the surface.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal, Sequence
+from typing import Literal
 
 Phase = Literal["P", "S"]
 
@@ -61,9 +62,7 @@ class LayeredModel:
         tops = [layer.top_km for layer in layers]
         for a, b in zip(tops, tops[1:]):
             if a >= b:
-                raise ValueError(
-                    f"layer tops must be strictly ascending, got {tops}"
-                )
+                raise ValueError(f"layer tops must be strictly ascending, got {tops}")
         self.layers: tuple[Layer, ...] = tuple(layers)
 
     def __repr__(self) -> str:
@@ -106,9 +105,7 @@ class LayeredModel:
             return self.velocity(z_lo, phase)
         if z_lo > z_hi:
             z_lo, z_hi = z_hi, z_lo
-        interior = sorted(
-            layer.top_km for layer in self.layers if z_lo < layer.top_km < z_hi
-        )
+        interior = sorted(layer.top_km for layer in self.layers if z_lo < layer.top_km < z_hi)
         waypoints = [z_lo] + interior + [z_hi]
         v_max = 0.0
         for z1, z2 in zip(waypoints, waypoints[1:]):
@@ -138,11 +135,13 @@ class LayeredModel:
 # ---------------------------------------------------------------------------
 DEFAULT_WEST_TEXAS_MODEL = LayeredModel(
     [
-        Layer(top_km=0.0, vp=3.30, vs=1.88),    # Hueco Bolson / basin fill (slowed from 3.60)
-        Layer(top_km=1.0, vp=4.85, vs=2.80),    # Consolidated seds (slowed from 5.20)
-        Layer(top_km=3.0, vp=5.50, vs=3.15),    # Upper crust / Precambrian basement (slowed from 5.80)
-        Layer(top_km=10.0, vp=6.20, vs=3.58),   # Mid crust (unchanged)
-        Layer(top_km=20.0, vp=6.60, vs=3.81),   # Lower crust (unchanged)
-        Layer(top_km=35.0, vp=7.90, vs=4.56),   # Uppermost mantle / Moho (unchanged)
+        Layer(top_km=0.0, vp=3.30, vs=1.88),  # Hueco Bolson / basin fill (slowed from 3.60)
+        Layer(top_km=1.0, vp=4.85, vs=2.80),  # Consolidated seds (slowed from 5.20)
+        Layer(
+            top_km=3.0, vp=5.50, vs=3.15
+        ),  # Upper crust / Precambrian basement (slowed from 5.80)
+        Layer(top_km=10.0, vp=6.20, vs=3.58),  # Mid crust (unchanged)
+        Layer(top_km=20.0, vp=6.60, vs=3.81),  # Lower crust (unchanged)
+        Layer(top_km=35.0, vp=7.90, vs=4.56),  # Uppermost mantle / Moho (unchanged)
     ]
 )

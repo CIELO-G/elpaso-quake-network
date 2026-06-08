@@ -10,7 +10,7 @@ trick in particular is easy to get wrong).
 from __future__ import annotations
 
 import sys
-from typing import Iterator
+from collections.abc import Iterator
 
 from obspy import UTCDateTime
 

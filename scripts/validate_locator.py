@@ -36,7 +36,6 @@ from lib.location import (  # noqa: E402
 )
 from lib.projection import latlon_to_km  # noqa: E402
 
-
 CATALOG_PATH = ROOT / "output" / "5-catalog" / "catalog.csv"
 EVENTS_DIR = ROOT / "output" / "4-events"
 STATIONS_PATH = ROOT / "stations.json"
@@ -66,9 +65,7 @@ def load_event_day_picks(event_id: str, event_index: int) -> tuple[list[dict], P
             if int(row["event_index"]) == event_index:
                 rows.append(row)
     if not rows:
-        raise SystemExit(
-            f"no picks for event_index={event_index} in {assignments}"
-        )
+        raise SystemExit(f"no picks for event_index={event_index} in {assignments}")
     return rows, assignments
 
 
@@ -162,6 +159,7 @@ def main() -> int:
     nl_skip_reason = None
     try:
         from lib.location.nlloc import NLLocLocator  # noqa: E402
+
         nl = NLLocLocator(stations)
         nl_result = nl.locate(picks, ref_epoch_unix=ref_epoch.timestamp(), min_picks=4)
     except FileNotFoundError as exc:
@@ -175,7 +173,7 @@ def main() -> int:
     def _h_offset_km(lat: float, lon: float) -> float:
         dlat_km = (lat - cat_lat) * 111.32
         dlon_km = (lon - cat_lon) * 111.32 * math.cos(math.radians(cat_lat))
-        return math.sqrt(dlat_km ** 2 + dlon_km ** 2)
+        return math.sqrt(dlat_km**2 + dlon_km**2)
 
     headers = ["", "GaMMA (catalog)", "GridSearch", "NLLoc"]
     print()
@@ -189,33 +187,72 @@ def main() -> int:
         # First column is wider than the rest
         print(parts[0] + f"{parts[1]:>22}" + "".join(f"{p:>16}" for p in parts[2:]))
 
-    _row("latitude",  "{:.5f}",  cat_lat,   gs_result.latitude,
-         nl_result.latitude if nl_result else None)
-    _row("longitude", "{:.5f}",  cat_lon,   gs_result.longitude,
-         nl_result.longitude if nl_result else None)
-    _row("depth (km)", "{:.2f}", cat_depth, gs_result.depth_km,
-         nl_result.depth_km if nl_result else None)
-    _row("horiz Δ km", "{:.2f}", 0.0,
-         _h_offset_km(gs_result.latitude, gs_result.longitude),
-         _h_offset_km(nl_result.latitude, nl_result.longitude) if nl_result else None)
-    _row("depth Δ km", "{:.2f}", 0.0,
-         gs_result.depth_km - cat_depth,
-         (nl_result.depth_km - cat_depth) if nl_result else None)
-    _row("RMS (s)", "{:.3f}", float(cat["sigma_time"]),
-         gs_result.rms_residual_s,
-         nl_result.rms_residual_s if nl_result else None)
-    _row("ellipse maj (km)", "{:.2f}", None,
-         gs_result.horizontal_semi_axis_major_km,
-         nl_result.horizontal_semi_axis_major_km if nl_result else None)
-    _row("ellipse min (km)", "{:.2f}", None,
-         gs_result.horizontal_semi_axis_minor_km,
-         nl_result.horizontal_semi_axis_minor_km if nl_result else None)
-    _row("σz (km)", "{:.2f}", None,
-         gs_result.sigma_depth_km,
-         nl_result.sigma_depth_km if nl_result else None)
-    _row("picks used", "{:d}", int(cat["num_picks"]),
-         gs_result.n_picks_used,
-         nl_result.n_picks_used if nl_result else None)
+    _row(
+        "latitude", "{:.5f}", cat_lat, gs_result.latitude, nl_result.latitude if nl_result else None
+    )
+    _row(
+        "longitude",
+        "{:.5f}",
+        cat_lon,
+        gs_result.longitude,
+        nl_result.longitude if nl_result else None,
+    )
+    _row(
+        "depth (km)",
+        "{:.2f}",
+        cat_depth,
+        gs_result.depth_km,
+        nl_result.depth_km if nl_result else None,
+    )
+    _row(
+        "horiz Δ km",
+        "{:.2f}",
+        0.0,
+        _h_offset_km(gs_result.latitude, gs_result.longitude),
+        _h_offset_km(nl_result.latitude, nl_result.longitude) if nl_result else None,
+    )
+    _row(
+        "depth Δ km",
+        "{:.2f}",
+        0.0,
+        gs_result.depth_km - cat_depth,
+        (nl_result.depth_km - cat_depth) if nl_result else None,
+    )
+    _row(
+        "RMS (s)",
+        "{:.3f}",
+        float(cat["sigma_time"]),
+        gs_result.rms_residual_s,
+        nl_result.rms_residual_s if nl_result else None,
+    )
+    _row(
+        "ellipse maj (km)",
+        "{:.2f}",
+        None,
+        gs_result.horizontal_semi_axis_major_km,
+        nl_result.horizontal_semi_axis_major_km if nl_result else None,
+    )
+    _row(
+        "ellipse min (km)",
+        "{:.2f}",
+        None,
+        gs_result.horizontal_semi_axis_minor_km,
+        nl_result.horizontal_semi_axis_minor_km if nl_result else None,
+    )
+    _row(
+        "σz (km)",
+        "{:.2f}",
+        None,
+        gs_result.sigma_depth_km,
+        nl_result.sigma_depth_km if nl_result else None,
+    )
+    _row(
+        "picks used",
+        "{:d}",
+        int(cat["num_picks"]),
+        gs_result.n_picks_used,
+        nl_result.n_picks_used if nl_result else None,
+    )
 
     if nl_skip_reason:
         print(f"\n  (NLLoc column skipped: {nl_skip_reason})")

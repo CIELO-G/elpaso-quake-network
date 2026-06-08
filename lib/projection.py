@@ -17,7 +17,7 @@ from lib.constants import NETWORK_CENTER_LAT, NETWORK_CENTER_LON
 def make_projection(
     center_lon: float = NETWORK_CENTER_LON,
     center_lat: float = NETWORK_CENTER_LAT,
-) -> "Proj":
+) -> Proj:
     """Create a stereographic Proj centred on the network.
 
     Parameters
@@ -39,7 +39,7 @@ def make_projection(
 def latlon_to_km(
     lat: float,
     lon: float,
-    proj: "Proj | None" = None,
+    proj: Proj | None = None,
     center_lon: float = NETWORK_CENTER_LON,
     center_lat: float = NETWORK_CENTER_LAT,
 ) -> tuple[float, float]:
@@ -66,7 +66,7 @@ def latlon_to_km(
 def km_to_latlon(
     x_km: float,
     y_km: float,
-    proj: "Proj | None" = None,
+    proj: Proj | None = None,
     center_lon: float = NETWORK_CENTER_LON,
     center_lat: float = NETWORK_CENTER_LAT,
 ) -> tuple[float, float]:

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import csv
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -128,10 +127,12 @@ class TestReviewsSidecar:
         from catalog import write_reviews_sidecar
 
         events = {"e1": {"event_id": "e1"}}
-        picks = {"e1": [
-            {"event_id": "e1", "station": "X1", "phase": "P"},
-            {"event_id": "e1", "station": "X2", "phase": "S"},
-        ]}
+        picks = {
+            "e1": [
+                {"event_id": "e1", "station": "X1", "phase": "P"},
+                {"event_id": "e1", "station": "X2", "phase": "S"},
+            ]
+        }
         sidecar = tmp_path / "reviews.jsonl"
         write_reviews_sidecar(sidecar, events, picks)
         record = json.loads(sidecar.read_text().strip())
@@ -173,21 +174,30 @@ class TestCatalogRebuildPreservesReviews:
 
         # Simulate what catalog.py's snapshot block does
         catalog_path = tmp_path / "catalog.csv"
-        catalog_df = pd.DataFrame([
-            {"event_id": "e1", "magnitude": 1.5, "review_status": "confirmed", "reviewed": "2026-01-01"},
-            {"event_id": "e2", "magnitude": 2.0, "review_status": "", "reviewed": ""},
-            {"event_id": "e3", "magnitude": 0.8, "review_status": "rejected", "reviewed": "2026-01-02"},
-            {"event_id": "e4", "magnitude": 1.2, "review_status": "", "reviewed": ""},
-        ])
+        catalog_df = pd.DataFrame(
+            [
+                {
+                    "event_id": "e1",
+                    "magnitude": 1.5,
+                    "review_status": "confirmed",
+                    "reviewed": "2026-01-01",
+                },
+                {"event_id": "e2", "magnitude": 2.0, "review_status": "", "reviewed": ""},
+                {
+                    "event_id": "e3",
+                    "magnitude": 0.8,
+                    "review_status": "rejected",
+                    "reviewed": "2026-01-02",
+                },
+                {"event_id": "e4", "magnitude": 1.2, "review_status": "", "reviewed": ""},
+            ]
+        )
         catalog_df.to_csv(catalog_path, index=False)
 
         # Replicate the snapshot logic from catalog.py:217-225
         snap_df = pd.read_csv(catalog_path, dtype={"event_id": str})
         reviewed_mask = snap_df["review_status"].fillna("").astype(str).str.strip() != ""
-        preserved = {
-            row["event_id"]: row
-            for row in snap_df[reviewed_mask].to_dict("records")
-        }
+        preserved = {row["event_id"]: row for row in snap_df[reviewed_mask].to_dict("records")}
         assert set(preserved) == {"e1", "e3"}, "Should preserve only reviewed events"
         assert preserved["e1"]["review_status"] == "confirmed"
         assert preserved["e3"]["review_status"] == "rejected"
@@ -199,12 +209,14 @@ class TestCatalogRebuildPreservesReviews:
 
     def test_assignments_filtered_by_preserved_events(self, tmp_path: Path) -> None:
         """Only assignments belonging to preserved events should be kept."""
-        assignments_df = pd.DataFrame([
-            {"event_id": "e1", "station": "X1", "phase": "P"},
-            {"event_id": "e1", "station": "X2", "phase": "S"},
-            {"event_id": "e2", "station": "X1", "phase": "P"},  # e2 not reviewed
-            {"event_id": "e3", "station": "X1", "phase": "P"},
-        ])
+        assignments_df = pd.DataFrame(
+            [
+                {"event_id": "e1", "station": "X1", "phase": "P"},
+                {"event_id": "e1", "station": "X2", "phase": "S"},
+                {"event_id": "e2", "station": "X1", "phase": "P"},  # e2 not reviewed
+                {"event_id": "e3", "station": "X1", "phase": "P"},
+            ]
+        )
         preserved_event_ids = {"e1", "e3"}
         keep_mask = assignments_df["event_id"].isin(preserved_event_ids)
         kept = assignments_df[keep_mask]

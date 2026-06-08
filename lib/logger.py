@@ -65,8 +65,8 @@ class MetricsWriter:
         metrics.record("ingest", station="AM.R0F2D", duration_s=12.3, chunks=24)
     """
 
-    MAX_BYTES = 10 * 1024 * 1024   # 10 MB per file
-    BACKUP_COUNT = 5               # keep 5 rotated files
+    MAX_BYTES = 10 * 1024 * 1024  # 10 MB per file
+    BACKUP_COUNT = 5  # keep 5 rotated files
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)

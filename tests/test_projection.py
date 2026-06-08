@@ -9,8 +9,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lib.projection import km_to_latlon, latlon_to_km, make_projection
 from lib.constants import NETWORK_CENTER_LAT, NETWORK_CENTER_LON
+from lib.projection import km_to_latlon, latlon_to_km, make_projection
 
 
 class TestMakeProjection:
@@ -86,13 +86,16 @@ class TestKmToLatlon:
 class TestRoundTrip:
     """Verify latlon→km→latlon round-trip accuracy."""
 
-    @pytest.mark.parametrize("lat,lon", [
-        (NETWORK_CENTER_LAT, NETWORK_CENTER_LON),       # center
-        (31.648649, -106.460311),   # R0F2D
-        (32.333333, -106.719858),   # R5912 (furthest north)
-        (31.459459, -106.089922),   # RC9B8 (furthest south-east)
-        (31.771774, -106.506378),   # KIDD
-    ])
+    @pytest.mark.parametrize(
+        "lat,lon",
+        [
+            (NETWORK_CENTER_LAT, NETWORK_CENTER_LON),  # center
+            (31.648649, -106.460311),  # R0F2D
+            (32.333333, -106.719858),  # R5912 (furthest north)
+            (31.459459, -106.089922),  # RC9B8 (furthest south-east)
+            (31.771774, -106.506378),  # KIDD
+        ],
+    )
     def test_round_trip_accuracy(self, lat, lon):
         """Round-trip should be accurate to <1 meter."""
         proj = make_projection()

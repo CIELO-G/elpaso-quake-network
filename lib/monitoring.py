@@ -13,8 +13,8 @@ import csv
 import json
 import os
 import shutil
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -48,7 +48,7 @@ def send_webhook(subject: str, body: str) -> None:
     try:
         with urllib.request.urlopen(req, timeout=15):
             pass
-        print(f"  Webhook alert sent")
+        print("  Webhook alert sent")
     except (urllib.error.URLError, OSError) as exc:
         print(f"  WARNING: webhook alert failed: {exc}")
 
@@ -67,8 +67,7 @@ def check_disk_space(threshold_percent: float = 80.0) -> tuple[bool, str]:
 
     if percent >= threshold_percent:
         msg = (
-            f"Disk usage at {percent:.1f}% ({free_gb:.1f} GB free). "
-            f"Threshold: {threshold_percent}%"
+            f"Disk usage at {percent:.1f}% ({free_gb:.1f} GB free). Threshold: {threshold_percent}%"
         )
         return False, msg
 
@@ -107,8 +106,7 @@ def check_recent_events(hours: int = 48) -> tuple[bool, str]:
     if latest_event_time < cutoff:
         hours_ago = (datetime.now(timezone.utc) - latest_event_time).total_seconds() / 3600
         msg = (
-            f"No new events in {hours_ago:.0f} hours "
-            f"(last event: {latest_event_time.isoformat()})"
+            f"No new events in {hours_ago:.0f} hours (last event: {latest_event_time.isoformat()})"
         )
         return False, msg
 
@@ -142,14 +140,16 @@ def check_significant_events(magnitude_threshold: float = 4.0) -> list[dict]:
                     continue
 
                 if event_time >= cutoff and mag >= magnitude_threshold:
-                    significant.append({
-                        "event_id": row.get("event_id", ""),
-                        "time": t,
-                        "magnitude": mag,
-                        "latitude": row.get("latitude", ""),
-                        "longitude": row.get("longitude", ""),
-                        "depth_km": row.get("depth_km", ""),
-                    })
+                    significant.append(
+                        {
+                            "event_id": row.get("event_id", ""),
+                            "time": t,
+                            "magnitude": mag,
+                            "latitude": row.get("latitude", ""),
+                            "longitude": row.get("longitude", ""),
+                            "depth_km": row.get("depth_km", ""),
+                        }
+                    )
     except OSError:
         pass
 
@@ -239,15 +239,16 @@ def validate_environment() -> bool:
     print("\n[3/7] GPU availability...")
     try:
         import torch
+
         if torch.cuda.is_available():
             gpu_name = torch.cuda.get_device_name(0)
             print(f"  OK: CUDA GPU available ({gpu_name})")
         elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            print(f"  OK: Apple MPS GPU available")
+            print("  OK: Apple MPS GPU available")
         else:
-            print(f"  INFO: No GPU detected (CPU-only mode -- detection will be slower)")
+            print("  INFO: No GPU detected (CPU-only mode -- detection will be slower)")
     except ImportError:
-        print(f"  WARN: PyTorch not installed -- cannot check GPU")
+        print("  WARN: PyTorch not installed -- cannot check GPU")
 
     # 4. Config files
     print("\n[4/7] Configuration files...")
@@ -263,6 +264,7 @@ def validate_environment() -> bool:
         if path.exists():
             try:
                 import yaml
+
                 with open(path) as f:
                     yaml.safe_load(f)
                 print(f"  OK: {cf}")
@@ -284,14 +286,14 @@ def validate_environment() -> bool:
             print(f"  FAIL: stations.json -- {exc}")
             all_ok = False
     else:
-        print(f"  FAIL: stations.json not found")
+        print("  FAIL: stations.json not found")
         all_ok = False
 
     # 6. Critical Python imports (guards against env drift)
     print("\n[6/7] Critical Python imports...")
     imports_ok, import_errors = check_critical_imports()
     if imports_ok:
-        print(f"  OK: all pipeline-step imports succeed")
+        print("  OK: all pipeline-step imports succeed")
     else:
         for err in import_errors:
             print(f"  FAIL: {err}")
@@ -364,9 +366,7 @@ def run_monitoring_checks(send_alert_fn=None) -> dict:
     significant = check_significant_events()
     results["significant_events"] = {"count": len(significant), "events": significant}
     for event in significant:
-        subject = (
-            f"[El Paso Pipeline] M{event['magnitude']:.1f} event detected"
-        )
+        subject = f"[El Paso Pipeline] M{event['magnitude']:.1f} event detected"
         body = (
             f"Significant earthquake detected:\n"
             f"  Event ID: {event['event_id']}\n"

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import sys
 from pathlib import Path
 
@@ -89,8 +88,13 @@ class TestComputeMLStation:
 
     def test_custom_config(self):
         cfg = MLConfig(
-            freq_hz=5.0, wa_gain=2800, min_distance_km=10.0,
-            a=1.110, b=0.00189, c=3.0, ref_distance_km=100.0,
+            freq_hz=5.0,
+            wa_gain=2800,
+            min_distance_km=10.0,
+            a=1.110,
+            b=0.00189,
+            c=3.0,
+            ref_distance_km=100.0,
         )
         ml = compute_ml_station(1e-5, 50.0, cfg)
         assert isinstance(ml, float)

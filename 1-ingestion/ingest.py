@@ -23,9 +23,9 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from obspy import UTCDateTime, Stream, read
+from obspy import Stream, UTCDateTime, read
 from obspy.clients.fdsn import Client
-from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
+from obspy.clients.fdsn.header import FDSNException, FDSNNoDataException
 
 # Allow imports from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -34,7 +34,6 @@ from lib.config import load_config, load_stations
 from lib.constants import CIRCUIT_BREAKER_BACKOFF_SECONDS, CIRCUIT_BREAKER_THRESHOLD
 from lib.db import DownloadDB
 from lib.logger import MetricsWriter, setup_logging
-
 
 # ---------------------------------------------------------------------------
 # Configuration defaults (ingestion-specific)
@@ -63,6 +62,7 @@ DEFAULTS = {
 # ---------------------------------------------------------------------------
 # FDSNWS circuit breaker
 # ---------------------------------------------------------------------------
+
 
 class CircuitBreaker:
     """Tracks consecutive 503 errors per host and triggers backoff.
@@ -95,9 +95,10 @@ class CircuitBreaker:
                 self._open_until[host] = until
                 self._counts[host] = 0
                 logger.warning(
-                    "Circuit breaker OPEN for %s: %d consecutive 503s, "
-                    "backing off %.0fs",
-                    host, count, self._backoff,
+                    "Circuit breaker OPEN for %s: %d consecutive 503s, backing off %.0fs",
+                    host,
+                    count,
+                    self._backoff,
                 )
 
     def check(self, host: str, logger) -> None:
@@ -120,6 +121,7 @@ _circuit_breaker = CircuitBreaker()
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
+
 
 def fetch_station_metadata(
     client: Client,
@@ -147,15 +149,19 @@ def fetch_station_metadata(
         if age_days < refresh_days:
             logger.debug(
                 "Using cached metadata for %s.%s (%.1f days old)",
-                network, station, age_days,
+                network,
+                station,
+                age_days,
             )
             return read_inventory(str(xml_path))
 
     logger.info("Fetching metadata for %s.%s (channels=%s)", network, station, channels)
     try:
         inv = client.get_stations(
-            network=network, station=station,
-            channel=channels, level="response",
+            network=network,
+            station=station,
+            channel=channels,
+            level="response",
         )
         inv.write(str(xml_path), format="STATIONXML")
         logger.info("Cached metadata -> %s", xml_path)
@@ -163,7 +169,10 @@ def fetch_station_metadata(
     except FDSNException as exc:
         logger.error(
             "Metadata fetch failed for %s.%s: %s [%s]",
-            network, station, exc, type(exc).__name__,
+            network,
+            station,
+            exc,
+            type(exc).__name__,
         )
         if xml_path.exists():
             logger.warning("Falling back to stale cache for %s.%s", network, station)
@@ -172,7 +181,9 @@ def fetch_station_metadata(
     except OSError as exc:
         logger.error(
             "Network error fetching metadata for %s.%s: %s",
-            network, station, exc,
+            network,
+            station,
+            exc,
         )
         if xml_path.exists():
             logger.warning("Falling back to stale cache for %s.%s", network, station)
@@ -183,6 +194,7 @@ def fetch_station_metadata(
 # ---------------------------------------------------------------------------
 # Waveform fetch with retry
 # ---------------------------------------------------------------------------
+
 
 def fetch_waveforms(
     client: Client,
@@ -209,9 +221,12 @@ def fetch_waveforms(
 
         try:
             st = client.get_waveforms(
-                network=network, station=station,
-                location=location, channel=channels,
-                starttime=starttime, endtime=endtime,
+                network=network,
+                station=station,
+                location=location,
+                channel=channels,
+                starttime=starttime,
+                endtime=endtime,
             )
             _circuit_breaker.record_success(host)
             return st
@@ -219,7 +234,12 @@ def fetch_waveforms(
         except FDSNNoDataException:
             logger.info(
                 "No data available: %s.%s.%s.%s %s - %s",
-                network, station, location, channels, starttime, endtime,
+                network,
+                station,
+                location,
+                channels,
+                starttime,
+                endtime,
             )
             return Stream()
 
@@ -234,29 +254,43 @@ def fetch_waveforms(
             if attempt < max_retries:
                 # Use longer backoff for rate limiting (429)
                 if "429" in exc_str or "Too Many Requests" in exc_str:
-                    delay = base_delay * (4 ** attempt)
+                    delay = base_delay * (4**attempt)
                 else:
-                    delay = base_delay * (2 ** attempt)
+                    delay = base_delay * (2**attempt)
                 logger.warning(
                     "Attempt %d/%d failed for %s.%s (%s: %s). Retrying in %ds...",
-                    attempt + 1, max_retries + 1, network, station,
-                    type(exc).__name__, exc, delay,
+                    attempt + 1,
+                    max_retries + 1,
+                    network,
+                    station,
+                    type(exc).__name__,
+                    exc,
+                    delay,
                 )
                 time.sleep(delay)
             else:
                 logger.error(
                     "All %d attempts exhausted for %s.%s %s-%s: %s\n%s",
-                    max_retries + 1, network, station, starttime, endtime,
-                    exc, traceback.format_exc(),
+                    max_retries + 1,
+                    network,
+                    station,
+                    starttime,
+                    endtime,
+                    exc,
+                    traceback.format_exc(),
                 )
                 raise
 
         except (ConnectionError, OSError) as exc:
             if attempt < max_retries:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.warning(
                     "Network error for %s.%s (%s: %s). Retrying in %ds...",
-                    network, station, type(exc).__name__, exc, delay,
+                    network,
+                    station,
+                    type(exc).__name__,
+                    exc,
+                    delay,
                 )
                 time.sleep(delay)
             else:
@@ -269,6 +303,7 @@ def fetch_waveforms(
 # ---------------------------------------------------------------------------
 # miniSEED storage
 # ---------------------------------------------------------------------------
+
 
 def save_waveforms(stream: Stream, output_dir: str, logger) -> list[str]:
     """Write a Stream to miniSEED files organised by julian day.
@@ -299,8 +334,14 @@ def save_waveforms(stream: Stream, output_dir: str, logger) -> list[str]:
                 endtime=min(next_day, t1),
             )
             if tr is not None and tr.stats.npts > 0:
-                key = (stats.network, stats.station, stats.location,
-                       stats.channel, day.year, day.julday)
+                key = (
+                    stats.network,
+                    stats.station,
+                    stats.location,
+                    stats.channel,
+                    day.year,
+                    day.julday,
+                )
                 day_bins.setdefault(key, Stream()).append(tr)
             day = next_day
 
@@ -339,6 +380,7 @@ def save_waveforms(stream: Stream, output_dir: str, logger) -> list[str]:
 # Per-station processing
 # ---------------------------------------------------------------------------
 
+
 def process_station(
     client: Client,
     db: DownloadDB,
@@ -368,7 +410,10 @@ def process_station(
             if sta_start_dt >= UTCDateTime(end_time):
                 logger.info(
                     "Skipping %s.%s -- start_date %s is after window end %s",
-                    network, station, sta_start_raw, end_time,
+                    network,
+                    station,
+                    sta_start_raw,
+                    end_time,
                 )
                 return empty_counts
         except (ValueError, TypeError):
@@ -376,7 +421,11 @@ def process_station(
 
     logger.info(
         "--- %s.%s (channels=%s) | %s -> %s ---",
-        network, station, channels, start_time, end_time,
+        network,
+        station,
+        channels,
+        start_time,
+        end_time,
     )
 
     # Station metadata (StationXML with response)
@@ -399,11 +448,13 @@ def process_station(
         chunk_num += 1
 
         # Already downloaded?
-        if db.is_downloaded(network, station, location, channels,
-                            chunk_start, chunk_end):
+        if db.is_downloaded(network, station, location, channels, chunk_start, chunk_end):
             logger.debug(
                 "  [%d/%d] Already downloaded %s -> %s",
-                chunk_num, total_chunks, chunk_start, chunk_end,
+                chunk_num,
+                total_chunks,
+                chunk_start,
+                chunk_end,
             )
             counts["skipped"] += 1
             chunk_start = chunk_end
@@ -411,43 +462,84 @@ def process_station(
 
         logger.info(
             "  [%d/%d] Fetching %s -> %s",
-            chunk_num, total_chunks, chunk_start, chunk_end,
+            chunk_num,
+            total_chunks,
+            chunk_start,
+            chunk_end,
         )
 
         try:
             st = fetch_waveforms(
-                client, network, station, location, channels,
-                chunk_start, chunk_end, config, logger,
+                client,
+                network,
+                station,
+                location,
+                channels,
+                chunk_start,
+                chunk_end,
+                config,
+                logger,
             )
 
             if len(st) == 0:
-                db.record(network, station, location, channels,
-                          chunk_start, chunk_end, "no_data")
+                db.record(network, station, location, channels, chunk_start, chunk_end, "no_data")
                 counts["no_data"] += 1
             else:
                 filepaths = save_waveforms(st, config["output_dir"], logger)
-                db.record(network, station, location, channels,
-                          chunk_start, chunk_end, "success", filepaths)
+                db.record(
+                    network,
+                    station,
+                    location,
+                    channels,
+                    chunk_start,
+                    chunk_end,
+                    "success",
+                    filepaths,
+                )
                 counts["success"] += 1
 
         except FDSNException as exc:
             logger.error(
                 "  FDSN error %s.%s %s -> %s: %s: %s",
-                network, station, chunk_start, chunk_end,
-                type(exc).__name__, exc,
+                network,
+                station,
+                chunk_start,
+                chunk_end,
+                type(exc).__name__,
+                exc,
             )
-            db.record(network, station, location, channels,
-                      chunk_start, chunk_end, "failed", error=str(exc))
+            db.record(
+                network,
+                station,
+                location,
+                channels,
+                chunk_start,
+                chunk_end,
+                "failed",
+                error=str(exc),
+            )
             counts["failed"] += 1
 
         except (ConnectionError, OSError) as exc:
             logger.error(
                 "  Network error %s.%s %s -> %s: %s: %s",
-                network, station, chunk_start, chunk_end,
-                type(exc).__name__, exc,
+                network,
+                station,
+                chunk_start,
+                chunk_end,
+                type(exc).__name__,
+                exc,
             )
-            db.record(network, station, location, channels,
-                      chunk_start, chunk_end, "failed", error=str(exc))
+            db.record(
+                network,
+                station,
+                location,
+                channels,
+                chunk_start,
+                chunk_end,
+                "failed",
+                error=str(exc),
+            )
             counts["failed"] += 1
 
         chunk_start = chunk_end
@@ -467,18 +559,15 @@ def process_station(
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Ingest seismic waveforms from Raspberry Shake FDSNWS",
     )
-    parser.add_argument("--config", required=True,
-                        help="Path to YAML configuration file")
-    parser.add_argument("--start",
-                        help="Backfill start (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
-    parser.add_argument("--end",
-                        help="Backfill end (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
-    parser.add_argument("--debug", action="store_true",
-                        help="Enable debug-level logging")
+    parser.add_argument("--config", required=True, help="Path to YAML configuration file")
+    parser.add_argument("--start", help="Backfill start (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
+    parser.add_argument("--end", help="Backfill end (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
+    parser.add_argument("--debug", action="store_true", help="Enable debug-level logging")
     return parser.parse_args()
 
 
@@ -527,29 +616,49 @@ def main() -> None:
         new_client = None
         for attempt in range(connect_retries + 1):
             try:
-                logger.info("Connecting to FDSNWS: %s (attempt %d/%d)",
-                            url, attempt + 1, connect_retries + 1)
+                logger.info(
+                    "Connecting to FDSNWS: %s (attempt %d/%d)",
+                    url,
+                    attempt + 1,
+                    connect_retries + 1,
+                )
                 new_client = Client(url)
                 break
             except FDSNException as exc:
                 if attempt < connect_retries:
-                    logger.warning("FDSN connection failed (%s: %s). Retrying in %ds...",
-                                   type(exc).__name__, exc, connect_delay)
+                    logger.warning(
+                        "FDSN connection failed (%s: %s). Retrying in %ds...",
+                        type(exc).__name__,
+                        exc,
+                        connect_delay,
+                    )
                     time.sleep(connect_delay)
                 else:
-                    logger.error("Cannot connect to FDSNWS at %s after %d attempts: %s",
-                                 url, connect_retries + 1, exc)
+                    logger.error(
+                        "Cannot connect to FDSNWS at %s after %d attempts: %s",
+                        url,
+                        connect_retries + 1,
+                        exc,
+                    )
                     with client_lock:
                         failed_urls.add(url)
                     return None
             except (ConnectionError, OSError) as exc:
                 if attempt < connect_retries:
-                    logger.warning("Network error connecting (%s: %s). Retrying in %ds...",
-                                   type(exc).__name__, exc, connect_delay)
+                    logger.warning(
+                        "Network error connecting (%s: %s). Retrying in %ds...",
+                        type(exc).__name__,
+                        exc,
+                        connect_delay,
+                    )
                     time.sleep(connect_delay)
                 else:
-                    logger.error("Cannot connect to FDSNWS at %s after %d attempts: %s",
-                                 url, connect_retries + 1, exc)
+                    logger.error(
+                        "Cannot connect to FDSNWS at %s after %d attempts: %s",
+                        url,
+                        connect_retries + 1,
+                        exc,
+                    )
                     with client_lock:
                         failed_urls.add(url)
                     return None
@@ -574,12 +683,20 @@ def main() -> None:
             if client is None:
                 logger.warning(
                     "Skipping %s.%s -- FDSNWS at %s unavailable",
-                    station_cfg["network"], station_cfg["station"], url,
+                    station_cfg["network"],
+                    station_cfg["station"],
+                    url,
                 )
                 return {"success": 0, "no_data": 0, "failed": 0, "skipped": 0}
             t0 = time.monotonic()
             result = process_station(
-                client, db, station_cfg, start_time, end_time, config, logger,
+                client,
+                db,
+                station_cfg,
+                start_time,
+                end_time,
+                config,
+                logger,
             )
             elapsed = time.monotonic() - t0
             metrics.record(
@@ -599,20 +716,30 @@ def main() -> None:
                     for k in totals:
                         totals[k] += counts[k]
                 except FDSNException as exc:
-                    logger.error("Station %s.%s FDSN error: %s: %s",
-                                 station_cfg["network"], station_cfg["station"],
-                                 type(exc).__name__, exc)
+                    logger.error(
+                        "Station %s.%s FDSN error: %s: %s",
+                        station_cfg["network"],
+                        station_cfg["station"],
+                        type(exc).__name__,
+                        exc,
+                    )
                 except (ConnectionError, OSError) as exc:
-                    logger.error("Station %s.%s network error: %s: %s",
-                                 station_cfg["network"], station_cfg["station"],
-                                 type(exc).__name__, exc)
+                    logger.error(
+                        "Station %s.%s network error: %s: %s",
+                        station_cfg["network"],
+                        station_cfg["station"],
+                        type(exc).__name__,
+                        exc,
+                    )
 
         # Summary
         logger.info("=" * 60)
         logger.info(
             "Done. success=%d  no_data=%d  failed=%d  skipped=%d",
-            totals["success"], totals["no_data"],
-            totals["failed"], totals["skipped"],
+            totals["success"],
+            totals["no_data"],
+            totals["failed"],
+            totals["skipped"],
         )
         logger.info("=" * 60)
 

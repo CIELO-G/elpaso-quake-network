@@ -70,18 +70,36 @@ class TestLoadStations:
 
     def test_invalid_latitude_raises(self, tmp_path):
         path = tmp_path / "bad_lat.json"
-        path.write_text(json.dumps([{
-            "network": "AM", "station": "TEST",
-            "latitude": 100.0, "longitude": -106.0, "elevation_m": 1000.0,
-        }]))
+        path.write_text(
+            json.dumps(
+                [
+                    {
+                        "network": "AM",
+                        "station": "TEST",
+                        "latitude": 100.0,
+                        "longitude": -106.0,
+                        "elevation_m": 1000.0,
+                    }
+                ]
+            )
+        )
         with pytest.raises(ValueError, match="latitude"):
             load_stations(path)
 
     def test_invalid_longitude_raises(self, tmp_path):
         path = tmp_path / "bad_lon.json"
-        path.write_text(json.dumps([{
-            "network": "AM", "station": "TEST",
-            "latitude": 31.0, "longitude": -200.0, "elevation_m": 1000.0,
-        }]))
+        path.write_text(
+            json.dumps(
+                [
+                    {
+                        "network": "AM",
+                        "station": "TEST",
+                        "latitude": 31.0,
+                        "longitude": -200.0,
+                        "elevation_m": 1000.0,
+                    }
+                ]
+            )
+        )
         with pytest.raises(ValueError, match="longitude"):
             load_stations(path)

@@ -14,7 +14,6 @@ import hashlib
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -95,24 +94,30 @@ def _spec_cache_key(
     channel: str,
     window_before: float,
     window_after: float,
-    freqmin: Optional[float],
-    freqmax: Optional[float],
+    freqmin: float | None,
+    freqmax: float | None,
     width: int,
     height: int,
 ) -> str:
     """Deterministic short filename stem for the spectrogram cache."""
     parts = (
-        event_id, network, station, channel,
-        f"{window_before:g}", f"{window_after:g}",
-        f"{freqmin or 0:g}", f"{freqmax or 0:g}",
-        str(width), str(height),
+        event_id,
+        network,
+        station,
+        channel,
+        f"{window_before:g}",
+        f"{window_after:g}",
+        f"{freqmin or 0:g}",
+        f"{freqmax or 0:g}",
+        str(width),
+        str(height),
     )
     h = hashlib.md5("|".join(parts).encode()).hexdigest()[:16]
     # event_id prefix gives a friendly path; hash disambiguates the knobs
     return f"{event_id}_{station}_{channel}_{h}"
 
 
-def _load_cached_spec(key: str) -> Optional[str]:
+def _load_cached_spec(key: str) -> str | None:
     """Return cached base64 PNG if present, else None."""
     path = _SPEC_CACHE_DIR / f"{key}.png"
     if not path.exists():
@@ -145,7 +150,7 @@ def _spectrogram_or_cached(
     width: int,
     height: int,
     *,
-    cache_key: Optional[str] = None,
+    cache_key: str | None = None,
 ) -> str:
     """Compute spectrogram, hitting/populating disk cache when ``cache_key`` is given.
 
@@ -173,6 +178,7 @@ def _get_obspy_stream(file_path: Path):
             return cached_stream
     try:
         from obspy import read as obspy_read
+
         st = obspy_read(str(file_path))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to read {file_path.name}: {exc}")
@@ -196,6 +202,7 @@ def _compute_spectrogram_png(
     """
     import base64
     import io
+
     import numpy as np
     from PIL import Image
     from scipy.signal import spectrogram as sp_spectrogram
@@ -214,10 +221,16 @@ def _compute_spectrogram_png(
     vmax = np.percentile(Sxx_log, 99)
     Sxx_norm = np.clip((Sxx_log - vmin) / (vmax - vmin + 1e-10), 0, 1)
 
-    viridis_lut = np.array([
-        [68, 1, 84],    [59, 82, 139],  [33, 145, 140],
-        [94, 201, 98],  [253, 231, 37],
-    ], dtype=np.uint8)
+    viridis_lut = np.array(
+        [
+            [68, 1, 84],
+            [59, 82, 139],
+            [33, 145, 140],
+            [94, 201, 98],
+            [253, 231, 37],
+        ],
+        dtype=np.uint8,
+    )
     idx = (Sxx_norm * (len(viridis_lut) - 1)).astype(int)
     img = viridis_lut[idx[::-1, :]]  # high freq at top
 
@@ -228,9 +241,7 @@ def _compute_spectrogram_png(
 
 
 # ── Helpers for picking the right mseed file ─────────────────────
-def _find_mseed(
-    day_dir: Path, network: str, station: str, channel: str
-) -> list[Path]:
+def _find_mseed(day_dir: Path, network: str, station: str, channel: str) -> list[Path]:
     """Return mseed candidates matching ``net.sta.*.chan.*.mseed``.
 
     Falls back to ``net.sta.*.?<chan[1:]>.*.mseed`` so a request for EHZ
@@ -315,8 +326,8 @@ async def waveforms_all(
     end: str = Query(..., description="ISO 8601 end time"),
     channel: str = Query(default="EHZ"),
     max_samples: int = Query(default=10000, ge=100, le=100000),
-    freqmin: Optional[float] = Query(default=None, ge=0.01, le=50.0),
-    freqmax: Optional[float] = Query(default=None, ge=0.1, le=50.0),
+    freqmin: float | None = Query(default=None, ge=0.01, le=50.0),
+    freqmax: float | None = Query(default=None, ge=0.1, le=50.0),
     spectrogram: bool = Query(default=False),
 ):
     """Waveforms for ALL stations in an arbitrary time window, with optional
@@ -351,18 +362,25 @@ async def waveforms_all(
                 if pt < start_iso or pt > end_iso:
                     continue
                 sta_key = f"{row.get('network', '')}.{row.get('station', '')}"
-                picks_by_station.setdefault(sta_key, []).append({
-                    "phase": row.get("phase", ""),
-                    "time": pick_time,
-                    "probability": float(row["probability"]) if row.get("probability") else None,
-                    "channel": row.get("channel", ""),
-                })
+                picks_by_station.setdefault(sta_key, []).append(
+                    {
+                        "phase": row.get("phase", ""),
+                        "time": pick_time,
+                        "probability": float(row["probability"])
+                        if row.get("probability")
+                        else None,
+                        "channel": row.get("channel", ""),
+                    }
+                )
 
     traces = _build_traces_for_window(
-        day_dir, t_start, t_end,
+        day_dir,
+        t_start,
+        t_end,
         channel=channel,
         max_samples=max_samples,
-        freqmin=freqmin, freqmax=freqmax,
+        freqmin=freqmin,
+        freqmax=freqmax,
         spectrogram=spectrogram,
         picks_by_station=picks_by_station,
         include_amplitude=False,
@@ -402,12 +420,14 @@ async def event_waveforms(
     stations_seen: dict[str, list[dict]] = {}
     for a in event_assignments:
         sta_key = f"{a.get('network', '')}.{a.get('station', '')}"
-        stations_seen.setdefault(sta_key, []).append({
-            "phase": a.get("phase", ""),
-            "time": a.get("time", ""),
-            "probability": float(a["probability"]) if a.get("probability") else None,
-            "channel": a.get("channel", ""),
-        })
+        stations_seen.setdefault(sta_key, []).append(
+            {
+                "phase": a.get("phase", ""),
+                "time": a.get("time", ""),
+                "probability": float(a["probability"]) if a.get("probability") else None,
+                "channel": a.get("channel", ""),
+            }
+        )
 
     t_origin = UTCDateTime(event_time)
     t_start = t_origin - window_before
@@ -423,22 +443,38 @@ async def event_waveforms(
 
         candidates = _find_mseed(day_dir, net, sta, channel)
         if not candidates:
-            traces.append({
-                "station": sta, "network": net, "channel": channel,
-                "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
-                "picks": picks, "error": "No miniSEED file found",
-            })
+            traces.append(
+                {
+                    "station": sta,
+                    "network": net,
+                    "channel": channel,
+                    "data": [],
+                    "sampling_rate": 0,
+                    "starttime": "",
+                    "endtime": "",
+                    "picks": picks,
+                    "error": "No miniSEED file found",
+                }
+            )
             continue
 
         try:
             st = _get_obspy_stream(candidates[0])
             st_sliced = st.copy().trim(t_start, t_end)
             if len(st_sliced) == 0:
-                traces.append({
-                    "station": sta, "network": net, "channel": channel,
-                    "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
-                    "picks": picks, "error": "No data in time window",
-                })
+                traces.append(
+                    {
+                        "station": sta,
+                        "network": net,
+                        "channel": channel,
+                        "data": [],
+                        "sampling_rate": 0,
+                        "starttime": "",
+                        "endtime": "",
+                        "picks": picks,
+                        "error": "No data in time window",
+                    }
+                )
                 continue
 
             tr = st_sliced[0]
@@ -446,14 +482,23 @@ async def event_waveforms(
             spec_b64 = ""
             if spectrogram and len(tr.data) >= 32:
                 cache_key = _spec_cache_key(
-                    event_id=event_id, network=net, station=sta,
-                    channel=channel, window_before=window_before,
-                    window_after=window_after, freqmin=None, freqmax=None,
-                    width=800, height=128,
+                    event_id=event_id,
+                    network=net,
+                    station=sta,
+                    channel=channel,
+                    window_before=window_before,
+                    window_after=window_after,
+                    freqmin=None,
+                    freqmax=None,
+                    width=800,
+                    height=128,
                 )
                 spec_b64 = _spectrogram_or_cached(
-                    tr.data.tolist(), tr.stats.sampling_rate,
-                    width=800, height=128, cache_key=cache_key,
+                    tr.data.tolist(),
+                    tr.stats.sampling_rate,
+                    width=800,
+                    height=128,
+                    cache_key=cache_key,
                 )
 
             data = tr.data.tolist()
@@ -462,7 +507,9 @@ async def event_waveforms(
                 data = data[::step]
 
             trace_dict = {
-                "station": sta, "network": net, "channel": channel,
+                "station": sta,
+                "network": net,
+                "channel": channel,
                 "data": data,
                 "sampling_rate": tr.stats.sampling_rate,
                 "starttime": str(tr.stats.starttime),
@@ -473,11 +520,19 @@ async def event_waveforms(
                 trace_dict["spectrogram_b64"] = spec_b64
             traces.append(trace_dict)
         except Exception as exc:
-            traces.append({
-                "station": sta, "network": net, "channel": channel,
-                "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
-                "picks": picks, "error": str(exc),
-            })
+            traces.append(
+                {
+                    "station": sta,
+                    "network": net,
+                    "channel": channel,
+                    "data": [],
+                    "sampling_rate": 0,
+                    "starttime": "",
+                    "endtime": "",
+                    "picks": picks,
+                    "error": str(exc),
+                }
+            )
 
     return {
         "event_id": event_id,
@@ -495,8 +550,8 @@ async def event_waveforms_all(
     window_before: float = Query(default=10.0, ge=0, le=120),
     window_after: float = Query(default=60.0, ge=5, le=600),
     max_samples: int = Query(default=10000, ge=100, le=100000),
-    freqmin: Optional[float] = Query(default=None, ge=0.01, le=50.0),
-    freqmax: Optional[float] = Query(default=None, ge=0.1, le=50.0),
+    freqmin: float | None = Query(default=None, ge=0.01, le=50.0),
+    freqmax: float | None = Query(default=None, ge=0.1, le=50.0),
     spectrogram: bool = Query(default=False),
 ):
     """Waveforms for ALL stations around an event (for review-mode pick editing)."""
@@ -516,13 +571,15 @@ async def event_waveforms_all(
     for a in read_assignments():
         if a.get("event_id") == event_id:
             sta_key = f"{a.get('network', '')}.{a.get('station', '')}"
-            picks_by_station.setdefault(sta_key, []).append({
-                "phase": a.get("phase", ""),
-                "time": a.get("time", ""),
-                "probability": float(a["probability"]) if a.get("probability") else None,
-                "channel": a.get("channel", ""),
-                "amplitude": float(a["amplitude"]) if a.get("amplitude") else None,
-            })
+            picks_by_station.setdefault(sta_key, []).append(
+                {
+                    "phase": a.get("phase", ""),
+                    "time": a.get("time", ""),
+                    "probability": float(a["probability"]) if a.get("probability") else None,
+                    "channel": a.get("channel", ""),
+                    "amplitude": float(a["amplitude"]) if a.get("amplitude") else None,
+                }
+            )
 
     t_origin = UTCDateTime(event_time)
     t_start = t_origin - window_before
@@ -530,10 +587,13 @@ async def event_waveforms_all(
     day_dir = PROCESSED_DIR / str(t_origin.year) / str(t_origin.julday).zfill(3)
 
     traces = _build_traces_for_window(
-        day_dir, t_start, t_end,
+        day_dir,
+        t_start,
+        t_end,
         channel=channel,
         max_samples=max_samples,
-        freqmin=freqmin, freqmax=freqmax,
+        freqmin=freqmin,
+        freqmax=freqmax,
         spectrogram=spectrogram,
         picks_by_station=picks_by_station,
         include_amplitude=True,
@@ -562,12 +622,12 @@ def _build_traces_for_window(
     *,
     channel: str,
     max_samples: int,
-    freqmin: Optional[float],
-    freqmax: Optional[float],
+    freqmin: float | None,
+    freqmax: float | None,
     spectrogram: bool,
     picks_by_station: dict[str, list[dict]],
     include_amplitude: bool,
-    event_id: Optional[str] = None,
+    event_id: str | None = None,
     window_before: float = 0.0,
     window_after: float = 0.0,
 ) -> list[dict]:
@@ -596,10 +656,17 @@ def _build_traces_for_window(
         sta_lon = s.get("longitude")
         picks = picks_by_station.get(f"{net}.{sta}", [])
         miss = {
-            "station": sta, "network": net, "channel": chan,
-            "latitude": sta_lat, "longitude": sta_lon,
-            "data": [], "sampling_rate": 0, "starttime": "", "endtime": "",
-            "picks": picks, "has_data": False,
+            "station": sta,
+            "network": net,
+            "channel": chan,
+            "latitude": sta_lat,
+            "longitude": sta_lon,
+            "data": [],
+            "sampling_rate": 0,
+            "starttime": "",
+            "endtime": "",
+            "picks": picks,
+            "has_data": False,
         }
 
         candidates = _find_mseed(day_dir, net, sta, chan)
@@ -631,16 +698,23 @@ def _build_traces_for_window(
                 cache_key = None
                 if event_id is not None:
                     cache_key = _spec_cache_key(
-                        event_id=event_id, network=net, station=sta,
+                        event_id=event_id,
+                        network=net,
+                        station=sta,
                         channel=tr.stats.channel,
                         window_before=window_before,
                         window_after=window_after,
-                        freqmin=freqmin, freqmax=freqmax,
-                        width=1200, height=160,
+                        freqmin=freqmin,
+                        freqmax=freqmax,
+                        width=1200,
+                        height=160,
                     )
                 spec_b64 = _spectrogram_or_cached(
-                    tr.data.tolist(), tr.stats.sampling_rate,
-                    width=1200, height=160, cache_key=cache_key,
+                    tr.data.tolist(),
+                    tr.stats.sampling_rate,
+                    width=1200,
+                    height=160,
+                    cache_key=cache_key,
                 )
 
             data = tr.data.tolist()
@@ -649,8 +723,11 @@ def _build_traces_for_window(
                 data = data[::step]
 
             trace_dict = {
-                "station": sta, "network": net, "channel": tr.stats.channel,
-                "latitude": sta_lat, "longitude": sta_lon,
+                "station": sta,
+                "network": net,
+                "channel": tr.stats.channel,
+                "latitude": sta_lat,
+                "longitude": sta_lon,
                 "data": data,
                 "sampling_rate": tr.stats.sampling_rate,
                 "starttime": str(tr.stats.starttime),

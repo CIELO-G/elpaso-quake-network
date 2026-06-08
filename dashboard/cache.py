@@ -12,7 +12,6 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Optional
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -24,7 +23,7 @@ from dashboard.deps import file_mtime
 class _CacheEntry:
     __slots__ = ("data", "etag", "created_at", "file_mtime")
 
-    def __init__(self, data, etag: str, file_mtime_: Optional[float]) -> None:
+    def __init__(self, data, etag: str, file_mtime_: float | None) -> None:
         self.data = data
         self.etag = etag
         self.created_at = time.monotonic()
@@ -34,9 +33,7 @@ class _CacheEntry:
 _cache: dict[str, _CacheEntry] = {}
 
 
-def get_cached(
-    key: str, ttl: float, watch_file: Optional[Path] = None
-) -> Optional[_CacheEntry]:
+def get_cached(key: str, ttl: float, watch_file: Path | None = None) -> _CacheEntry | None:
     """Return a cache entry if it's fresh (within TTL and file mtime matches)."""
     entry = _cache.get(key)
     if entry is None:
@@ -50,7 +47,7 @@ def get_cached(
     return entry
 
 
-def set_cached(key: str, data, watch_file: Optional[Path] = None) -> str:
+def set_cached(key: str, data, watch_file: Path | None = None) -> str:
     """Store ``data`` under ``key`` and return its ETag (md5 of JSON body)."""
     mtime = file_mtime(watch_file) if watch_file else None
     etag_raw = json.dumps(data, sort_keys=True, default=str)

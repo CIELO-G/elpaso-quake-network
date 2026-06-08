@@ -23,7 +23,7 @@ from dashboard.deps import (
     read_assignments,
     read_catalog,
 )
-from dashboard.locators import init_grid_search_locator, init_nlloc_locator
+from dashboard.locators import init_nlloc_locator
 
 router = APIRouter()
 
@@ -38,13 +38,34 @@ _catalog_write_lock = asyncio.Lock()
 # Fallback columns when the catalog is being created from empty for the
 # first time (otherwise we inherit the columns from existing rows).
 _FALLBACK_CATALOG_COLUMNS = [
-    "event_id", "event_index", "time", "magnitude", "magnitude_type", "ml_err",
-    "latitude", "longitude", "depth_km", "sigma_time", "sigma_amp",
-    "num_picks", "num_ml_sta", "reviewed", "review_status", "event_type",
+    "event_id",
+    "event_index",
+    "time",
+    "magnitude",
+    "magnitude_type",
+    "ml_err",
+    "latitude",
+    "longitude",
+    "depth_km",
+    "sigma_time",
+    "sigma_amp",
+    "num_picks",
+    "num_ml_sta",
+    "reviewed",
+    "review_status",
+    "event_type",
 ]
 _ASSIGNMENT_COLUMNS = [
-    "event_id", "network", "station", "location", "channel",
-    "phase", "time", "probability", "amplitude", "amplitude_channel",
+    "event_id",
+    "network",
+    "station",
+    "location",
+    "channel",
+    "phase",
+    "time",
+    "probability",
+    "amplitude",
+    "amplitude_channel",
 ]
 
 
@@ -76,9 +97,7 @@ async def event_relocate(event_id: str, request: Request):
     body = await request.json()
     picks_input = body.get("picks", [])
     if len(picks_input) < 4:
-        raise HTTPException(
-            status_code=400, detail="Need at least 4 picks for relocation"
-        )
+        raise HTTPException(status_code=400, detail="Need at least 4 picks for relocation")
 
     import pandas as pd
 
@@ -105,13 +124,15 @@ async def event_relocate(event_id: str, request: Request):
             picks.append(Pick(station_id=sta_id, phase=p["phase"], time_s=float(t_rel)))
             raw_amp = p.get("amplitude")
             amp_val = float(raw_amp) if raw_amp and float(raw_amp) > 0 else None
-            pick_meta.append({
-                "station_id": sta_id,
-                "station": p["station"],
-                "phase": p["phase"],
-                "amplitude": amp_val,
-                "time_s": float(t_rel),
-            })
+            pick_meta.append(
+                {
+                    "station_id": sta_id,
+                    "station": p["station"],
+                    "phase": p["phase"],
+                    "amplitude": amp_val,
+                    "time_s": float(t_rel),
+                }
+            )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Invalid pick data: {exc}")
 
@@ -145,15 +166,18 @@ async def event_relocate(event_id: str, request: Request):
 
     # Absolute UTC origin time = ref_epoch + origin_time_s (Z-suffix so the
     # frontend's parseTimeStr accepts it).
-    ev_dt = datetime.fromtimestamp(
-        ref_epoch + float(result.origin_time_s), tz=timezone.utc
-    )
+    ev_dt = datetime.fromtimestamp(ref_epoch + float(result.origin_time_s), tz=timezone.utc)
     ev_time = ev_dt.isoformat().replace("+00:00", "Z")
 
     # Per-station ML using the grid-search hypocentre.
     ml_cfg = MLConfig(
-        freq_hz=5.0, wa_gain=2800.0, min_distance_km=10.0,
-        a=1.110, b=0.00189, c=3.0, ref_distance_km=100.0,
+        freq_hz=5.0,
+        wa_gain=2800.0,
+        min_distance_km=10.0,
+        a=1.110,
+        b=0.00189,
+        c=3.0,
+        ref_distance_km=100.0,
     )
     station_mls = []
     stations_by_id = locator.stations  # dict[str, Station]
@@ -165,7 +189,7 @@ async def event_relocate(event_id: str, request: Request):
         if sta is None:
             continue
         d_horiz = haversine_km(lat, lon, sta.latitude, sta.longitude)
-        r = math.sqrt(d_horiz ** 2 + depth ** 2)
+        r = math.sqrt(d_horiz**2 + depth**2)
         ml_sta = compute_ml_station(float(amp_vel), r, ml_cfg)
         if ml_sta is not None:
             station_mls.append(ml_sta)
@@ -178,13 +202,15 @@ async def event_relocate(event_id: str, request: Request):
     residuals = []
     for r in result.residuals:
         sta_short = r.station_id.split(".", 1)[-1]
-        residuals.append({
-            "station": sta_short,
-            "phase": r.phase,
-            "observed_s": round(float(r.observed_s) - t0, 4),
-            "predicted_s": round(float(r.predicted_s) - t0, 4),
-            "residual_s": round(float(r.residual_s), 4),
-        })
+        residuals.append(
+            {
+                "station": sta_short,
+                "phase": r.phase,
+                "observed_s": round(float(r.observed_s) - t0, 4),
+                "predicted_s": round(float(r.predicted_s) - t0, 4),
+                "residual_s": round(float(r.residual_s), 4),
+            }
+        )
 
     return {
         "location": {
@@ -255,25 +281,25 @@ async def event_save(event_id: str, request: Request):
         if not found:
             raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
 
-        atomic_write_csv(
-            CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows)
-        )
+        atomic_write_csv(CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows))
 
         # ── Replace assignments for this event with the new pick set ──
         others = [a for a in read_assignments() if a.get("event_id") != event_id]
         for p in picks_input:
-            others.append({
-                "event_id": event_id,
-                "network": p.get("network", ""),
-                "station": p.get("station", ""),
-                "location": p.get("location", ""),
-                "channel": p.get("channel", ""),
-                "phase": p.get("phase", ""),
-                "time": p.get("time", ""),
-                "probability": str(p.get("probability", "")),
-                "amplitude": str(p.get("amplitude", "")),
-                "amplitude_channel": p.get("amplitude_channel", ""),
-            })
+            others.append(
+                {
+                    "event_id": event_id,
+                    "network": p.get("network", ""),
+                    "station": p.get("station", ""),
+                    "location": p.get("location", ""),
+                    "channel": p.get("channel", ""),
+                    "phase": p.get("phase", ""),
+                    "time": p.get("time", ""),
+                    "probability": str(p.get("probability", "")),
+                    "amplitude": str(p.get("amplitude", "")),
+                    "amplitude_channel": p.get("amplitude_channel", ""),
+                }
+            )
         atomic_write_csv(ASSIGNMENTS_FILE, others, _ASSIGNMENT_COLUMNS)
 
         clear_caches()
@@ -291,9 +317,7 @@ async def event_review_status(event_id: str, request: Request):
     body = await request.json()
     status = body.get("status", "")
     if status not in ("confirmed", "rejected"):
-        raise HTTPException(
-            status_code=400, detail="status must be 'confirmed' or 'rejected'"
-        )
+        raise HTTPException(status_code=400, detail="status must be 'confirmed' or 'rejected'")
 
     now_utc = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -313,9 +337,7 @@ async def event_review_status(event_id: str, request: Request):
         if not found:
             raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
 
-        atomic_write_csv(
-            CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows)
-        )
+        atomic_write_csv(CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows))
         clear_caches()
 
     for row in catalog_rows:

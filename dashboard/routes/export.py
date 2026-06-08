@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import io
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
@@ -18,8 +17,8 @@ router = APIRouter()
 # ── Flat CSV ─────────────────────────────────────────────────────
 @router.get("/api/catalog/export")
 async def catalog_export(
-    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
 ):
     """Filtered catalog as a flat CSV download."""
     rows = read_catalog()
@@ -33,9 +32,20 @@ async def catalog_export(
 
     output = io.StringIO()
     fieldnames = [
-        "event_id", "time", "magnitude", "magnitude_type", "ml_err",
-        "latitude", "longitude", "depth_km", "sigma_time", "sigma_amp",
-        "num_picks", "num_ml_sta", "reviewed", "review_status",
+        "event_id",
+        "time",
+        "magnitude",
+        "magnitude_type",
+        "ml_err",
+        "latitude",
+        "longitude",
+        "depth_km",
+        "sigma_time",
+        "sigma_amp",
+        "num_picks",
+        "num_ml_sta",
+        "reviewed",
+        "review_status",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
@@ -52,18 +62,24 @@ async def catalog_export(
 # ── QuakeML (via ObsPy) ──────────────────────────────────────────
 @router.get("/api/catalog/export/quakeml")
 async def catalog_export_quakeml(
-    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
 ):
     """Filtered catalog as QuakeML (origins + magnitudes + picks)."""
     from obspy import UTCDateTime
     from obspy.core.event import (
         Catalog as ObsCatalog,
+    )
+    from obspy.core.event import (
         Event as ObsEvent,
+    )
+    from obspy.core.event import (
         Magnitude,
         Origin,
-        Pick as ObsPick,
         WaveformStreamID,
+    )
+    from obspy.core.event import (
+        Pick as ObsPick,
     )
 
     rows = read_catalog()
@@ -71,9 +87,7 @@ async def catalog_export_quakeml(
         rows = filter_by_date(rows, start_date, end_date)
 
     if not rows:
-        raise HTTPException(
-            status_code=404, detail="No catalog data for the selected date range"
-        )
+        raise HTTPException(status_code=404, detail="No catalog data for the selected date range")
 
     # Index assignments by event_id for O(1) lookup while building the catalog.
     assign_by_event: dict[str, list[dict]] = {}
@@ -120,11 +134,13 @@ async def catalog_export_quakeml(
                 location_code=a.get("location", ""),
                 channel_code=a.get("channel", ""),
             )
-            ev.picks.append(ObsPick(
-                time=UTCDateTime(pick_time),
-                phase_hint=a.get("phase", ""),
-                waveform_id=wf_id,
-            ))
+            ev.picks.append(
+                ObsPick(
+                    time=UTCDateTime(pick_time),
+                    phase_hint=a.get("phase", ""),
+                    waveform_id=wf_id,
+                )
+            )
 
         obs_catalog.append(ev)
 

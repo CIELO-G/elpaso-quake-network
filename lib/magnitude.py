@@ -38,10 +38,7 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     rlat2 = math.radians(lat2)
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(rlat1) * math.cos(rlat2) * math.sin(dlon / 2) ** 2
-    )
+    a = math.sin(dlat / 2) ** 2 + math.cos(rlat1) * math.cos(rlat2) * math.sin(dlon / 2) ** 2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -106,12 +103,7 @@ def compute_ml_station(
     r = hypocentral_distance_km
     r_ref = cfg.ref_distance_km
 
-    return (
-        math.log10(a_wa_mm)
-        + cfg.a * math.log10(r / r_ref)
-        + cfg.b * (r - r_ref)
-        + cfg.c
-    )
+    return math.log10(a_wa_mm) + cfg.a * math.log10(r / r_ref) + cfg.b * (r - r_ref) + cfg.c
 
 
 def compute_ml_network(

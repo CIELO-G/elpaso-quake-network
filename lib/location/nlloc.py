@@ -20,9 +20,9 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Sequence
 
 from lib.constants import PROJECT_ROOT
 from lib.location.grid_search import LocationResult, Pick, Residual, Station
@@ -63,6 +63,7 @@ def _parse_quality_rms(hyp_path: Path) -> float:
     except (OSError, ValueError, IndexError):
         pass
     return float("nan")
+
 
 # ── Defaults (mirror scripts/nlloc_build_grids.py) ──────────────
 _DEFAULT_BIN_DIR = PROJECT_ROOT.parent / "NonLinLoc" / "src" / "bin"
@@ -158,16 +159,16 @@ class NLLocLocator:
             sigma = pick.sigma_s
             if sigma is None:
                 sigma = sigma_p if pick.phase == "P" else sigma_s
-            usable.append(Pick(
-                station_id=pick.station_id,
-                phase=pick.phase,
-                time_s=pick.time_s,
-                sigma_s=sigma,
-            ))
-        if len(usable) < min_picks:
-            raise ValueError(
-                f"need at least {min_picks} usable picks, got {len(usable)}"
+            usable.append(
+                Pick(
+                    station_id=pick.station_id,
+                    phase=pick.phase,
+                    time_s=pick.time_s,
+                    sigma_s=sigma,
+                )
             )
+        if len(usable) < min_picks:
+            raise ValueError(f"need at least {min_picks} usable picks, got {len(usable)}")
 
         with tempfile.TemporaryDirectory(prefix="nlloc_run_") as td_str:
             td = Path(td_str)
@@ -190,13 +191,12 @@ class NLLocLocator:
 
     @staticmethod
     def _absolute_utc(pick: Pick, ref_epoch_unix: float | None) -> datetime:
-        unix_s = float(pick.time_s) if ref_epoch_unix is None \
-            else ref_epoch_unix + float(pick.time_s)
+        unix_s = (
+            float(pick.time_s) if ref_epoch_unix is None else ref_epoch_unix + float(pick.time_s)
+        )
         return datetime.fromtimestamp(unix_s, tz=timezone.utc)
 
-    def _write_obs(
-        self, path: Path, picks: list[Pick], ref_epoch_unix: float | None
-    ) -> None:
+    def _write_obs(self, path: Path, picks: list[Pick], ref_epoch_unix: float | None) -> None:
         """Write picks in NLLOC_OBS format (one phase per line).
 
         Field order (whitespace-separated, 15 fields):
@@ -224,13 +224,15 @@ class NLLocLocator:
     # Control file
     # ------------------------------------------------------------------
 
-    def _write_control(
-        self, path: Path, obs_path: Path, loc_out_dir: Path
-    ) -> None:
+    def _write_control(self, path: Path, obs_path: Path, loc_out_dir: Path) -> None:
         """Render an NLLoc location control file pointing at our grids."""
         from lib.location.nlloc_config import (
-            GRID_SPACING_KM, GRID_X_HALF_KM, GRID_Y_HALF_KM,
-            GRID_Z_BOTTOM_KM, GRID_Z_TOP_KM, render_trans,
+            GRID_SPACING_KM,
+            GRID_X_HALF_KM,
+            GRID_Y_HALF_KM,
+            GRID_Z_BOTTOM_KM,
+            GRID_Z_TOP_KM,
+            render_trans,
         )
 
         # Mirror the velocity-grid extents so the search and the precomputed
@@ -242,34 +244,36 @@ class NLLocLocator:
         grid_in_base = (self._grid_dir / self._grid_basename).resolve()
         out_base = (loc_out_dir / "event").resolve()
 
-        body = "\n".join([
-            "CONTROL 1 12345",
-            render_trans(),
-            "LOCSIG ElPasoSeismicNetwork",
-            f"LOCFILES {obs_path}  NLLOC_OBS  {grid_in_base}  {out_base}",
-            # NLLOC_V2 keeps the .hyp parseable by obspy.io.nlloc.core.
-            "LOCHYPOUT SAVE_NLLOC_ALL",
-            # Octree search — standard NLLoc probabilistic locator.
-            #   init_num_cells_x/y/z  num_scatter_samples  init_num_cells_x/y/z
-            #   ...  use_stations_density  stop_on_min_node_size
-            "LOCSEARCH OCT 10 10 4 0.01 20000 5000 0 1",
-            f"LOCGRID {nx} {ny} {nz}  "
-            f"{-GRID_X_HALF_KM} {-GRID_Y_HALF_KM} {GRID_Z_TOP_KM}  "
-            f"{GRID_SPACING_KM} {GRID_SPACING_KM} {GRID_SPACING_KM}  "
-            "PROB_DENSITY  SAVE",
-            # EDT_OT_WT: equal-differential-time origin-time weighted —
-            # robust to outlier picks and bad timing. 1.68 = max picks/event,
-            # 6 = min N to consider an event, rest are method-specific knobs.
-            "LOCMETH EDT_OT_WT  9999.0  4  -1  -1  1.68  6  -1.0  1",
-            # Pick error model: σ from the obs file (we set it per pick).
-            "LOCGAU  0.2  0.0",
-            "LOCGAU2 0.02 0.05 2.0",
-            # Quality-to-error table (ignored when σ given per pick, but
-            # NLLoc still wants the keyword).
-            "LOCQUAL2ERR 0.1 0.5 1.0 2.0 99999.9",
-            "LOCANGLES ANGLES_NO 5",
-            "",
-        ])
+        body = "\n".join(
+            [
+                "CONTROL 1 12345",
+                render_trans(),
+                "LOCSIG ElPasoSeismicNetwork",
+                f"LOCFILES {obs_path}  NLLOC_OBS  {grid_in_base}  {out_base}",
+                # NLLOC_V2 keeps the .hyp parseable by obspy.io.nlloc.core.
+                "LOCHYPOUT SAVE_NLLOC_ALL",
+                # Octree search — standard NLLoc probabilistic locator.
+                #   init_num_cells_x/y/z  num_scatter_samples  init_num_cells_x/y/z
+                #   ...  use_stations_density  stop_on_min_node_size
+                "LOCSEARCH OCT 10 10 4 0.01 20000 5000 0 1",
+                f"LOCGRID {nx} {ny} {nz}  "
+                f"{-GRID_X_HALF_KM} {-GRID_Y_HALF_KM} {GRID_Z_TOP_KM}  "
+                f"{GRID_SPACING_KM} {GRID_SPACING_KM} {GRID_SPACING_KM}  "
+                "PROB_DENSITY  SAVE",
+                # EDT_OT_WT: equal-differential-time origin-time weighted —
+                # robust to outlier picks and bad timing. 1.68 = max picks/event,
+                # 6 = min N to consider an event, rest are method-specific knobs.
+                "LOCMETH EDT_OT_WT  9999.0  4  -1  -1  1.68  6  -1.0  1",
+                # Pick error model: σ from the obs file (we set it per pick).
+                "LOCGAU  0.2  0.0",
+                "LOCGAU2 0.02 0.05 2.0",
+                # Quality-to-error table (ignored when σ given per pick, but
+                # NLLoc still wants the keyword).
+                "LOCQUAL2ERR 0.1 0.5 1.0 2.0 99999.9",
+                "LOCANGLES ANGLES_NO 5",
+                "",
+            ]
+        )
         path.write_text(body)
 
     # ------------------------------------------------------------------
@@ -322,9 +326,7 @@ class NLLocLocator:
 
         catalog = read_nlloc_hyp(str(hyp_path))
         if not catalog:
-            tail = "\n".join(
-                (getattr(self, "_last_stdout", "") or "").splitlines()[-40:]
-            )
+            tail = "\n".join((getattr(self, "_last_stdout", "") or "").splitlines()[-40:])
             files = sorted(p.name for p in hyp_path.parent.iterdir())
             raise RuntimeError(
                 f"NLLoc produced no events in {hyp_path}\n"
@@ -389,14 +391,16 @@ class NLLocLocator:
                 (sid for sid in self.stations if sid.split(".")[-1] == sta_code),
                 f"?.{sta_code}",
             )
-            residuals.append(Residual(
-                station_id=sta_id_full,
-                phase=phase,  # type: ignore[arg-type]
-                observed_s=obs_s,
-                predicted_s=predicted_s,
-                residual_s=res_s,
-                weight=weight,
-            ))
+            residuals.append(
+                Residual(
+                    station_id=sta_id_full,
+                    phase=phase,  # type: ignore[arg-type]
+                    observed_s=obs_s,
+                    predicted_s=predicted_s,
+                    residual_s=res_s,
+                    weight=weight,
+                )
+            )
             sqsum += res_s * res_s
             n_used += 1
 

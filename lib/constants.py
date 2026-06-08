@@ -56,7 +56,7 @@ DEFAULT_STATION_DELAY_SECONDS = 2
 # FDSNWS circuit breaker
 # ---------------------------------------------------------------------------
 
-CIRCUIT_BREAKER_THRESHOLD = 5       # consecutive 503 errors before backing off
+CIRCUIT_BREAKER_THRESHOLD = 5  # consecutive 503 errors before backing off
 CIRCUIT_BREAKER_BACKOFF_SECONDS = 300  # 5 minutes
 
 # ---------------------------------------------------------------------------

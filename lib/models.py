@@ -9,10 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Runtime data structures
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Station:
@@ -64,7 +64,7 @@ class Pick:
     location: str
     channel: str
     phase: str  # "P" or "S"
-    time: str   # ISO 8601 timestamp
+    time: str  # ISO 8601 timestamp
     probability: float
     model: str = ""
     amplitude: float | None = None
@@ -112,17 +112,14 @@ def validate_station(entry: dict[str, Any], index: int) -> list[str]:
     # Required fields
     missing = REQUIRED_STATION_FIELDS - set(entry.keys())
     if missing:
-        raise StationValidationError(
-            f"Station entry {index} missing required fields: {missing}"
-        )
+        raise StationValidationError(f"Station entry {index} missing required fields: {missing}")
 
     # Coordinate bounds
     lat = entry["latitude"]
     lon = entry["longitude"]
     if not (-90 <= lat <= 90):
         raise StationValidationError(
-            f"Station {index} ({entry.get('station', '?')}): "
-            f"latitude {lat} out of range [-90, 90]"
+            f"Station {index} ({entry.get('station', '?')}): latitude {lat} out of range [-90, 90]"
         )
     if not (-180 <= lon <= 180):
         raise StationValidationError(
@@ -134,16 +131,14 @@ def validate_station(entry: dict[str, Any], index: int) -> list[str]:
     elev = entry["elevation_m"]
     if elev < -500 or elev > 9000:
         warnings.append(
-            f"Station {index} ({entry.get('station', '?')}): "
-            f"elevation_m={elev} seems unusual"
+            f"Station {index} ({entry.get('station', '?')}): elevation_m={elev} seems unusual"
         )
 
     # Channel pattern
     channels = entry.get("channels", "")
     if channels and channels not in VALID_CHANNEL_PATTERNS:
         warnings.append(
-            f"Station {index} ({entry.get('station', '?')}): "
-            f"unusual channel pattern '{channels}'"
+            f"Station {index} ({entry.get('station', '?')}): unusual channel pattern '{channels}'"
         )
 
     return warnings

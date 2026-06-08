@@ -8,7 +8,6 @@ science views.
 from __future__ import annotations
 
 import math
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
@@ -34,15 +33,15 @@ async def catalog(
     request: Request,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=50, ge=1, le=500),
-    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    sort_by: Optional[str] = Query(default=None, pattern=r"^(time|magnitude|depth_km|num_picks)$"),
-    sort_order: Optional[str] = Query(default="desc", pattern=r"^(asc|desc)$"),
-    min_magnitude: Optional[float] = Query(default=None),
-    max_depth: Optional[float] = Query(default=None),
-    min_picks: Optional[int] = Query(default=None),
-    search: Optional[str] = Query(default=None, min_length=1, max_length=100),
-    review_status: Optional[str] = Query(default=None, pattern=r"^(unreviewed|confirmed|rejected)$"),
+    start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    sort_by: str | None = Query(default=None, pattern=r"^(time|magnitude|depth_km|num_picks)$"),
+    sort_order: str | None = Query(default="desc", pattern=r"^(asc|desc)$"),
+    min_magnitude: float | None = Query(default=None),
+    max_depth: float | None = Query(default=None),
+    min_picks: int | None = Query(default=None),
+    search: str | None = Query(default=None, min_length=1, max_length=100),
+    review_status: str | None = Query(default=None, pattern=r"^(unreviewed|confirmed|rejected)$"),
 ):
     entry = get_cached("catalog", ttl=30.0, watch_file=CATALOG_FILE)
     if entry:
@@ -56,15 +55,24 @@ async def catalog(
         all_events = filter_by_date(all_events, start_date, end_date)
 
     if min_magnitude is not None:
-        all_events = [e for e in all_events if e["magnitude"] is not None and e["magnitude"] >= min_magnitude]
+        all_events = [
+            e for e in all_events if e["magnitude"] is not None and e["magnitude"] >= min_magnitude
+        ]
     if max_depth is not None:
-        all_events = [e for e in all_events if e["depth_km"] is not None and e["depth_km"] <= max_depth]
+        all_events = [
+            e for e in all_events if e["depth_km"] is not None and e["depth_km"] <= max_depth
+        ]
     if min_picks is not None:
-        all_events = [e for e in all_events if e["num_picks"] is not None and e["num_picks"] >= min_picks]
+        all_events = [
+            e for e in all_events if e["num_picks"] is not None and e["num_picks"] >= min_picks
+        ]
     if search:
         s = search.lower()
-        all_events = [e for e in all_events if s in (e.get("event_id") or "").lower()
-                      or s in (e.get("time") or "").lower()]
+        all_events = [
+            e
+            for e in all_events
+            if s in (e.get("event_id") or "").lower() or s in (e.get("time") or "").lower()
+        ]
     if review_status:
         if review_status == "unreviewed":
             all_events = [e for e in all_events if not e.get("review_status")]
@@ -182,16 +190,18 @@ async def event_detail(event_id: str):
     event_picks = []
     for a in read_assignments():
         if a.get("event_id") == event_id:
-            event_picks.append({
-                "network": a.get("network", ""),
-                "station": a.get("station", ""),
-                "location": a.get("location", ""),
-                "channel": a.get("channel", ""),
-                "phase": a.get("phase", ""),
-                "time": a.get("time", ""),
-                "probability": float(a["probability"]) if a.get("probability") else None,
-                "amplitude": float(a["amplitude"]) if a.get("amplitude") else None,
-            })
+            event_picks.append(
+                {
+                    "network": a.get("network", ""),
+                    "station": a.get("station", ""),
+                    "location": a.get("location", ""),
+                    "channel": a.get("channel", ""),
+                    "phase": a.get("phase", ""),
+                    "time": a.get("time", ""),
+                    "probability": float(a["probability"]) if a.get("probability") else None,
+                    "amplitude": float(a["amplitude"]) if a.get("amplitude") else None,
+                }
+            )
 
     station_counts: dict[str, dict[str, int]] = {}
     for pick in event_picks:
@@ -212,8 +222,8 @@ async def event_detail(event_id: str):
 # ── Events per day (timeline chart) ──────────────────────────────
 @router.get("/api/event_rate")
 async def event_rate(
-    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
 ):
     rows = read_catalog()
     if start_date or end_date:
@@ -230,8 +240,8 @@ async def event_rate(
 # ── Gutenberg-Richter magnitude-frequency ────────────────────────
 @router.get("/api/magnitude_frequency")
 async def magnitude_frequency(
-    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     bin_width: float = Query(default=0.1, ge=0.01, le=1.0),
 ):
     """Magnitude-frequency distribution + b-value via least squares on M ≥ Mc."""
@@ -241,8 +251,15 @@ async def magnitude_frequency(
 
     magnitudes = [float(r["magnitude"]) for r in rows if r.get("magnitude")]
     if len(magnitudes) < 2:
-        return {"bins": [], "cumulative": [], "b_value": None, "a_value": None,
-                "mc": None, "r_squared": None, "total_events": len(magnitudes)}
+        return {
+            "bins": [],
+            "cumulative": [],
+            "b_value": None,
+            "a_value": None,
+            "mc": None,
+            "r_squared": None,
+            "total_events": len(magnitudes),
+        }
 
     mag_min = math.floor(min(magnitudes) / bin_width) * bin_width
     mag_max = math.ceil(max(magnitudes) / bin_width) * bin_width
@@ -257,10 +274,7 @@ async def magnitude_frequency(
         bins.append(round(edge_lo + bin_width / 2, 4))
         counts.append(c)
     if magnitudes:
-        counts[-1] = sum(
-            1 for m in magnitudes
-            if m >= round(mag_min + (n_bins - 1) * bin_width, 4)
-        )
+        counts[-1] = sum(1 for m in magnitudes if m >= round(mag_min + (n_bins - 1) * bin_width, 4))
 
     cumulative = []
     running = 0
@@ -318,8 +332,8 @@ async def magnitude_frequency(
 # ── Depth distribution ──────────────────────────────────────────
 @router.get("/api/depth_distribution")
 async def depth_distribution(
-    start_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    end_date: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     bin_size: float = Query(default=1.0, ge=0.1, le=10.0),
 ):
     """Depth histogram + scatter (for cross-section plots)."""
@@ -331,8 +345,12 @@ async def depth_distribution(
     events = [e for e in events if e["depth_km"] is not None]
 
     if not events:
-        return {"histogram": {"bins": [], "counts": []}, "median_depth": None,
-                "mean_depth": None, "scatter": []}
+        return {
+            "histogram": {"bins": [], "counts": []},
+            "median_depth": None,
+            "mean_depth": None,
+            "scatter": [],
+        }
 
     depths = [e["depth_km"] for e in events]
     median_depth = round(sorted(depths)[len(depths) // 2], 2)
@@ -361,7 +379,8 @@ async def depth_distribution(
             "magnitude": e["magnitude"],
             "event_id": e["event_id"],
         }
-        for e in events if e["latitude"] is not None and e["longitude"] is not None
+        for e in events
+        if e["latitude"] is not None and e["longitude"] is not None
     ]
 
     return {

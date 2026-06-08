@@ -17,11 +17,8 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-
 # ── Auth config (read once at import) ────────────────────────────
-AUTH_ENABLED = os.environ.get(
-    "DASHBOARD_AUTH_ENABLED", ""
-).lower() in ("1", "true", "yes")
+AUTH_ENABLED = os.environ.get("DASHBOARD_AUTH_ENABLED", "").lower() in ("1", "true", "yes")
 AUTH_USERNAME = os.environ.get("DASHBOARD_USERNAME", "admin")
 AUTH_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
 
@@ -43,9 +40,8 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
             try:
                 decoded = base64.b64decode(auth[6:]).decode("utf-8")
                 user, passwd = decoded.split(":", 1)
-                if (
-                    secrets.compare_digest(user, AUTH_USERNAME)
-                    and secrets.compare_digest(passwd, AUTH_PASSWORD)
+                if secrets.compare_digest(user, AUTH_USERNAME) and secrets.compare_digest(
+                    passwd, AUTH_PASSWORD
                 ):
                     return await call_next(request)
             except Exception:
@@ -64,8 +60,8 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
 # want to catch: runaway POSTs (save/relocate/admin) or someone scraping
 # waveforms in a tight loop.
 _rate_store: dict[str, list[float]] = defaultdict(list)
-RATE_LIMIT = 600      # requests per minute per IP (counted endpoints only)
-RATE_WINDOW = 60.0    # seconds
+RATE_LIMIT = 600  # requests per minute per IP (counted endpoints only)
+RATE_WINDOW = 60.0  # seconds
 
 # Prefixes of paths exempt from the limit. Matched with startswith().
 # Includes dashboard polling endpoints + catalog browsing + static assets.
@@ -117,7 +113,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if len(_rate_store[client_ip]) >= RATE_LIMIT:
             return JSONResponse(
                 status_code=429,
-                content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT} action requests per minute."},
+                content={
+                    "detail": f"Rate limit exceeded. Max {RATE_LIMIT} action requests per minute."
+                },
             )
         _rate_store[client_ip].append(now)
         return await call_next(request)

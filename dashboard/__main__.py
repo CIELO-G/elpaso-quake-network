@@ -24,12 +24,14 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Seismic pipeline dashboard")
     p.add_argument("--port", type=int, default=8000)
     p.add_argument(
-        "--host", default="127.0.0.1",
+        "--host",
+        default="127.0.0.1",
         help="Bind address. Default 127.0.0.1 (localhost only). "
-             "Use 0.0.0.0 to expose to your LAN / Tailscale tailnet.",
+        "Use 0.0.0.0 to expose to your LAN / Tailscale tailnet.",
     )
     p.add_argument(
-        "--browser", action="store_true",
+        "--browser",
+        action="store_true",
         help="Open in the default browser instead of the native window.",
     )
     args = p.parse_args()
@@ -40,13 +42,18 @@ def main() -> None:
     url = f"http://127.0.0.1:{args.port}"
 
     if args.host != "127.0.0.1":
-        print(f"[dashboard] Binding to {args.host}:{args.port} — accessible from other machines on this network.")
+        print(
+            f"[dashboard] Binding to {args.host}:{args.port} — accessible from other machines on this network."
+        )
 
     if args.browser:
         import webbrowser
+
         threading.Timer(1.0, webbrowser.open, args=(url,)).start()
         uvicorn.run(
-            "dashboard.app:app", host=args.host, port=args.port,
+            "dashboard.app:app",
+            host=args.host,
+            port=args.port,
             log_level="warning",
         )
         return
@@ -55,14 +62,17 @@ def main() -> None:
     server = threading.Thread(
         target=uvicorn.run,
         kwargs=dict(
-            app="dashboard.app:app", host=args.host,
-            port=args.port, log_level="warning",
+            app="dashboard.app:app",
+            host=args.host,
+            port=args.port,
+            log_level="warning",
         ),
         daemon=True,
     )
     server.start()
 
     import webview
+
     webview.create_window(APP_TITLE, url, width=1280, height=800)
     webview.start()
 

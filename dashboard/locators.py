@@ -103,11 +103,14 @@ def init_gamma() -> dict:
     # sklearn 1.4+ removed _check_n_features; GaMMA's vendored mixture
     # code still calls it. Same no-op shim as 4-association/associate.py.
     import sklearn.base
+
     if not hasattr(sklearn.base.BaseEstimator, "_check_n_features"):
+
         def _check_n_features(self, X, reset=False):
             n_features = X.shape[1] if hasattr(X, "shape") and X.ndim > 1 else 1
             if reset or not hasattr(self, "n_features_in_"):
                 self.n_features_in_ = n_features
+
         sklearn.base.BaseEstimator._check_n_features = _check_n_features
 
     import numpy as np
@@ -157,9 +160,7 @@ def init_gamma() -> dict:
         "max_sigma11": 2.0,
         "max_sigma22": 2.0,
         "oversample_factor": 5,
-        "bfgs_bounds": (
-            [x_km_lim.tolist(), y_km_lim.tolist(), [0, 30]] + [[None, None]]
-        ),
+        "bfgs_bounds": ([x_km_lim.tolist(), y_km_lim.tolist(), [0, 30]] + [[None, None]]),
     }
 
     _gamma_state = {

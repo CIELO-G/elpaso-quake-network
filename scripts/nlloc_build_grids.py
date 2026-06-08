@@ -79,38 +79,40 @@ def _resolve_bin_dir() -> Path:
 def _write_vel2grid_control(path: Path, phase: str) -> None:
     """Render a complete Vel2Grid control file for a single phase."""
     grid_out = (GRID_DIR / GRID_BASENAME).resolve()
-    body = "\n".join([
-        f"CONTROL {NLLOC_CONTROL_MESSAGE_FLAG} 12345",
-        render_trans(),
-        f"VGOUT  {grid_out}",
-        render_vggrid(phase),
-        render_layers(DEFAULT_WEST_TEXAS_MODEL),
-        "",
-    ])
+    body = "\n".join(
+        [
+            f"CONTROL {NLLOC_CONTROL_MESSAGE_FLAG} 12345",
+            render_trans(),
+            f"VGOUT  {grid_out}",
+            render_vggrid(phase),
+            render_layers(DEFAULT_WEST_TEXAS_MODEL),
+            "",
+        ]
+    )
     path.write_text(body)
 
 
-def _write_grid2time_control(
-    path: Path, phase: str, stations: list[dict]
-) -> None:
+def _write_grid2time_control(path: Path, phase: str, stations: list[dict]) -> None:
     """Render a Grid2Time control file (model grid → per-station TT grids)."""
     grid_in = (GRID_DIR / GRID_BASENAME).resolve()
     time_out = (TIME_DIR / GRID_BASENAME).resolve()
-    body = "\n".join([
-        f"CONTROL {NLLOC_CONTROL_MESSAGE_FLAG} 12345",
-        render_trans(),
-        # GTFILES: velocity_grid_in, time_grid_out, phase, iSwapBytesOnInput
-        f"GTFILES  {grid_in}  {time_out}  {phase}  0",
-        # GRID3D = compute TT through the 3D velocity grid (works for 1D too).
-        # ANGLES_YES = also write takeoff angle grids (we won't use them yet
-        # but they're cheap and unlock first-motion focal mechanisms later).
-        "GTMODE  GRID3D  ANGLES_YES",
-        # Travel-time method: Podvin-Lecomte finite-difference. Eikonal solver
-        # appropriate for crustal models; ~10⁻³ s convergence is fine for ML scale.
-        "GT_PLFD  1.0e-3  0",
-        render_gtsrce(stations),
-        "",
-    ])
+    body = "\n".join(
+        [
+            f"CONTROL {NLLOC_CONTROL_MESSAGE_FLAG} 12345",
+            render_trans(),
+            # GTFILES: velocity_grid_in, time_grid_out, phase, iSwapBytesOnInput
+            f"GTFILES  {grid_in}  {time_out}  {phase}  0",
+            # GRID3D = compute TT through the 3D velocity grid (works for 1D too).
+            # ANGLES_YES = also write takeoff angle grids (we won't use them yet
+            # but they're cheap and unlock first-motion focal mechanisms later).
+            "GTMODE  GRID3D  ANGLES_YES",
+            # Travel-time method: Podvin-Lecomte finite-difference. Eikonal solver
+            # appropriate for crustal models; ~10⁻³ s convergence is fine for ML scale.
+            "GT_PLFD  1.0e-3  0",
+            render_gtsrce(stations),
+            "",
+        ]
+    )
     path.write_text(body)
 
 
@@ -136,7 +138,8 @@ def _run(binary: Path, control_file: Path, cwd: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Wipe output/nlloc/grids/ before rebuilding",
     )
     args = parser.parse_args()
@@ -174,12 +177,9 @@ def main() -> None:
     # Quick inventory of what got built
     n_model_files = len(list(GRID_DIR.glob(f"{GRID_BASENAME}.*.mod.*")))
     n_time_files = len(list(TIME_DIR.glob(f"{GRID_BASENAME}.*.time.*")))
-    total_mb = sum(
-        f.stat().st_size for f in GRID_DIR.rglob("*") if f.is_file()
-    ) / (1024 * 1024)
+    total_mb = sum(f.stat().st_size for f in GRID_DIR.rglob("*") if f.is_file()) / (1024 * 1024)
     print(
-        f"\nDone. model files={n_model_files}  "
-        f"time files={n_time_files}  total={total_mb:.1f} MB"
+        f"\nDone. model files={n_model_files}  time files={n_time_files}  total={total_mb:.1f} MB"
     )
 
 

@@ -5,22 +5,22 @@ through a 1D layered velocity model. Designed for local/regional events
 (induced seismicity, distances <~100 km, shallow sources).
 """
 
-from lib.location.velocity_model import (
-    DEFAULT_WEST_TEXAS_MODEL,
-    Layer,
-    LayeredModel,
-)
-from lib.location.travel_times import (
-    build_tt_table,
-    travel_time,
-    TravelTimeTable,
-)
 from lib.location.grid_search import (
     GridSearchLocator,
     LocationResult,
     Pick,
     Residual,
     Station,
+)
+from lib.location.travel_times import (
+    TravelTimeTable,
+    build_tt_table,
+    travel_time,
+)
+from lib.location.velocity_model import (
+    DEFAULT_WEST_TEXAS_MODEL,
+    Layer,
+    LayeredModel,
 )
 
 __all__ = [

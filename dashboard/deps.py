@@ -15,7 +15,6 @@ import sys
 import tempfile
 from datetime import date
 from pathlib import Path
-from typing import Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))  # allow `from lib.* import ...`
@@ -126,9 +125,7 @@ def parse_catalog_row(r: dict) -> dict:
     }
 
 
-def filter_by_date(
-    rows: list[dict], start_date: Optional[str], end_date: Optional[str]
-) -> list[dict]:
+def filter_by_date(rows: list[dict], start_date: str | None, end_date: str | None) -> list[dict]:
     """Filter rows by date range on the 'time' field (YYYY-MM-DD prefix)."""
     if not start_date and not end_date:
         return rows
@@ -177,9 +174,7 @@ def atomic_write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> Non
     happens to be in the page cache at rename time.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(
-        dir=str(path.parent), suffix=".tmp", prefix=path.stem + "_"
-    )
+    fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp", prefix=path.stem + "_")
     try:
         with os.fdopen(fd, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")

@@ -26,12 +26,12 @@ from pathlib import Path
 # ObsPy 1.4 still references the old location.  Shim them back so that
 # st.taper(type="hann") keeps working without pinning scipy.
 import scipy.signal
+
 for _wf in ("hann", "hamming", "blackman"):
     if not hasattr(scipy.signal, _wf) and hasattr(scipy.signal.windows, _wf):
         setattr(scipy.signal, _wf, getattr(scipy.signal.windows, _wf))
 
-from obspy import UTCDateTime, read
-from obspy import read_inventory
+from obspy import UTCDateTime, read, read_inventory
 
 # Allow imports from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -39,7 +39,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.config import load_config, load_stations
 from lib.logger import MetricsWriter, setup_logging
 from lib.pipeline_stage import iter_days, resolve_time_window
-
 
 # ---------------------------------------------------------------------------
 # Configuration defaults (processing-specific)
@@ -77,6 +76,7 @@ DEFAULTS = {
 # File discovery
 # ---------------------------------------------------------------------------
 
+
 def find_raw_files(
     station_cfg: dict,
     input_dir: str,
@@ -108,6 +108,7 @@ def get_output_path(raw_path: Path, input_dir: str, output_dir: str) -> Path:
 # ---------------------------------------------------------------------------
 # Core ObsPy processing pipeline
 # ---------------------------------------------------------------------------
+
 
 def process_file(
     raw_path: Path,
@@ -142,7 +143,9 @@ def process_file(
             if tr.stats.npts < 10:
                 logger.warning(
                     "Removing trace %s with only %d samples from %s",
-                    tr.id, tr.stats.npts, raw_path.name,
+                    tr.id,
+                    tr.stats.npts,
+                    raw_path.name,
                 )
                 st_filtered.remove(tr)
         if len(st_filtered) == 0:
@@ -166,8 +169,10 @@ def process_file(
         for tr in list(st):
             # Check if inventory already covers the trace start
             sel_ok = inventory.select(
-                network=tr.stats.network, station=tr.stats.station,
-                location=tr.stats.location, channel=tr.stats.channel,
+                network=tr.stats.network,
+                station=tr.stats.station,
+                location=tr.stats.location,
+                channel=tr.stats.channel,
                 time=tr.stats.starttime,
             )
             if sel_ok and sel_ok[0] and sel_ok[0][0] and sel_ok[0][0][0]:
@@ -175,8 +180,10 @@ def process_file(
 
             # Find the nearest channel epoch that starts just after the trace
             sel_all = inventory.select(
-                network=tr.stats.network, station=tr.stats.station,
-                location=tr.stats.location, channel=tr.stats.channel,
+                network=tr.stats.network,
+                station=tr.stats.station,
+                location=tr.stats.location,
+                channel=tr.stats.channel,
             )
             best_start = None
             for net in sel_all:
@@ -192,7 +199,8 @@ def process_file(
                 gap = best_start - tr.stats.starttime
                 logger.info(
                     "Trimming %s start by %.0f s to match metadata epoch",
-                    tr.id, gap,
+                    tr.id,
+                    gap,
                 )
                 tr.trim(starttime=best_start)
                 if tr.stats.npts < 10:
@@ -236,13 +244,17 @@ def process_file(
     except ValueError as exc:
         logger.error(
             "Processing value error for %s: %s: %s",
-            raw_path, type(exc).__name__, exc,
+            raw_path,
+            type(exc).__name__,
+            exc,
         )
         return False
     except Exception as exc:
         logger.error(
             "Processing failed for %s: %s: %s",
-            raw_path, type(exc).__name__, exc,
+            raw_path,
+            type(exc).__name__,
+            exc,
         )
         return False
 
@@ -250,6 +262,7 @@ def process_file(
 # ---------------------------------------------------------------------------
 # Per-station processing
 # ---------------------------------------------------------------------------
+
 
 def process_station(
     station_cfg: dict,
@@ -265,7 +278,10 @@ def process_station(
 
     logger.info(
         "--- %s.%s | %s -> %s ---",
-        network, station, start_time, end_time,
+        network,
+        station,
+        start_time,
+        end_time,
     )
 
     counts: dict[str, int] = {"processed": 0, "skipped": 0, "failed": 0}
@@ -277,7 +293,9 @@ def process_station(
     if not xml_path.exists():
         logger.error(
             "No metadata file for %s.%s at %s -- skipping station",
-            network, station, xml_path,
+            network,
+            station,
+            xml_path,
         )
         return counts
 
@@ -286,7 +304,10 @@ def process_station(
     except Exception as exc:
         logger.error(
             "Cannot read metadata for %s.%s: %s: %s -- skipping station",
-            network, station, type(exc).__name__, exc,
+            network,
+            station,
+            type(exc).__name__,
+            exc,
         )
         return counts
 
@@ -324,20 +345,18 @@ def process_station(
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Preprocess seismic waveforms (instrument response removal, filtering)",
     )
-    parser.add_argument("--config", required=True,
-                        help="Path to YAML configuration file")
-    parser.add_argument("--start",
-                        help="Start date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
-    parser.add_argument("--end",
-                        help="End date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
-    parser.add_argument("--force", action="store_true",
-                        help="Reprocess files even if output already exists")
-    parser.add_argument("--debug", action="store_true",
-                        help="Enable debug-level logging")
+    parser.add_argument("--config", required=True, help="Path to YAML configuration file")
+    parser.add_argument("--start", help="Start date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
+    parser.add_argument("--end", help="End date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
+    parser.add_argument(
+        "--force", action="store_true", help="Reprocess files even if output already exists"
+    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug-level logging")
     return parser.parse_args()
 
 
@@ -355,7 +374,8 @@ def main() -> None:
 
     # Determine time window
     start_time, end_time = resolve_time_window(
-        args, config,
+        args,
+        config,
         window_hours_key="process_window_hours",
         latency_hours_key="process_latency_hours",
         logger=logger,
@@ -385,12 +405,19 @@ def main() -> None:
         t0 = time.monotonic()
         try:
             counts = process_station(
-                station_cfg, config, logger, start_time, end_time, force,
+                station_cfg,
+                config,
+                logger,
+                start_time,
+                end_time,
+                force,
             )
         except Exception as exc:
             logger.error(
                 "Unexpected error processing %s: %s: %s",
-                sta_id, type(exc).__name__, exc,
+                sta_id,
+                type(exc).__name__,
+                exc,
             )
             counts = {"processed": 0, "skipped": 0, "failed": 0}
         return counts, sta_id, time.monotonic() - t0
@@ -407,7 +434,9 @@ def main() -> None:
     logger.info("=" * 60)
     logger.info(
         "Done. processed=%d  skipped=%d  failed=%d",
-        totals["processed"], totals["skipped"], totals["failed"],
+        totals["processed"],
+        totals["skipped"],
+        totals["failed"],
     )
     logger.info("=" * 60)
 

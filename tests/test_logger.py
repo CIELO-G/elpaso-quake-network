@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lib.logger import LOG_FORMAT, MetricsWriter, setup_logging
+from lib.logger import MetricsWriter, setup_logging
 
 
 class TestSetupLogging:

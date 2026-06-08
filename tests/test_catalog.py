@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Import from catalog module
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "5-catalog"))
-from catalog import make_event_id, day_key, _jday_to_date
+from catalog import _jday_to_date, day_key, make_event_id
 
 
 class TestJdayToDate:

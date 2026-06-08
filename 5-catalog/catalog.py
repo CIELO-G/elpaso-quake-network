@@ -44,12 +44,11 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Generate running seismic event catalog",
     )
-    parser.add_argument("--config", required=True,
-                        help="Path to YAML configuration file")
-    parser.add_argument("--rebuild", action="store_true",
-                        help="Force full catalog rebuild from scratch")
-    parser.add_argument("--debug", action="store_true",
-                        help="Enable debug-level logging")
+    parser.add_argument("--config", required=True, help="Path to YAML configuration file")
+    parser.add_argument(
+        "--rebuild", action="store_true", help="Force full catalog rebuild from scratch"
+    )
+    parser.add_argument("--debug", action="store_true", help="Enable debug-level logging")
     return parser.parse_args()
 
 
@@ -86,13 +85,15 @@ def discover_daily_files(input_dir, logger):
             continue
         year, jday = parts[0], parts[1]
         af = ef.parent / f"{year}.{jday}.assignments.csv"
-        daily.append({
-            "year": year,
-            "jday": jday,
-            "day_key": day_key(year, jday),
-            "events_path": ef,
-            "assignments_path": af,
-        })
+        daily.append(
+            {
+                "year": year,
+                "jday": jday,
+                "day_key": day_key(year, jday),
+                "events_path": ef,
+                "assignments_path": af,
+            }
+        )
 
     return daily
 
@@ -105,8 +106,7 @@ def load_existing_catalog(catalog_path, logger):
     df = pd.read_csv(catalog_path, dtype={"event_id": str})
     # Extract day keys from event_id: ep{YYYYMMDD}-NNNN → YYYYMMDD
     existing_days = set(df["event_id"].str[2:10])
-    logger.info("Existing catalog: %d events covering %d day(s)",
-                len(df), len(existing_days))
+    logger.info("Existing catalog: %d events covering %d day(s)", len(df), len(existing_days))
     return df, existing_days
 
 
@@ -135,6 +135,7 @@ def write_reviews_sidecar(
     Returns the number of records appended.
     """
     import json
+
     if not events:
         return 0
     sidecar_path.parent.mkdir(parents=True, exist_ok=True)
@@ -204,8 +205,8 @@ def main():
     # silently obliterating hours of human review work. The snapshot is
     # keyed by event_id, so it survives any change to the row order or to
     # how step 4 generates daily events.
-    preserved_events: dict[str, dict] = {}      # event_id → full catalog row
-    preserved_assignments: dict[str, list] = {} # event_id → list[pick dict]
+    preserved_events: dict[str, dict] = {}  # event_id → full catalog row
+    preserved_assignments: dict[str, list] = {}  # event_id → list[pick dict]
     if args.rebuild and catalog_path.exists():
         # Two-layer protection for human review work:
         #   1. In-memory snapshot (preserved_events) — restored into the new
@@ -231,7 +232,8 @@ def main():
             # Write sidecar BEFORE proceeding with destructive rebuild
             sidecar_count = write_reviews_sidecar(
                 catalog_path.parent / "reviews.jsonl",
-                preserved_events, preserved_assignments,
+                preserved_events,
+                preserved_assignments,
             )
             if preserved_events:
                 logger.info(
@@ -250,7 +252,8 @@ def main():
                 "Cannot snapshot reviewed events before rebuild: %s. "
                 "Refusing to proceed — re-run without --rebuild, or fix the "
                 "snapshot error first. (Reviewed-event preservation is the "
-                "whole point of this safeguard.)", e,
+                "whole point of this safeguard.)",
+                e,
             )
             sys.exit(2)
 
@@ -367,16 +370,15 @@ def main():
                 # Reviewed event missing from new generation — append it.
                 new_row = {col: row_data.get(col, "") for col in catalog.columns}
                 catalog = pd.concat(
-                    [catalog, pd.DataFrame([new_row])], ignore_index=True,
+                    [catalog, pd.DataFrame([new_row])],
+                    ignore_index=True,
                 )
                 restored_orphan += 1
 
         # Replace assignments for preserved events.
         if preserved_assignments:
             if not assignments.empty:
-                keep_mask = ~assignments["event_id"].astype(str).isin(
-                    preserved_assignments.keys()
-                )
+                keep_mask = ~assignments["event_id"].astype(str).isin(preserved_assignments.keys())
                 assignments = assignments[keep_mask].reset_index(drop=True)
             rebuilt_rows = [r for rows in preserved_assignments.values() for r in rows]
             if rebuilt_rows:
@@ -389,7 +391,8 @@ def main():
 
         logger.info(
             "Restored %d reviewed row(s) in-place + %d orphan reviewed row(s)",
-            restored_present, restored_orphan,
+            restored_present,
+            restored_orphan,
         )
 
     # Sort chronologically

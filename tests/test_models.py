@@ -59,8 +59,13 @@ class TestPick:
 
     def test_basic(self):
         p = Pick(
-            network="AM", station="R0F2D", location="00", channel="EHZ",
-            phase="P", time="2026-01-15T12:00:00.123", probability=0.85,
+            network="AM",
+            station="R0F2D",
+            location="00",
+            channel="EHZ",
+            phase="P",
+            time="2026-01-15T12:00:00.123",
+            probability=0.85,
         )
         assert p.phase == "P"
         assert p.amplitude is None
@@ -73,7 +78,9 @@ class TestEvent:
         e = Event(
             event_id="ep20260115-0001",
             time="2026-01-15T12:00:00",
-            latitude=31.85, longitude=-106.40, depth_km=5.0,
+            latitude=31.85,
+            longitude=-106.40,
+            depth_km=5.0,
         )
         assert e.magnitude is None
         assert e.num_picks == 0
@@ -84,8 +91,11 @@ class TestValidateStation:
 
     def test_valid_station(self):
         entry = {
-            "network": "AM", "station": "R0F2D",
-            "latitude": 31.65, "longitude": -106.46, "elevation_m": 1196.0,
+            "network": "AM",
+            "station": "R0F2D",
+            "latitude": 31.65,
+            "longitude": -106.46,
+            "elevation_m": 1196.0,
             "channels": "EH?",
         }
         warnings = validate_station(entry, 0)
@@ -97,32 +107,44 @@ class TestValidateStation:
 
     def test_latitude_out_of_range(self):
         entry = {
-            "network": "AM", "station": "TEST",
-            "latitude": 95.0, "longitude": -106.0, "elevation_m": 1000.0,
+            "network": "AM",
+            "station": "TEST",
+            "latitude": 95.0,
+            "longitude": -106.0,
+            "elevation_m": 1000.0,
         }
         with pytest.raises(StationValidationError, match="latitude"):
             validate_station(entry, 0)
 
     def test_longitude_out_of_range(self):
         entry = {
-            "network": "AM", "station": "TEST",
-            "latitude": 31.0, "longitude": -200.0, "elevation_m": 1000.0,
+            "network": "AM",
+            "station": "TEST",
+            "latitude": 31.0,
+            "longitude": -200.0,
+            "elevation_m": 1000.0,
         }
         with pytest.raises(StationValidationError, match="longitude"):
             validate_station(entry, 0)
 
     def test_unusual_elevation_warning(self):
         entry = {
-            "network": "AM", "station": "TEST",
-            "latitude": 31.0, "longitude": -106.0, "elevation_m": -600.0,
+            "network": "AM",
+            "station": "TEST",
+            "latitude": 31.0,
+            "longitude": -106.0,
+            "elevation_m": -600.0,
         }
         warnings = validate_station(entry, 0)
         assert any("elevation" in w for w in warnings)
 
     def test_unusual_channel_warning(self):
         entry = {
-            "network": "AM", "station": "TEST",
-            "latitude": 31.0, "longitude": -106.0, "elevation_m": 1000.0,
+            "network": "AM",
+            "station": "TEST",
+            "latitude": 31.0,
+            "longitude": -106.0,
+            "elevation_m": 1000.0,
             "channels": "XYZ",
         }
         warnings = validate_station(entry, 0)
@@ -143,8 +165,11 @@ class TestValidateStations:
     def test_valid_stations(self):
         stations = [
             {
-                "network": "AM", "station": "R0F2D",
-                "latitude": 31.65, "longitude": -106.46, "elevation_m": 1196.0,
+                "network": "AM",
+                "station": "R0F2D",
+                "latitude": 31.65,
+                "longitude": -106.46,
+                "elevation_m": 1196.0,
             },
         ]
         warnings = validate_stations(stations)

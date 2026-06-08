@@ -60,8 +60,7 @@ class DownloadDB:
                 """SELECT 1 FROM downloads
                    WHERE network=? AND station=? AND location=? AND channel=?
                      AND start_time=? AND end_time=? AND status='success'""",
-                (network, station, location, channel,
-                 str(start_time), str(end_time)),
+                (network, station, location, channel, str(start_time), str(end_time)),
             ).fetchone()
             return row is not None
 
@@ -84,10 +83,18 @@ class DownloadDB:
                    (network, station, location, channel, start_time, end_time,
                     status, filepaths, download_time, error_message)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (network, station, location, channel,
-                 str(start_time), str(end_time), status,
-                 json.dumps(filepaths) if filepaths else None,
-                 datetime.now(timezone.utc).isoformat(), error),
+                (
+                    network,
+                    station,
+                    location,
+                    channel,
+                    str(start_time),
+                    str(end_time),
+                    status,
+                    json.dumps(filepaths) if filepaths else None,
+                    datetime.now(timezone.utc).isoformat(),
+                    error,
+                ),
             )
             self.conn.commit()
 

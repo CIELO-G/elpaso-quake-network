@@ -33,7 +33,6 @@ from obspy import UTCDateTime, read
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lib.config import load_stations
 
 CATALOG_PATH = ROOT / "output" / "5-catalog" / "catalog.csv"
 ASSIGNMENTS_PATH = ROOT / "output" / "5-catalog" / "assignments.csv"
@@ -44,9 +43,8 @@ TEMPLATE_DIR = ROOT / "output" / "templates"
 def load_blast_events(event_type: str) -> pd.DataFrame:
     """Return confirmed events of a given type from the catalog."""
     df = pd.read_csv(CATALOG_PATH, dtype={"event_id": str})
-    mask = (
-        (df["review_status"].fillna("") == "confirmed")
-        & (df["event_type"].fillna("") == event_type)
+    mask = (df["review_status"].fillna("") == "confirmed") & (
+        df["event_type"].fillna("") == event_type
     )
     return df[mask].copy()
 
@@ -69,6 +67,7 @@ def fetch_event_stream(event_time: UTCDateTime, before_s: float, after_s: float)
     if pick times are 5-10 s offset from event_time.
     """
     from obspy import Stream
+
     stream = Stream()
     margin = max(30.0, (before_s + after_s) * 2)
     start = event_time - margin
@@ -110,8 +109,9 @@ def build_single_event_tribe(
     Renames it to ``event_id`` for clean lookup.
     """
     from eqcorrscan.core.match_filter import Tribe
-    from obspy.core.event import Catalog as ObsCatalog, Event, Pick, WaveformStreamID, Origin
     from obspy import UTCDateTime as UTC
+    from obspy.core.event import Catalog as ObsCatalog
+    from obspy.core.event import Event, Origin, Pick, WaveformStreamID
 
     stream = fetch_event_stream(event_time, before_s, after_s)
     if not len(stream):
@@ -175,11 +175,11 @@ def build_single_event_tribe(
     keep = [tr for tr in t.st if len(tr.data) == expected_len]
     dropped = len(t.st) - len(keep)
     if dropped:
-        logger.info("  Dropped %d short trace(s) (length != %d samples)",
-                    dropped, expected_len)
+        logger.info("  Dropped %d short trace(s) (length != %d samples)", dropped, expected_len)
     if len(keep) < 4:
-        logger.warning("  %s ended up with only %d full-length traces — skipping",
-                       event_id, len(keep))
+        logger.warning(
+            "  %s ended up with only %d full-length traces — skipping", event_id, len(keep)
+        )
         return None
     t.st.traces = keep
     return t
@@ -187,17 +187,29 @@ def build_single_event_tribe(
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--event-type", default="quarry_blast",
-                        help="Filter by event_type (default: quarry_blast)")
-    parser.add_argument("--before", type=float, default=1.0,
-                        help="Seconds before pick to include in template")
-    parser.add_argument("--after", type=float, default=5.0,
-                        help="Seconds after pick to include in template")
-    parser.add_argument("--filter", type=float, nargs=2, default=[2.0, 20.0],
-                        metavar=("LOW", "HIGH"),
-                        help="Bandpass corners in Hz (default 2 20)")
-    parser.add_argument("--samp-rate", type=float, default=50.0,
-                        help="Resample to this rate before template-building")
+    parser.add_argument(
+        "--event-type", default="quarry_blast", help="Filter by event_type (default: quarry_blast)"
+    )
+    parser.add_argument(
+        "--before", type=float, default=1.0, help="Seconds before pick to include in template"
+    )
+    parser.add_argument(
+        "--after", type=float, default=5.0, help="Seconds after pick to include in template"
+    )
+    parser.add_argument(
+        "--filter",
+        type=float,
+        nargs=2,
+        default=[2.0, 20.0],
+        metavar=("LOW", "HIGH"),
+        help="Bandpass corners in Hz (default 2 20)",
+    )
+    parser.add_argument(
+        "--samp-rate",
+        type=float,
+        default=50.0,
+        help="Resample to this rate before template-building",
+    )
     parser.add_argument("--out-dir", type=Path, default=TEMPLATE_DIR)
     args = parser.parse_args()
 
@@ -217,9 +229,11 @@ def main():
     logger.info("Found %d confirmed %s events", len(events), args.event_type)
 
     picks_by_event = load_event_picks(set(events["event_id"]))
-    logger.info("Loaded picks for %d of %d events",
-                sum(1 for eid in events["event_id"] if eid in picks_by_event),
-                len(events))
+    logger.info(
+        "Loaded picks for %d of %d events",
+        sum(1 for eid in events["event_id"] if eid in picks_by_event),
+        len(events),
+    )
 
     templates = []
     skipped = 0
@@ -264,8 +278,10 @@ def main():
         "n_templates": len(tribe),
         "event_type_filter": args.event_type,
         "template_params": {
-            "before_s": args.before, "after_s": args.after,
-            "filter_low": args.filter[0], "filter_high": args.filter[1],
+            "before_s": args.before,
+            "after_s": args.after,
+            "filter_low": args.filter[0],
+            "filter_high": args.filter[1],
             "samp_rate": args.samp_rate,
         },
         "templates": [
@@ -282,7 +298,8 @@ def main():
 
     logger.info(
         "Built %d templates, skipped %d events (no picks/waveforms/etc).",
-        len(templates), skipped,
+        len(templates),
+        skipped,
     )
 
 

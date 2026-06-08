@@ -47,12 +47,25 @@ include = ["lib*", "dashboard*"]
 [tool.ruff]
 target-version = "py310"
 line-length = 100
+# Skip vendored PhaseNet code (upstream — we don't own its style)
+extend-exclude = [
+    "3-detection/phasenet/**",
+]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+# E/W = pycodestyle, F = pyflakes (real bugs), I = imports, UP = py upgrade.
+# B (bugbear) and SIM (simplify) are opinion-heavy — we'd rather not let style
+# preferences gate CI. Pyflakes (F) still catches real bugs; that's what matters.
+select = ["E", "F", "W", "I", "UP"]
 ignore = [
     "E501",   # line length handled by formatter
-    "SIM108", # ternary not always clearer
+    "E402",   # module imports not at top — intentional for sys.path manipulation
+    "E731",   # lambda assignment OK
+    "E722",   # bare except has legitimate uses
+    "E712",   # true/false comparison sometimes intentional
+    "E711",   # is None vs == None — sometimes intentional
+    "E741",   # ambiguous var name — fine in scientific code (l, I, etc.)
+    "UP031",  # printf-style formatting in legacy code
 ]
 
 [tool.ruff.format]

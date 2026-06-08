@@ -35,12 +35,10 @@ from lib.location import (
     LayeredModel,
     Pick,
     Station,
-    TravelTimeTable,
     build_tt_table,
     travel_time,
 )
-from lib.location.travel_times import _integrate_ray, _scan_slowness
-
+from lib.location.travel_times import _scan_slowness
 
 # ---------------------------------------------------------------------------
 # Velocity model basics
@@ -48,7 +46,6 @@ from lib.location.travel_times import _integrate_ray, _scan_slowness
 
 
 class TestLayeredModel:
-
     def test_single_layer_is_valid(self):
         m = LayeredModel([Layer(0.0, 5.0, 3.0)])
         assert m.velocity(5.0, "P") == 5.0
@@ -117,16 +114,19 @@ class TestHalfSpaceTravelTimes:
         expected = np.sqrt(50.0) / 6.0
         assert t == pytest.approx(expected, rel=1e-4)
 
-    @pytest.mark.parametrize("depth,dist", [
-        (2.0, 0.5),
-        (5.0, 10.0),
-        (10.0, 20.0),
-        (1.0, 30.0),
-        (8.0, 15.5),
-    ])
+    @pytest.mark.parametrize(
+        "depth,dist",
+        [
+            (2.0, 0.5),
+            (5.0, 10.0),
+            (10.0, 20.0),
+            (1.0, 30.0),
+            (8.0, 15.5),
+        ],
+    )
     def test_matches_analytical(self, halfspace, depth, dist):
         t = travel_time(depth, 0.0, dist, halfspace, "P")
-        expected = np.sqrt(dist ** 2 + depth ** 2) / 6.0
+        expected = np.sqrt(dist**2 + depth**2) / 6.0
         assert t == pytest.approx(expected, rel=2e-3)
 
     def test_s_wave_slower_than_p(self, halfspace):
@@ -142,13 +142,10 @@ class TestHalfSpaceTravelTimes:
 
 
 class TestLayeredTravelTimes:
-
     @pytest.fixture
     def two_layer(self):
         # Slow top, fast bottom — typical crustal structure.
-        return LayeredModel(
-            [Layer(0.0, 4.0, 2.3), Layer(5.0, 6.5, 3.75)]
-        )
+        return LayeredModel([Layer(0.0, 4.0, 2.3), Layer(5.0, 6.5, 3.75)])
 
     def test_dx_monotonic_in_slowness(self, two_layer):
         dx, dt = _scan_slowness(8.0, 0.0, two_layer, "P")
@@ -161,7 +158,7 @@ class TestLayeredTravelTimes:
         # A ray from a deep source (10 km) traverses fast rock; travel
         # time per km should be faster than the slow top-layer velocity.
         t_deep = travel_time(10.0, 0.0, 20.0, two_layer, "P")
-        apparent_v = np.sqrt(20.0 ** 2 + 10.0 ** 2) / t_deep
+        apparent_v = np.sqrt(20.0**2 + 10.0**2) / t_deep
         assert apparent_v > 4.0  # faster than slow top layer
 
     def test_short_distance_close_to_halfspace(self, two_layer):
@@ -169,9 +166,7 @@ class TestLayeredTravelTimes:
         # stays in the slow layer; travel time should match a homogeneous
         # slow-layer model closely.
         t_layered = travel_time(2.0, 0.0, 1.0, two_layer, "P")
-        t_homo = travel_time(
-            2.0, 0.0, 1.0, LayeredModel([Layer(0.0, 4.0, 2.3)]), "P"
-        )
+        t_homo = travel_time(2.0, 0.0, 1.0, LayeredModel([Layer(0.0, 4.0, 2.3)]), "P")
         assert t_layered == pytest.approx(t_homo, rel=1e-4)
 
 
@@ -181,7 +176,6 @@ class TestLayeredTravelTimes:
 
 
 class TestElevationCorrection:
-
     def test_elevated_station_slower(self):
         # Uniform top layer of 3.5 km/s; a station at 1.2 km elevation
         # (receiver_depth = -1.2 km) sees a longer ray from a surface
@@ -199,7 +193,6 @@ class TestElevationCorrection:
 
 
 class TestTravelTimeTable:
-
     @pytest.fixture
     def halfspace_table(self):
         model = LayeredModel([Layer(0.0, 6.0, 3.4)])
@@ -215,7 +208,7 @@ class TestTravelTimeTable:
         # Bilinear interp should return near-analytical values at
         # off-grid points.
         t = halfspace_table.lookup(3.25, 12.75)
-        expected = np.sqrt(3.25 ** 2 + 12.75 ** 2) / 6.0
+        expected = np.sqrt(3.25**2 + 12.75**2) / 6.0
         assert float(t) == pytest.approx(expected, rel=2e-3)
 
     def test_lookup_broadcasts(self, halfspace_table):
@@ -226,7 +219,7 @@ class TestTravelTimeTable:
         # Each entry should be t = sqrt(d^2 + z^2) / v.
         for iz, zi in enumerate([3.0, 5.0, 7.0]):
             for id_, di in enumerate([5.0, 10.0, 15.0, 20.0]):
-                expected = np.sqrt(di ** 2 + zi ** 2) / 6.0
+                expected = np.sqrt(di**2 + zi**2) / 6.0
                 assert t[iz, id_] == pytest.approx(expected, rel=2e-3)
 
 
@@ -261,22 +254,16 @@ class TestSyntheticEventRoundTrip:
             tt_distance_step_km=0.5,
         )
 
-    def _synthesize_picks(
-        self, locator, true_lat, true_lon, true_depth, true_t0
-    ):
+    def _synthesize_picks(self, locator, true_lat, true_lon, true_depth, true_t0):
         """Compute noise-free P and S picks from each station."""
         from lib.projection import latlon_to_km
 
-        true_x, true_y = latlon_to_km(
-            true_lat, true_lon, proj=locator._proj
-        )
+        true_x, true_y = latlon_to_km(true_lat, true_lon, proj=locator._proj)
         picks = []
         for sta_id, (x_s, y_s) in locator._station_xy.items():
             dist = float(np.hypot(true_x - x_s, true_y - y_s))
             for phase in ("P", "S"):
-                tt_val = float(
-                    locator._tt[(sta_id, phase)].lookup(true_depth, dist)
-                )
+                tt_val = float(locator._tt[(sta_id, phase)].lookup(true_depth, dist))
                 if not np.isfinite(tt_val):
                     continue
                 picks.append(
@@ -293,9 +280,7 @@ class TestSyntheticEventRoundTrip:
         true_lon = -106.38
         true_depth = 6.0
         true_t0 = 100.0
-        picks = self._synthesize_picks(
-            locator, true_lat, true_lon, true_depth, true_t0
-        )
+        picks = self._synthesize_picks(locator, true_lat, true_lon, true_depth, true_t0)
         assert len(picks) >= 8
 
         result = locator.locate(

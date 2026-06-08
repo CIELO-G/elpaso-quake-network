@@ -14,13 +14,11 @@ import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from dashboard.cache import etag_response, get_cached, set_cached
 from dashboard.deps import (
-    CATALOG_FILE,
     EVENTS_DIR,
     LAG_HOURS,
     LOGS_DIR,
@@ -38,7 +36,7 @@ router = APIRouter()
 
 # Subprocess handle for the running pipeline (may be reattached to a PID file
 # orphan after a dashboard restart — see _is_pipeline_running).
-_pipeline_proc: Optional[subprocess.Popen] = None
+_pipeline_proc: subprocess.Popen | None = None
 
 
 # ── Tree-walking helpers (used by progress) ──────────────────────
@@ -122,9 +120,7 @@ async def progress(request: Request):
     entry = get_cached("progress", ttl=5.0, watch_file=STATUS_FILE)
     if entry:
         return etag_response(entry.data, entry.etag, request)
-    target_date = (
-        datetime.now(timezone.utc) - timedelta(hours=LAG_HOURS)
-    ).date()
+    target_date = (datetime.now(timezone.utc) - timedelta(hours=LAG_HOURS)).date()
     total_days = max((target_date - PIPELINE_START_DATE).days + 1, 0)
 
     days_ingested = _count_day_dirs(RAW_DIR, min_files=3)
@@ -199,9 +195,12 @@ async def progress(request: Request):
 @router.get("/api/throughput")
 async def throughput():
     empty = {
-        "avg_day_sec": None, "last_day_sec": None,
-        "step_avg_sec": {}, "remaining_days": 0,
-        "eta_sec": None, "sample_size": 0,
+        "avg_day_sec": None,
+        "last_day_sec": None,
+        "step_avg_sec": {},
+        "remaining_days": 0,
+        "eta_sec": None,
+        "sample_size": 0,
     }
     if not STATUS_FILE.exists():
         return empty
@@ -228,10 +227,7 @@ async def throughput():
         for name, sec in d.get("steps", {}).items():
             step_sums[name] = step_sums.get(name, 0) + sec
             step_n[name] = step_n.get(name, 0) + 1
-    step_avg = {
-        name: round(step_sums[name] / step_n[name], 1)
-        for name in step_sums
-    }
+    step_avg = {name: round(step_sums[name] / step_n[name], 1) for name in step_sums}
 
     target = (datetime.now(timezone.utc) - timedelta(hours=LAG_HOURS)).date()
     current_day_str = cont.get("current_day")
@@ -307,7 +303,9 @@ async def pipeline_start(request: Request):
         start = body.get("start")
         end = body.get("end")
         if not start or not end:
-            raise HTTPException(status_code=400, detail="backfill mode requires start and end dates")
+            raise HTTPException(
+                status_code=400, detail="backfill mode requires start and end dates"
+            )
         try:
             date.fromisoformat(start)
             date.fromisoformat(end)
@@ -377,8 +375,12 @@ async def station_health():
 
     if not day_dirs:
         return [
-            {"station": s["station"], "network": s["network"],
-             "status": "unknown", "files_recent": 0}
+            {
+                "station": s["station"],
+                "network": s["network"],
+                "status": "unknown",
+                "files_recent": 0,
+            }
             for s in stations_data
         ]
 
@@ -395,12 +397,14 @@ async def station_health():
             health_status = "warning"
         else:
             health_status = "error"
-        results.append({
-            "station": s["station"],
-            "network": s["network"],
-            "status": health_status,
-            "files_recent": found,
-        })
+        results.append(
+            {
+                "station": s["station"],
+                "network": s["network"],
+                "status": health_status,
+                "files_recent": found,
+            }
+        )
     return results
 
 

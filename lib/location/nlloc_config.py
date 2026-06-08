@@ -17,11 +17,10 @@ lives in ``scripts/nlloc_build_grids.py``.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from lib.constants import NETWORK_CENTER_LAT, NETWORK_CENTER_LON
 from lib.location.velocity_model import LayeredModel
-
 
 # Network-area grid extents (km from the projection origin). Asymmetric
 # (X≠Y) so the projected NLLoc box matches the GaMMA search region
@@ -34,7 +33,7 @@ from lib.location.velocity_model import LayeredModel
 # (~10 ms PhaseNet → ~50 m equivalent) and the 1D velocity model.
 GRID_X_HALF_KM = 94.0
 GRID_Y_HALF_KM = 111.0
-GRID_Z_TOP_KM = -2.0    # negative = above sea level (elevated stations sit here)
+GRID_Z_TOP_KM = -2.0  # negative = above sea level (elevated stations sit here)
 GRID_Z_BOTTOM_KM = 38.0
 GRID_SPACING_KM = 0.5
 
@@ -46,7 +45,7 @@ def gardner_density(vp_km_s: float) -> float:
     only depend on velocity, so this is a sensible default that keeps the
     layer block self-contained.
     """
-    return 1.74 * (vp_km_s ** 0.25)
+    return 1.74 * (vp_km_s**0.25)
 
 
 def render_trans(
@@ -115,8 +114,5 @@ def render_gtsrce(stations: Iterable[dict]) -> str:
         lat = float(s["latitude"])
         lon = float(s["longitude"])
         elev_km = float(s.get("elevation_m", 0.0) or 0.0) / 1000.0
-        lines.append(
-            f"GTSRCE  {sta:<7}  LATLON   "
-            f"{lat:10.6f}  {lon:11.6f}  0.0    {elev_km:.3f}"
-        )
+        lines.append(f"GTSRCE  {sta:<7}  LATLON   {lat:10.6f}  {lon:11.6f}  0.0    {elev_km:.3f}")
     return "\n".join(lines)

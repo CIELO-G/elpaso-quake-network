@@ -42,18 +42,20 @@ LAG_HOURS = CONTINUOUS_LAG_HOURS
 MAX_RETRIES = DEFAULT_MAX_RETRIES
 RETRY_WAIT = DEFAULT_RETRY_WAIT_SECONDS
 PIPELINE_START = date.fromisoformat(PIPELINE_START_DATE_ISO)
-MAX_SKIP_RETRY_PASSES = 3   # retry all skipped days this many times after catching up
-SKIP_RETRY_WAIT = 600       # 10-minute cooldown between retry passes
+MAX_SKIP_RETRY_PASSES = 3  # retry all skipped days this many times after catching up
+SKIP_RETRY_WAIT = 600  # 10-minute cooldown between retry passes
 
 # ── graceful shutdown ────────────────────────────────────────────────────────
 
 _shutdown_requested = False
+
 
 def _handle_sigterm(signum, frame):
     """Convert SIGTERM into the same flow as KeyboardInterrupt."""
     global _shutdown_requested
     _shutdown_requested = True
     raise KeyboardInterrupt
+
 
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
@@ -120,6 +122,7 @@ STEPS = [
 ]
 
 # ── status helpers ───────────────────────────────────────────────────────────
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -192,14 +195,12 @@ def _send_alert(subject: str, body: str) -> None:
 
 # ── gap-fill helpers ─────────────────────────────────────────────────────────
 
+
 def _load_station_expectations() -> list[tuple[str, str, date]]:
     """Read stations.json and return (network, station, start_date) tuples."""
     with open(STATIONS_FILE) as f:
         stations = json.load(f)
-    return [
-        (s["network"], s["station"], date.fromisoformat(s["start_date"]))
-        for s in stations
-    ]
+    return [(s["network"], s["station"], date.fromisoformat(s["start_date"])) for s in stations]
 
 
 def _scan_gaps(
@@ -243,36 +244,56 @@ def _scan_gaps(
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Run the seismic processing pipeline.")
     p.add_argument("--start", help="Start date (forwarded to steps 1-4)")
     p.add_argument("--end", help="End date (forwarded to steps 1-4)")
-    p.add_argument("--force", action="store_true",
-                   help="Force reprocessing (--force for steps 2-4, --rebuild for step 5)")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Force reprocessing (--force for steps 2-4, --rebuild for step 5)",
+    )
     p.add_argument("--debug", action="store_true", help="Enable debug logging in all steps")
-    p.add_argument("--start-step", type=int, default=1, metavar="N",
-                   help="First step to run (default: 1)")
-    p.add_argument("--end-step", type=int, default=5, metavar="N",
-                   help="Last step to run (default: 5)")
-    p.add_argument("--continuous", action="store_true",
-                   help="Run continuously — process one day at a time, "
-                        "then wait for new data (Ctrl+C to stop)")
-    p.add_argument("--validate", action="store_true",
-                   help="Validate environment (FDSNWS, disk, GPU, config) and exit")
-    p.add_argument("--gap-fill", action="store_true",
-                   help="Scan for days with missing station data and re-run "
-                        "the pipeline to fill gaps")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Print commands that would be run, without executing them")
+    p.add_argument(
+        "--start-step", type=int, default=1, metavar="N", help="First step to run (default: 1)"
+    )
+    p.add_argument(
+        "--end-step", type=int, default=5, metavar="N", help="Last step to run (default: 5)"
+    )
+    p.add_argument(
+        "--continuous",
+        action="store_true",
+        help="Run continuously — process one day at a time, "
+        "then wait for new data (Ctrl+C to stop)",
+    )
+    p.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate environment (FDSNWS, disk, GPU, config) and exit",
+    )
+    p.add_argument(
+        "--gap-fill",
+        action="store_true",
+        help="Scan for days with missing station data and re-run the pipeline to fill gaps",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print commands that would be run, without executing them",
+    )
     return p.parse_args()
 
 
-def build_command(step: dict, args: argparse.Namespace, *,
-                  start_override: str | None = None,
-                  end_override: str | None = None) -> list[str]:
+def build_command(
+    step: dict,
+    args: argparse.Namespace,
+    *,
+    start_override: str | None = None,
+    end_override: str | None = None,
+) -> list[str]:
     """Build the subprocess command list for a step."""
-    cmd = [sys.executable, str(ROOT / step["script"]),
-           "--config", str(ROOT / step["config"])]
+    cmd = [sys.executable, str(ROOT / step["script"]), "--config", str(ROOT / step["config"])]
     if step["accepts_dates"]:
         start = start_override or args.start
         end = end_override or args.end
@@ -295,6 +316,7 @@ def build_command(step: dict, args: argparse.Namespace, *,
 
 # ── single-run mode (original behaviour) ─────────────────────────────────────
 
+
 def single_run(args: argparse.Namespace) -> None:
     if args.start_step < 1 or args.end_step > 5 or args.start_step > args.end_step:
         print(f"Error: invalid step range {args.start_step}-{args.end_step}", file=sys.stderr)
@@ -309,15 +331,17 @@ def single_run(args: argparse.Namespace) -> None:
             status = "skipped"
         else:
             status = "pending"
-        step_statuses.append({
-            "number": n,
-            "name": step["name"],
-            "status": status,
-            "started_at": None,
-            "finished_at": None,
-            "return_code": None,
-            "log_file": step["log_file"],
-        })
+        step_statuses.append(
+            {
+                "number": n,
+                "name": step["name"],
+                "status": status,
+                "started_at": None,
+                "finished_at": None,
+                "return_code": None,
+                "log_file": step["log_file"],
+            }
+        )
 
     status_data = {
         "pipeline": {
@@ -400,6 +424,7 @@ def single_run(args: argparse.Namespace) -> None:
 
 # ── continuous mode ──────────────────────────────────────────────────────────
 
+
 def _find_next_day() -> date:
     """Auto-detect where to resume by checking the last day in 2-processed/.
 
@@ -427,8 +452,7 @@ def _find_next_day() -> date:
     return latest + timedelta(days=1)
 
 
-def _run_day(day_str: str, args: argparse.Namespace,
-             status_data: dict) -> tuple[bool, dict]:
+def _run_day(day_str: str, args: argparse.Namespace, status_data: dict) -> tuple[bool, dict]:
     """Run all 5 pipeline steps for a single day.
 
     Updates ``status_data["steps"]`` in-place so the dashboard sees
@@ -445,8 +469,7 @@ def _run_day(day_str: str, args: argparse.Namespace,
         _write_status(status_data)
 
         end_str = (date.fromisoformat(day_str) + timedelta(days=1)).isoformat()
-        cmd = build_command(step, args,
-                            start_override=day_str, end_override=end_str)
+        cmd = build_command(step, args, start_override=day_str, end_override=end_str)
         t0 = datetime.now(timezone.utc)
         result = subprocess.run(cmd, stdin=subprocess.DEVNULL)
         elapsed = (datetime.now(timezone.utc) - t0).total_seconds()
@@ -534,8 +557,9 @@ def continuous_run(args: argparse.Namespace) -> None:
                     if not remaining:
                         break
                     still_skipped = []
-                    print(f"  Retry pass {pass_num}/{MAX_SKIP_RETRY_PASSES} "
-                          f"({len(remaining)} day(s))")
+                    print(
+                        f"  Retry pass {pass_num}/{MAX_SKIP_RETRY_PASSES} ({len(remaining)} day(s))"
+                    )
 
                     for skip_day in remaining:
                         status_data["steps"] = _make_step_statuses()
@@ -589,7 +613,9 @@ def continuous_run(args: argparse.Namespace) -> None:
             # ── caught up — sleep until next day is eligible ──────────
             if current_day > target:
                 next_run = datetime(
-                    current_day.year, current_day.month, current_day.day,
+                    current_day.year,
+                    current_day.month,
+                    current_day.day,
                     tzinfo=timezone.utc,
                 ) + timedelta(hours=LAG_HOURS)
                 wait_sec = max(
@@ -603,8 +629,7 @@ def continuous_run(args: argparse.Namespace) -> None:
                 # show last-completed steps while sleeping
                 _write_status(status_data)
 
-                print(f"Caught up — waiting for {current_day} "
-                      f"(~{_format_elapsed(wait_sec)})")
+                print(f"Caught up — waiting for {current_day} (~{_format_elapsed(wait_sec)})")
 
                 # sleep in 60-s chunks so Ctrl+C is responsive
                 deadline = _time.monotonic() + wait_sec
@@ -630,8 +655,9 @@ def continuous_run(args: argparse.Namespace) -> None:
 
             if not success:
                 for attempt in range(1, MAX_RETRIES + 1):
-                    print(f"  Retry {attempt}/{MAX_RETRIES} for {day_str} "
-                          f"(waiting {RETRY_WAIT}s) ...")
+                    print(
+                        f"  Retry {attempt}/{MAX_RETRIES} for {day_str} (waiting {RETRY_WAIT}s) ..."
+                    )
                     _time.sleep(RETRY_WAIT)
                     status_data["steps"] = _make_step_statuses()
                     status_data["pipeline"]["status"] = "running"
@@ -651,6 +677,7 @@ def continuous_run(args: argparse.Namespace) -> None:
                 if days_completed % 10 == 0:
                     try:
                         from lib.monitoring import run_monitoring_checks
+
                         run_monitoring_checks(send_alert_fn=_send_alert)
                     except Exception as exc:
                         print(f"  WARNING: monitoring checks failed: {exc}")
@@ -658,8 +685,7 @@ def continuous_run(args: argparse.Namespace) -> None:
                 print()
             else:
                 # ── persistent failure — skip the day and continue ───
-                print(f"\n  SKIPPING {day_str} — failed after "
-                      f"{MAX_RETRIES} retries")
+                print(f"\n  SKIPPING {day_str} — failed after {MAX_RETRIES} retries")
 
                 days_skipped.append(day_str)
                 cont["days_skipped"] = days_skipped
@@ -677,6 +703,7 @@ def continuous_run(args: argparse.Namespace) -> None:
                 _send_alert(subject=alert_subject, body=alert_body)
                 try:
                     from lib.monitoring import send_webhook
+
                     send_webhook(alert_subject, alert_body)
                 except Exception:
                     pass
@@ -684,7 +711,7 @@ def continuous_run(args: argparse.Namespace) -> None:
             _write_status(status_data)
 
     except KeyboardInterrupt:
-        print(f"\nStopping continuous mode.")
+        print("\nStopping continuous mode.")
         print(f"  Days completed: {days_completed}")
         if days_skipped:
             print(f"  Days skipped:   {', '.join(days_skipped)}")
@@ -697,6 +724,7 @@ def continuous_run(args: argparse.Namespace) -> None:
 
 
 # ── gap-fill mode ────────────────────────────────────────────────────────────
+
 
 def gap_fill_run(args: argparse.Namespace) -> None:
     """Scan for per-station gaps in raw data and re-run the pipeline to fill them."""
@@ -759,8 +787,7 @@ def gap_fill_run(args: argparse.Namespace) -> None:
 
     for i, (day, missing) in enumerate(gaps, 1):
         day_str = day.isoformat()
-        print(f"[{i}/{len(gaps)}] Filling {day_str}  "
-              f"(missing: {', '.join(missing)})")
+        print(f"[{i}/{len(gaps)}] Filling {day_str}  (missing: {', '.join(missing)})")
 
         status_data["steps"] = _make_step_statuses()
         status_data["pipeline"]["status"] = "running"
@@ -770,8 +797,7 @@ def gap_fill_run(args: argparse.Namespace) -> None:
 
         if not success:
             for attempt in range(1, MAX_RETRIES + 1):
-                print(f"  Retry {attempt}/{MAX_RETRIES} for {day_str} "
-                      f"(waiting {RETRY_WAIT}s) ...")
+                print(f"  Retry {attempt}/{MAX_RETRIES} for {day_str} (waiting {RETRY_WAIT}s) ...")
                 _time.sleep(RETRY_WAIT)
                 status_data["steps"] = _make_step_statuses()
                 status_data["pipeline"]["status"] = "running"
@@ -796,8 +822,10 @@ def gap_fill_run(args: argparse.Namespace) -> None:
     status_data["pipeline"]["finished_at"] = _now()
     _write_status(status_data)
 
-    print(f"\nGap-fill complete: {days_filled} filled, {len(days_failed)} failed "
-          f"out of {len(gaps)} gap days.")
+    print(
+        f"\nGap-fill complete: {days_filled} filled, {len(days_failed)} failed "
+        f"out of {len(gaps)} gap days."
+    )
     if days_failed:
         print(f"  Failed days: {', '.join(days_failed)}")
         _send_alert(
@@ -812,16 +840,19 @@ def gap_fill_run(args: argparse.Namespace) -> None:
 
 # ── entry point ──────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     args = parse_args()
     if args.validate:
         from lib.monitoring import validate_environment
+
         ok = validate_environment()
         sys.exit(0 if ok else 1)
 
     # Fail fast on environment drift (e.g. numpy upgraded past numba's ceiling).
     # Catches import-level breakage before any expensive work begins.
     from lib.monitoring import check_critical_imports
+
     imports_ok, import_errors = check_critical_imports()
     if not imports_ok:
         print("ERROR: critical imports failed -- the conda env is broken.", file=sys.stderr)
