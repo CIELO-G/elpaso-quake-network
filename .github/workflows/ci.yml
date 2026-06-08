@@ -60,7 +60,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pyyaml obspy pandas numpy fastapi uvicorn httpx pytest pytest-cov
+          pip install pyyaml obspy pandas numpy pyproj fastapi uvicorn httpx pytest pytest-cov
 
       - name: Run tests
         run: |
