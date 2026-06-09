@@ -564,6 +564,21 @@ function formatTime(iso) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+// Format an ISO UTC timestamp in the browser's local timezone, including
+// the timezone abbreviation (e.g. "Oct 22, 2025, 12:43:14 PM MDT").
+// Each user sees their own local time — Marc in El Paso sees MDT, a
+// collaborator in California would see PDT, etc.
+function formatLocalTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'long' });
+  } catch (e) {
+    return '';
+  }
+}
+
 function fmtDur(sec) {
   if (sec == null) return '\u2014';
   sec = Math.round(sec);
@@ -815,7 +830,7 @@ function renderEvents(events) {
     if (!shouldRenderEventOnMap(e)) return;
     L.marker([e.latitude, e.longitude], { icon: _eventIcon(e) })
     .bindTooltip(
-      '<b>' + esc(e.event_id) + '</b><br>' + esc(e.time) + '<br>M ' + (e.magnitude != null ? e.magnitude.toFixed(1) : '?') + ' \u00b7 ' + (e.depth_km != null ? e.depth_km.toFixed(1) : '?') + ' km<br>' + (e.num_picks || 0) + ' picks',
+      '<b>' + esc(e.event_id) + '</b><br>' + esc(e.time) + '<br><span style="color:#94a3b8;font-size:.7rem">' + esc(formatLocalTime(e.time)) + '</span><br>M ' + (e.magnitude != null ? e.magnitude.toFixed(1) : '?') + ' \u00b7 ' + (e.depth_km != null ? e.depth_km.toFixed(1) : '?') + ' km<br>' + (e.num_picks || 0) + ' picks',
       { className: '' }
     )
     .on('click', function() { showEventDetail(e.event_id); })
@@ -838,7 +853,7 @@ function showEventDetail(eventId) {
       var ev = data.event;
       title.textContent = esc(ev.event_id);
       var html = '';
-      html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '<div class="local-time">' + esc(formatLocalTime(ev.time)) + '</div></span></div>';
       html += '<div class="detail-row"><span class="detail-label">Magnitude</span><span class="detail-value">' + (ev.magnitude != null ? ev.magnitude.toFixed(2) : '-') + '</span></div>';
       html += '<div class="detail-row"><span class="detail-label">Depth</span><span class="detail-value">' + (ev.depth_km != null ? ev.depth_km.toFixed(1) + ' km' : '-') + '</span></div>';
       html += '<div class="detail-row"><span class="detail-label">Location</span><span class="detail-value">' + (ev.latitude != null ? ev.latitude.toFixed(4) + ', ' + ev.longitude.toFixed(4) : '-') + '</span></div>';
@@ -1645,7 +1660,7 @@ function loadCatalogTable() {
           '<td>' + (e.review_status === 'confirmed' ? '<span style="color:var(--green);font-weight:700;font-size:.7rem">\u25cf Confirmed</span>' : e.review_status === 'rejected' ? '<span style="color:var(--red);font-weight:700;font-size:.7rem">\u25cf Rejected</span>' : '<span style="color:var(--amber);font-weight:700;font-size:.7rem">\u25cf Unreviewed</span>') + '</td>' +
           '<td>' + eventTypeBadge(e.event_type) + '</td>' +
           '<td>' + esc(e.event_id) + '</td>' +
-          '<td>' + esc(e.time || '') + '</td>' +
+          '<td>' + esc(e.time || '') + '<div class="local-time">' + esc(formatLocalTime(e.time)) + '</div></td>' +
           '<td class="' + magClass(e.magnitude) + '">' + (e.magnitude != null ? e.magnitude.toFixed(2) : '-') + '</td>' +
           '<td>' + esc(e.magnitude_type || '') + '</td>' +
           '<td>' + (e.depth_km != null ? e.depth_km.toFixed(1) : '-') + '</td>' +
@@ -1729,7 +1744,7 @@ showEventDetail = function(eventId) {
       }
       title.textContent = esc(ev.event_id);
       var html = '';
-      html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '<div class="local-time">' + esc(formatLocalTime(ev.time)) + '</div></span></div>';
       html += '<div class="detail-row"><span class="detail-label">Magnitude</span><span class="detail-value">' + (ev.magnitude != null ? ev.magnitude.toFixed(2) : '-') + (ev.magnitude_type ? ' (' + esc(ev.magnitude_type) + ')' : '') + '</span></div>';
       if (ev.ml_err != null) {
         html += '<div class="detail-row"><span class="detail-label">ML Error</span><span class="detail-value">\u00b1' + ev.ml_err.toFixed(3) + '</span></div>';

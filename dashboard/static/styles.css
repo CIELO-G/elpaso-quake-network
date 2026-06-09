@@ -491,7 +491,15 @@
   }
   .detail-row:last-child { border-bottom: none; }
   .detail-label { color: var(--muted); }
-  .detail-value { font-weight: 600; }
+  .detail-value { font-weight: 600; text-align: right; }
+  /* Local-time line — small + muted, sits under the UTC time */
+  .local-time {
+    color: var(--muted);
+    font-size: .65rem;
+    font-weight: 400;
+    margin-top: .1rem;
+    font-family: var(--font-sans);
+  }
   .detail-section {
     margin-top: .5rem;
     padding-top: .4rem;
