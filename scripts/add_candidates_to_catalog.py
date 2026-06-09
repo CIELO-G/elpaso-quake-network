@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -51,9 +50,7 @@ def next_event_id(catalog: pd.DataFrame, event_time: str, taken: set[str]) -> st
     day = event_time[:10].replace("-", "")
     stem = f"tm{day}"
     existing = {
-        e
-        for e in catalog["event_id"].dropna().astype(str).tolist()
-        if e.startswith(stem)
+        e for e in catalog["event_id"].dropna().astype(str).tolist() if e.startswith(stem)
     } | taken
     n = 0
     while f"{stem}-{n:04d}" in existing:
@@ -117,9 +114,7 @@ def main() -> int:
         # (defensive — shouldn't happen since these came from the
         # "NEW candidates" filter, but cheap to double-check)
         candidate_dt = pd.Timestamp(t).tz_localize(None)
-        catalog["_t_check"] = pd.to_datetime(
-            catalog["time"], errors="coerce"
-        ).dt.tz_localize(None)
+        catalog["_t_check"] = pd.to_datetime(catalog["time"], errors="coerce").dt.tz_localize(None)
         close = (catalog["_t_check"] - candidate_dt).abs().dt.total_seconds() <= 5
         catalog = catalog.drop(columns=["_t_check"])
         if close.any():
