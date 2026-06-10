@@ -6,6 +6,8 @@ Utilities that complement the 5-stage pipeline. Run from the project root with t
 |---|---|
 | `build_templates.py` | Build EQcorrscan template library from confirmed quarry blasts |
 | `run_template_match.py` | Matched-filter detection — scan continuous data for events resembling templates |
+| `filter_candidates.py` | Post-process raw detections → clean candidate event list (excluding known events) |
+| `add_candidates_to_catalog.py` | Promote candidates from filter step into the catalog as Unreviewed events |
 | `build_quarries_geojson.py` | Refresh the MSHA + OSM quarry overlay used by the dashboard |
 | `nlloc_build_grids.py` | (Re)build NLLoc velocity + travel-time grids — needed after touching `lib/location/nlloc_config.py` or `stations.json` |
 | `backup.py` | Snapshot the catalog, assignments, and downloads DB to a backup dir |
@@ -88,7 +90,81 @@ python scripts/run_template_match.py --start 2025-10-22 --end 2026-06-07 \
 
 `--fresh` wipes the previous `detections.csv` so you start clean.
 
-### 4. Interpreting results
+### 4. Filter raw detections into clean candidates
+
+`run_template_match.py` writes hundreds of thousands of raw detections at the
+permissive default threshold — that's intentional, so you don't miss anything
+during the matched-filter pass. Use `filter_candidates.py` to turn that noise
+into a reviewable list:
+
+```bash
+# Defaults: per-channel ≥0.5 AND (≥2 templates fired OR per-channel ≥0.65)
+python scripts/filter_candidates.py
+```
+
+Outputs:
+- `output/templates/new_candidates.csv` — clean list of candidate events
+- `output/templates/filter_summary.json` — provenance record (params + counts)
+
+Tune the strictness with flags:
+
+```bash
+# Only high-confidence (≥3 templates AND per-channel ≥0.7)
+python scripts/filter_candidates.py --min-per-chan 0.7 --min-templates 3
+
+# Looser (catch more, accept more noise)
+python scripts/filter_candidates.py --min-per-chan 0.4 --min-templates 1
+
+# Include candidates near already-confirmed events (validation mode)
+python scripts/filter_candidates.py --include-known
+```
+
+By default, candidates within 15s of a `review_status=confirmed` event in the
+catalog are excluded — this prevents the workflow from re-surfacing events
+you've already reviewed (use `--include-known` to disable this for sanity-check
+runs where you want to verify the matched filter finds events you already know
+about).
+
+### 5. Promote candidates to catalog for review
+
+```bash
+python scripts/add_candidates_to_catalog.py --dry-run   # preview
+python scripts/add_candidates_to_catalog.py             # actually write
+```
+
+Appends each candidate to the catalog with:
+- `event_id` = `tm<YYYYMMDD>-<NNNN>` (the `tm` prefix flags template-derived events)
+- `review_status` = empty → shows as **Unreviewed** in the dashboard catalog tab
+- `latitude`/`longitude`/`depth_km` seeded from the best-matching template
+- Everything else blank (you fill in during review)
+
+After this, the candidates appear in the dashboard catalog table. Click each
+→ Review → add picks → Relocate → Confirm or Reject as you would any other event.
+
+### Full reproducible workflow (start to finish)
+
+```bash
+# 1. Build templates from confirmed quarry blasts in current catalog
+python scripts/build_templates.py
+
+# 2. Scan continuous data with templates
+python scripts/run_template_match.py --start 2025-10-22 --end 2026-06-07 --fresh
+
+# 3. Filter raw detections into clean candidate list
+python scripts/filter_candidates.py
+
+# 4. Promote candidates to catalog as Unreviewed
+python scripts/add_candidates_to_catalog.py
+
+# 5. Review in the dashboard
+python -m dashboard
+```
+
+Re-running steps 1-4 later will pick up new events as the catalog grows (more
+templates = more sensitive matching), and the catalog-aware exclusion in step 3
+means already-reviewed events won't reappear as candidates.
+
+### Interpreting results
 
 A single real event will typically:
 - Be detected by **multiple templates simultaneously** (within ±5 s)
