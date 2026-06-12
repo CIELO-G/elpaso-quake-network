@@ -103,6 +103,21 @@ def read_assignments() -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def _as_int(v) -> int | None:
+    """Safely coerce '1', '1.0', 1, 1.0 → 1; '' or None → None.
+
+    Pandas can promote int columns to float when any NaN appears in the
+    column during a concat/round-trip; values then end up as '1.0' strings
+    in the CSV. int('1.0') raises ValueError, so go through float() first.
+    """
+    if v is None or v == "":
+        return None
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_catalog_row(r: dict) -> dict:
     """Coerce a raw catalog CSV row into typed JSON-ready dict."""
     return {
@@ -116,9 +131,9 @@ def parse_catalog_row(r: dict) -> dict:
         "depth_km": float(r["depth_km"]) if r.get("depth_km") else None,
         "sigma_time": float(r["sigma_time"]) if r.get("sigma_time") else None,
         "sigma_amp": float(r["sigma_amp"]) if r.get("sigma_amp") else None,
-        "num_picks": int(r["num_picks"]) if r.get("num_picks") else None,
-        "num_ml_sta": int(r["num_ml_sta"]) if r.get("num_ml_sta") else None,
-        "event_index": int(r["event_index"]) if r.get("event_index") else None,
+        "num_picks": _as_int(r.get("num_picks")),
+        "num_ml_sta": _as_int(r.get("num_ml_sta")),
+        "event_index": _as_int(r.get("event_index")),
         "reviewed": r.get("reviewed", ""),
         "review_status": r.get("review_status", ""),
         "event_type": r.get("event_type", "undetermined"),
