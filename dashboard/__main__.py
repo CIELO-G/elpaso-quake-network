@@ -6,13 +6,22 @@ identically in the native window and a browser tab. ``--browser`` opens
 the same page in the user's default browser instead of pywebview.
 
 To expose the dashboard to other machines (e.g. over Tailscale), pass
-``--host 0.0.0.0``. Only do this when the network is trusted — there is
-no auth on write endpoints.
+``--host 0.0.0.0`` AND enable auth::
+
+    export DASHBOARD_AUTH_ENABLED=1
+    export DASHBOARD_PASSWORD='...'      # remote browsers prompt once
+    python -m dashboard --host 0.0.0.0
+
+The local pywebview window / loopback connections never need the password.
+Binding beyond localhost without auth requires an explicit
+``--allow-insecure`` (old behavior — every write endpoint open to the
+network).
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 import threading
 
 import uvicorn
@@ -34,7 +43,26 @@ def main() -> None:
         action="store_true",
         help="Open in the default browser instead of the native window.",
     )
+    p.add_argument(
+        "--allow-insecure",
+        action="store_true",
+        help="Allow binding beyond localhost WITHOUT auth (not recommended).",
+    )
     args = p.parse_args()
+
+    if args.host not in ("127.0.0.1", "localhost", "::1") and not args.allow_insecure:
+        from dashboard.middleware import AUTH_ENABLED, AUTH_PASSWORD
+
+        if not (AUTH_ENABLED and AUTH_PASSWORD):
+            sys.exit(
+                f"Refusing to bind to {args.host} without authentication: write "
+                "endpoints (pipeline control, event save, admin) would be open "
+                "to the network.\n"
+                "Either enable auth:\n"
+                "    export DASHBOARD_AUTH_ENABLED=1\n"
+                "    export DASHBOARD_PASSWORD='...'\n"
+                "or pass --allow-insecure to accept the risk."
+            )
 
     # The local URL we open in the browser/window. Always use 127.0.0.1
     # for the client side even when binding to 0.0.0.0 — the user's own

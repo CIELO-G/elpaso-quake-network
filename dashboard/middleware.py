@@ -1,13 +1,15 @@
 """HTTP middleware: HTTP Basic auth + in-memory per-IP rate limiting.
 
-Both are off-by-default (auth via ``DASHBOARD_AUTH_ENABLED`` env var, rate
-limiter is always on with a 60 req/min budget). Designed for a local /
-single-tenant deployment, not a hardened public service.
+Auth is off-by-default (``DASHBOARD_AUTH_ENABLED`` env var); the rate
+limiter is always on. Loopback clients (the local pywebview window) bypass
+auth entirely — the password only gates remote clients (LAN / Tailscale).
+Designed for a small trusted deployment, not a hardened public service.
 """
 
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import secrets
 import time
@@ -17,24 +19,72 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+logger = logging.getLogger("dashboard.auth")
+
 # ── Auth config (read once at import) ────────────────────────────
 AUTH_ENABLED = os.environ.get("DASHBOARD_AUTH_ENABLED", "").lower() in ("1", "true", "yes")
 AUTH_USERNAME = os.environ.get("DASHBOARD_USERNAME", "admin")
 AUTH_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
 
+# Client hosts treated as the local machine (pywebview window / same box).
+LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost")
+
+# Brute-force lockout: after MAX_AUTH_FAILURES failed attempts within
+# AUTH_FAIL_WINDOW seconds, an IP gets 429s until the window drains.
+MAX_AUTH_FAILURES = 5
+AUTH_FAIL_WINDOW = 900.0  # 15 minutes
+_auth_failures: dict[str, list[float]] = defaultdict(list)
+
+
+def is_loopback(request: Request) -> bool:
+    return request.client is not None and request.client.host in LOOPBACK_HOSTS
+
 
 class BasicAuthMiddleware(BaseHTTPMiddleware):
-    """HTTP Basic auth — skipped for /api/health and WebSocket upgrades."""
+    """HTTP Basic auth for non-loopback clients.
+
+    Skipped for: loopback clients (local window), /api/health (monitoring
+    probes), and WebSocket upgrades (status-only stream; auth handled at
+    the HTTP layer for everything that matters).
+
+    Refuses to start with auth enabled and an empty password — that
+    configuration would accept any login.
+    """
+
+    def __init__(self, app):
+        super().__init__(app)
+        if AUTH_ENABLED and not AUTH_PASSWORD:
+            raise RuntimeError(
+                "DASHBOARD_AUTH_ENABLED is set but DASHBOARD_PASSWORD is empty. "
+                "Set a password: export DASHBOARD_PASSWORD='...'"
+            )
 
     async def dispatch(self, request: Request, call_next):
         if not AUTH_ENABLED:
             return await call_next(request)
-        # Health endpoint must stay open for monitoring probes
-        if request.url.path in ("/api/health", "/api/v1/health"):
+        # Local window / same machine: no password.
+        if is_loopback(request):
             return await call_next(request)
         # WebSocket upgrades handle auth in the handler itself
         if request.headers.get("upgrade", "").lower() == "websocket":
             return await call_next(request)
+        # Health endpoint must stay open for monitoring probes
+        if request.url.path in ("/api/health", "/api/v1/health"):
+            return await call_next(request)
+
+        ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        recent = [t for t in _auth_failures.get(ip, ()) if t > now - AUTH_FAIL_WINDOW]
+        if recent:
+            _auth_failures[ip] = recent
+        else:
+            _auth_failures.pop(ip, None)  # keep the dict from accumulating stale IPs
+        if len(recent) >= MAX_AUTH_FAILURES:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many failed login attempts. Try again later."},
+            )
+
         auth = request.headers.get("authorization", "")
         if auth.startswith("Basic "):
             try:
@@ -43,9 +93,15 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
                 if secrets.compare_digest(user, AUTH_USERNAME) and secrets.compare_digest(
                     passwd, AUTH_PASSWORD
                 ):
+                    _auth_failures.pop(ip, None)
                     return await call_next(request)
             except Exception:
                 pass
+            # A malformed or wrong Authorization header is a failed attempt;
+            # a missing one is just the browser's first visit (no log spam).
+            _auth_failures[ip].append(now)
+            logger.warning("Failed dashboard login from %s (%d/%d in window)",
+                           ip, len(_auth_failures[ip]), MAX_AUTH_FAILURES)
         return JSONResponse(
             status_code=401,
             content={"detail": "Authentication required"},

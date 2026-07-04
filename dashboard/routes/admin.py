@@ -12,11 +12,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from dashboard.deps import LOGS_DIR, OUTPUT_DIR, ROOT
+from dashboard.middleware import is_loopback
 
 router = APIRouter()
+
+
+def _require_local(request: Request) -> None:
+    """Reject non-loopback callers.
+
+    open-folder and quit act on the *server's* desktop session (Finder,
+    the pywebview window) — they are meaningless and dangerous from a
+    remote client, auth or not.
+    """
+    if not is_loopback(request):
+        raise HTTPException(status_code=403, detail="Local-only endpoint")
 
 _BACKUP_SCRIPT = ROOT / "scripts" / "backup.py"
 _VALIDATE_SCRIPT = ROOT / "run_pipeline.py"
@@ -74,8 +86,11 @@ async def admin_validate():
 
 
 @router.post("/api/admin/open-folder")
-async def admin_open_folder(which: str = Query(..., pattern=r"^(logs|output|root|readme)$")):
+async def admin_open_folder(
+    request: Request, which: str = Query(..., pattern=r"^(logs|output|root|readme)$")
+):
     """Open one of a fixed set of project paths in the OS default app."""
+    _require_local(request)
     target = _OPENABLE.get(which)
     if target is None:
         raise HTTPException(status_code=400, detail=f"Unknown target: {which}")
@@ -94,8 +109,9 @@ async def admin_open_folder(which: str = Query(..., pattern=r"^(logs|output|root
 
 
 @router.post("/api/admin/quit")
-async def admin_quit():
+async def admin_quit(request: Request):
     """Terminate the dashboard process (also closes the pywebview window)."""
+    _require_local(request)
     import threading
 
     # Defer the exit slightly so this response can flush before the process dies.

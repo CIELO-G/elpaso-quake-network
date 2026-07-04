@@ -133,7 +133,9 @@ async def _broadcast_status() -> None:
     except (json.JSONDecodeError, OSError):
         return
     dead: set[WebSocket] = set()
-    for ws in _ws_clients:
+    # Iterate a snapshot: connect/disconnect handlers mutate _ws_clients
+    # between the awaits in this loop.
+    for ws in list(_ws_clients):
         try:
             await ws.send_json(data)
         except Exception:

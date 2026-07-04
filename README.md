@@ -453,6 +453,24 @@ python -m dashboard --port 9000
 
 The dashboard serves at `http://127.0.0.1:8000` by default.
 
+### Remote access (LAN / Tailscale)
+
+To reach the dashboard from other machines, bind beyond localhost and enable
+auth — binding to a non-loopback address without auth is refused unless you
+pass `--allow-insecure`:
+
+```bash
+export DASHBOARD_AUTH_ENABLED=1
+export DASHBOARD_USERNAME=marc          # default: admin
+export DASHBOARD_PASSWORD='...'
+python -m dashboard --host 0.0.0.0
+```
+
+Remote browsers get a login prompt once per session. Loopback connections
+(the native window, or a browser on the same machine) never need the
+password. Repeated failed logins from an IP are locked out for 15 minutes.
+`/api/admin/quit` and `/api/admin/open-folder` only work from the local
+machine regardless of auth — they act on the server's own desktop session.
 
 ### API endpoints
 
