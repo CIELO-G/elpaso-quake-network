@@ -176,8 +176,6 @@ def check_critical_imports() -> tuple[bool, list[str]]:
         ("scipy", "step 2, step 4"),
         ("yaml", "all steps (config)"),
         ("pyproj", "step 4 (projection)"),
-        ("torch", "step 3 (PhaseNet inference)"),
-        ("seisbench", "step 3 (PhaseNet model)"),
         ("gamma", "step 4 (GaMMA association)"),
         ("numba", "step 4 (gamma dependency — pinned numpy<2.4)"),
     ]

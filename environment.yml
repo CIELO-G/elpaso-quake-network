@@ -15,7 +15,6 @@ dependencies:
   - pip
   - pip:
       - torch==2.2.1
-      - seisbench==0.6.1
       - xdas>=0.2.0
       - gmma @ git+https://github.com/wayneweiqiang/GaMMA.git@c156136ed7afe3b585c2da2f6021268aca460808
       - fastapi==0.115.6
