@@ -62,7 +62,7 @@ conda env create -f environment.yml
 conda activate elpaso-quake
 ```
 
-Dependencies: `obspy`, `pyyaml`, `pytorch`, `pyproj` (conda-forge), `seisbench`, `xdas`, `GaMMA` (pip — GaMMA installed from [GitHub source](https://github.com/AI4EPS/GaMMA)), `fastapi`, `uvicorn`, `pywebview`.
+Dependencies: `obspy`, `pyyaml`, `pytorch`, `pyproj` (conda-forge), `xdas`, `GaMMA` (pip — GaMMA installed from [GitHub source](https://github.com/AI4EPS/GaMMA)), `fastapi`, `uvicorn`, `pywebview`. PhaseNet runs in a separate `phasenet` conda env (TensorFlow).
 
 ---
 
@@ -139,7 +139,7 @@ For each raw miniSEED file:
 Edit `2-processing/config.yaml`. Key settings:
 
 - **filter_freqmin / filter_freqmax** -- bandpass corner frequencies (default: 1.0-45.0 Hz)
-- **pre_filt** -- cosine taper corners for response removal (default: [0.5, 1.0, 45.0, 49.0])
+- **pre_filt** -- cosine taper corners for response removal (default: [0.5, 1.0, 40.0, 45.0])
 - **response_output** -- output units after response removal (default: VEL)
 
 ### Usage
@@ -161,21 +161,19 @@ Skip logic: if a processed file already exists under `output/2-processed/`, it i
 
 ## Step 3: Phase Detection & Picking
 
-Runs PhaseNet (via SeisBench) on processed waveforms to identify P- and S-wave arrivals, and measures peak velocity amplitude at each pick. Outputs one CSV per day containing picks from all stations.
+Runs the standalone TensorFlow-based PhaseNet (vendored in `3-detection/phasenet/`, executed in its own `phasenet` conda env) on raw waveforms to identify P- and S-wave arrivals, and measures peak velocity amplitude at each pick. Outputs one CSV per day containing picks from all stations.
 
 ### How It Works
 
-1. Loads PhaseNet model once (uses GPU if available, otherwise CPU)
-2. Iterates days (outer) x stations (inner)
-3. For each station-day, reads processed miniSEED into an ObsPy Stream
-4. Runs `model.classify()` to extract P and S picks above threshold
-5. Measures peak absolute velocity in a window around each pick
-6. Writes all picks for the day to a single CSV
+1. Iterates over days; for each day, stages that day's raw miniSEED (`output/1-raw/`) for all stations into a temp directory, along with a station file carrying instrument sensitivities
+2. Invokes the vendored `3-detection/phasenet/predict.py` as a subprocess (via `conda run -n phasenet`; TensorFlow, GPU if available)
+3. PhaseNet applies a highpass pre-filter (default 3 Hz), picks P and S arrivals above threshold, and measures peak amplitude (scaled to m/s via station sensitivity)
+4. Parses PhaseNet's output and writes all picks for the day to a single CSV
 
 ### Channel Logic
 
 - **RS3D**: uses all 3 geophone channels (EHZ/EHN/EHE)
-- **RS4D**: uses 3 accelerometer channels (ENZ/ENN/ENE, already velocity after processing); falls back to EHZ if accelerometer data unavailable
+- **RS4D**: uses the geophone channel only (EHZ, 1 component)
 - **Broadband**: uses all 3 seismometer channels (HHZ/HHN/HHE)
 
 If a 3C station only has partial channels available, detection proceeds with a warning.
@@ -186,8 +184,8 @@ One CSV per day at `output/3-picks/{year}/{jday}/{year}.{jday}.picks.csv`:
 
 ```csv
 network,station,location,channel,phase,time,probability,model,amplitude,amplitude_channel
-AM,R0F2D,00,EHZ,P,2026-01-29T03:14:22.450000Z,0.8700,PhaseNet:original,3.241000e-06,EHZ
-AM,R0F2D,00,EHZ,S,2026-01-29T03:14:24.120000Z,0.7200,PhaseNet:original,8.105000e-06,EHZ
+AM,R0F2D,00,EHZ,P,2026-01-29T03:14:22.450000Z,0.8700,PhaseNet:standalone,3.241000e-06,EHZ
+AM,R0F2D,00,EHZ,S,2026-01-29T03:14:24.120000Z,0.7200,PhaseNet:standalone,8.105000e-06,EHZ
 ```
 
 Columns:
@@ -195,7 +193,7 @@ Columns:
 - **phase** -- P or S
 - **time** -- pick time (ISO 8601 UTC)
 - **probability** -- PhaseNet confidence (0-1)
-- **model** -- model identifier (e.g. `PhaseNet:original`)
+- **model** -- model identifier (e.g. `PhaseNet:standalone`)
 - **amplitude** -- peak absolute velocity (m/s) in measurement window
 - **amplitude_channel** -- channel the amplitude was measured on
 
@@ -203,10 +201,11 @@ Columns:
 
 Edit `3-detection/config.yaml`. Key settings:
 
-- **phasenet_model** -- SeisBench pretrained weights (default: `original`)
-- **p_threshold / s_threshold** -- pick probability thresholds (default: 0.3)
-- **classify_overlap** -- sliding window overlap in samples (default: 1500, i.e. 50% of PhaseNet's 3001-sample window)
-- **amp_window_before / amp_window_after** -- amplitude measurement window in seconds (default: 0.5 / 2.0)
+- **phasenet_model_dir** -- path to the pretrained model checkpoint (default: `3-detection/model/190703-214543`)
+- **phasenet_python** -- conda env (or interpreter path) with TensorFlow for PhaseNet (default: `phasenet`, resolved via `conda run -n`)
+- **p_threshold / s_threshold** -- pick probability thresholds (default: 0.4)
+- **highpass_freq** -- highpass pre-filter applied before inference, in Hz (default: 3.0)
+- **min_peak_distance** -- minimum spacing between picks, in samples (default: 50 = 0.5 s at 100 Hz)
 
 ### Usage
 
@@ -364,7 +363,7 @@ Incremental logic: days already present in the catalog are skipped. Use `--rebui
 
 ## Pipeline Orchestrator
 
-`run_pipeline.py` runs all 5 steps as subprocesses and writes real-time status to `output/pipeline_status.json` for the dashboard. Supports two modes:
+`run_pipeline.py` runs all 5 steps as subprocesses and writes real-time status to `output/pipeline_status.json` for the dashboard. Supports three modes: single-run, continuous, and gap-fill.
 
 ### Single-run mode
 
@@ -386,26 +385,38 @@ python run_pipeline.py --start 2026-01-01 --end 2026-01-01 --debug
 
 ### Continuous mode
 
-Processes one day at a time starting from a given date, catches up to the present (with a 6-hour lag), then sleeps until new data becomes eligible. Runs indefinitely until stopped with Ctrl+C.
+Processes one day at a time starting from a given date, catches up to the present (with a 30-hour lag: 24 h for the calendar day to complete plus 6 h data latency), then sleeps until new data becomes eligible. Runs indefinitely until stopped with Ctrl+C.
 
 ```bash
 # Start from Nov 1 2025 and run continuously
 python run_pipeline.py --continuous --start 2025-11-01
 
-# Auto-resume from where it left off (checks output/4-events/ for the last completed day)
+# Auto-resume from where it left off (checks output/2-processed/ for the last completed day)
 python run_pipeline.py --continuous
 ```
 
 Continuous mode features:
-- **Auto-resume**: if `--start` is omitted, detects the last completed day from `output/4-events/` and resumes from the next day
-- **Retry logic**: failed days are retried up to 5 times (with 120s between retries); if all retries fail the pipeline **stops** instead of skipping the day
-- **Email alerts**: when the pipeline stops due to persistent failures, an email is sent (see Email Alerts below)
+- **Auto-resume**: if `--start` is omitted, detects the last completed day from `output/2-processed/` and resumes from the next day (processed output is used rather than events because spillover directories from traces crossing midnight appear in raw/picks/events but never in processed)
+- **Retry logic**: failed days are retried up to 5 times (with 120s between retries); if all retries fail the day is **skipped** and the pipeline continues with the next day
+- **Email alerts**: when a day is skipped after persistent failures, an email is sent (see Email Alerts below)
 - **Timing tracking**: records per-step and per-day timing for the last 100 days (used by the dashboard for throughput/ETA display)
 - **Graceful shutdown**: Ctrl+C stops after the current step finishes and writes a `stopped` status
 
+### Gap-fill mode
+
+Scans the raw data for per-station days with missing data and re-runs the pipeline to fill them.
+
+```bash
+# Scan the full pipeline history and fill any gaps
+python run_pipeline.py --gap-fill
+
+# Restrict the scan to a date range
+python run_pipeline.py --gap-fill --start 2026-01-01 --end 2026-01-31
+```
+
 ### Email alerts
 
-When a day fails after all 5 retries, the pipeline shuts down and sends an email notification. Configure via environment variables:
+When a day fails after all 5 retries, the pipeline skips that day, sends an email notification, and continues with the next day. Configure via environment variables:
 
 ```bash
 export ALERT_EMAIL_TO="you@example.com"        # recipient (required)
@@ -415,7 +426,7 @@ export ALERT_SMTP_PORT="465"                     # SMTP port (default)
 export ALERT_SMTP_PASSWORD="your-app-password"   # Gmail app password or SMTP password
 ```
 
-For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833) (not your regular password). If `ALERT_EMAIL_TO` is not set, the alert is silently skipped and the pipeline still stops.
+For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833) (not your regular password). If `ALERT_EMAIL_TO` is not set, the alert is silently skipped and the day is still skipped.
 
 ### Status file
 
@@ -475,4 +486,4 @@ The dashboard uses only FastAPI, uvicorn, and pywebview (all in `environment.yml
 - **Error isolation**: one bad station or day never crashes the run; errors are logged and skipped
 - **Centralized output**: all runtime data goes under `output/` for easy backup to external storage
 - **Built once, reused**: PhaseNet weights (Step 3) and station DataFrame + GaMMA config (Step 4) are built a single time and reused across all days
-- **Lazy imports**: heavy dependencies (torch, seisbench, pandas, pyproj, gamma) are imported inside functions so `--help` stays fast without them installed
+- **Lazy imports**: heavy dependencies (torch, pandas, pyproj, gamma) are imported inside functions so `--help` stays fast without them installed

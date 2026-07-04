@@ -28,14 +28,17 @@ mkdir -p "$DST"
 echo "=== Archiving elpaso-quake-network to $DST ==="
 echo ""
 
-# 1. Output data (the big one: ~250 GB)
-echo "--- output/ (raw + processed + picks + events + catalog) ---"
+# 1. Output data (the big one: ~485 GB as of Jul 2026, and growing)
+echo "--- output/ (raw ~140G + processed ~340G + picks + events + catalog + nlloc + metadata + caches) ---"
 rsync -avh --progress $EXTRA_FLAGS "$SRC/output/" "$DST/output/"
 
-# 2. Station definitions
+# 2. Station definitions and response metadata
 echo ""
 echo "--- stations.json ---"
 rsync -avh --progress $EXTRA_FLAGS "$SRC/stations.json" "$DST/"
+echo ""
+echo "--- stations/ (StationXML response files) ---"
+rsync -avh --progress $EXTRA_FLAGS "$SRC/stations/" "$DST/stations/"
 
 # 3. Config files (all step configs)
 echo ""
