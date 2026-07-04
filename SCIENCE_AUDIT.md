@@ -689,3 +689,27 @@ Minor: Only affects traces with data gaps. For continuous Raspberry Shake data, 
 14. Issue 8: Horizontal component amplitudes
 15. Issue 20: Merge fill_value interpolation
 16. Issue 19: Add amplitude_units column
+
+---
+
+## Addendum (2026-07-04): Status of Issues 10 & 11 — deliberate operator retuning
+
+Both critical association issues were fixed as recommended in commit d04f58b
+(2026-02-11) and later **deliberately retuned to different values** based on
+operational experience with the real event population (overwhelmingly shallow
+quarry blasts, not deep tectonic seismicity):
+
+- **Issue 10 (velocity)**: GaMMA `vel` set to P=5.0/S=2.89 km/s (commit
+  9243c09, 2026-03-19). Rationale: shallow-source ray paths sample slow Hueco
+  Bolson / Rio Grande Rift basin fill, so a lower path-average velocity fits
+  observed moveouts better than the basement-appropriate 6.0 km/s. The
+  homogeneous-GaMMA vs 6-layer-NLLoc physics mismatch is accepted because all
+  published events are manually relocated with NLLoc.
+- **Issue 11 (DBSCAN eps)**: set to 60 s (commit 1d69e7d, 2026-02-25).
+  Rationale: operator experience shows the larger eps yields more accurate and
+  complete associations on this sparse network. The merged-/duplicate-event
+  risk is mitigated at review time (dashboard duplicate warning on save,
+  `scripts/dedup_catalog.py` sweep).
+
+These are conscious trade-offs, not regressions. If the network ever targets
+deeper tectonic events or unreviewed automatic publication, revisit both.

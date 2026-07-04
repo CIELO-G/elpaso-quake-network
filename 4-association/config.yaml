@@ -38,6 +38,14 @@ degree2km: 111.19
 
 # -----------------------------------------------------------------------------
 # 1D velocity model (km/s)
+#
+# DELIBERATE TUNING (Mar 2026, commit 9243c09) — differs from SCIENCE_AUDIT
+# Issue 10's recommendation (6.0/3.47). Our sources are shallow quarry blasts
+# whose rays travel mostly through slow Hueco Bolson / Rio Grande Rift basin
+# fill, so a lower path-average velocity associates better than a basement
+# value. Note GaMMA remains homogeneous while NLLoc relocation uses the
+# 6-layer West Texas model (lib/location/velocity_model.py); this mismatch is
+# accepted because every published event is manually relocated with NLLoc.
 # -----------------------------------------------------------------------------
 vel:
   P: 5.0
@@ -50,6 +58,12 @@ method: "BGMM"
 
 # -----------------------------------------------------------------------------
 # DBSCAN pre-clustering
+#
+# DELIBERATE TUNING (Feb 2026, commit 1d69e7d) — differs from SCIENCE_AUDIT
+# Issue 11's recommendation (25 s). Operator experience on this sparse network
+# is that the larger eps yields more accurate/complete associations; the
+# merged-event risk it carries is handled during manual review (a duplicate
+# guard exists in the dashboard save path and scripts/dedup_catalog.py).
 # -----------------------------------------------------------------------------
 use_dbscan: true
 dbscan_eps: 60            # seconds (max travel time + max P-S + margin)
