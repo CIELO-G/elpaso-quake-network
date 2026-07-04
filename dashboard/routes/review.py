@@ -35,6 +35,44 @@ router = APIRouter()
 # needs to become an fcntl.flock on a sentinel file.
 _catalog_write_lock = asyncio.Lock()
 
+# Near-duplicate detection thresholds for the save-time warning (matches
+# scripts/dedup_catalog.py defaults).
+_DUP_DT_S = 2.0
+_DUP_DIST_KM = 5.0
+
+
+def _near_duplicates(catalog_rows: list[dict], event_id: str, time_iso: str,
+                     lat: float, lon: float) -> list[str]:
+    """Event IDs of OTHER catalog events within the duplicate thresholds."""
+    def _parse(iso: str) -> datetime:
+        # Catalog times mix 'Z'-suffixed and naive UTC strings.
+        t = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        return t.replace(tzinfo=timezone.utc) if t.tzinfo is None else t
+
+    try:
+        t0 = _parse(time_iso)
+    except (ValueError, AttributeError):
+        return []
+    dupes = []
+    for row in catalog_rows:
+        if row.get("event_id") == event_id:
+            continue
+        try:
+            t1 = _parse(row["time"])
+            if abs((t1 - t0).total_seconds()) > _DUP_DT_S:
+                continue
+            row_lat = float(row["latitude"])
+            dlat = (row_lat - lat) * 111.19
+            # Midpoint latitude — matches scripts/dedup_catalog.py exactly
+            dlon = (float(row["longitude"]) - lon) * 111.19 * math.cos(
+                math.radians((row_lat + lat) / 2)
+            )
+            if math.hypot(dlat, dlon) <= _DUP_DIST_KM:
+                dupes.append(row["event_id"])
+        except (ValueError, KeyError, TypeError):
+            continue
+    return dupes
+
 # Fallback columns when the catalog is being created from empty for the
 # first time (otherwise we inherit the columns from existing rows).
 _FALLBACK_CATALOG_COLUMNS = [
@@ -304,10 +342,25 @@ async def event_save(event_id: str, request: Request):
 
         clear_caches()
 
+    duplicates = _near_duplicates(
+        catalog_rows,
+        event_id,
+        location.get("time", ""),
+        float(location["latitude"]),
+        float(location["longitude"]),
+    )
+    result: dict = {"saved": True}
+    if duplicates:
+        result["duplicate_warning"] = (
+            f"Possible duplicate(s) within {_DUP_DT_S:g}s / {_DUP_DIST_KM:g}km: "
+            + ", ".join(duplicates)
+            + " — consider scripts/dedup_catalog.py"
+        )
     for row in catalog_rows:
         if row.get("event_id") == event_id:
-            return {"event": parse_catalog_row(row), "saved": True}
-    return {"saved": True}
+            result["event"] = parse_catalog_row(row)
+            break
+    return result
 
 
 # ── Quick status-only update (no relocation) ─────────────────────

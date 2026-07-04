@@ -3385,11 +3385,14 @@ document.getElementById('rv-save').addEventListener('click', function() {
     if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Save failed'); });
     return r.json();
   })
-  .then(function() {
+  .then(function(data) {
     reviewState.picksModified = false;
     document.getElementById('rv-unsaved-dot').classList.remove('active');
     btn.textContent = 'Saved!';
     setTimeout(function() { btn.textContent = 'Save'; }, 2000);
+    if (data && data.duplicate_warning) {
+      alert('Saved, but: ' + data.duplicate_warning);
+    }
     // Refresh dashboard data
     pollData();
     pollSlow();
