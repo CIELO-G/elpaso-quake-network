@@ -16,6 +16,7 @@ Usage (run from project root):
 
 import argparse
 import datetime
+import math
 import sys
 from pathlib import Path
 
@@ -61,6 +62,167 @@ def _jday_to_date(year, jday):
 def make_event_id(year, jday, event_index):
     """Build a globally unique event ID: ep{YYYYMMDD}-{NNNN}."""
     return f"ep{_jday_to_date(year, jday)}-{int(event_index):04d}"
+
+
+# ── Duplicate-identity thresholds ─────────────────────────────────────
+# Two catalog rows within BOTH thresholds are treated as the same physical
+# event. Keep in sync with scripts/dedup_catalog.py and the dashboard's
+# save-time guard (dashboard/routes/review.py).
+DUP_DT_S = 2.0
+DUP_DIST_KM = 5.0
+_DEG2KM = 111.19
+
+
+def _parse_utc(iso):
+    """ISO string → aware UTC datetime (tolerates 'Z'-suffixed and naive)."""
+    t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=datetime.timezone.utc)
+    return t
+
+
+def _same_event(time_a, lat_a, lon_a, time_b, lat_b, lon_b):
+    """Content-identity test: origins within DUP_DT_S and DUP_DIST_KM."""
+    try:
+        dt = abs((_parse_utc(time_a) - _parse_utc(time_b)).total_seconds())
+        lat_a, lon_a, lat_b, lon_b = (float(lat_a), float(lon_a),
+                                      float(lat_b), float(lon_b))
+    except (ValueError, TypeError):
+        return False
+    if dt > DUP_DT_S:
+        return False
+    dlat = (lat_b - lat_a) * _DEG2KM
+    dlon = (lon_b - lon_a) * _DEG2KM * math.cos(math.radians((lat_a + lat_b) / 2))
+    return math.hypot(dlat, dlon) <= DUP_DIST_KM
+
+
+def restore_reviewed_events(catalog, assignments, preserved_events,
+                            preserved_assignments, logger):
+    """Overlay snapshot-preserved reviewed events onto a rebuilt catalog.
+
+    Event IDs are positional (GaMMA's per-day event_index), so
+    re-associating a day can renumber its events. Matching the snapshot
+    back purely by event_id has two failure modes this function guards
+    against:
+
+    * the reviewed event came back under a NEW id — the id-keyed orphan
+      restore used to append the old row NEXT TO its fresh twin, producing
+      duplicate catalog rows (bug fixed 2026-07-05; 7 pairs cleaned);
+    * the old id was REUSED by a different event — a blind in-place
+      overwrite would silently replace that new event with stale data.
+
+    Identity is therefore verified by content (±DUP_DT_S s / DUP_DIST_KM
+    km) before either restore path, and an unreviewed fresh twin of a
+    reclaimed reviewed row is dropped rather than duplicated.
+    """
+    if not preserved_events:
+        return catalog, assignments
+
+    for col in ("reviewed", "review_status", "event_type"):
+        if col not in catalog.columns:
+            catalog[col] = ""
+
+    restored_present = 0
+    reclaimed = 0
+    restored_orphan = 0
+    twin_ids: set = set()
+    append_rows = []
+
+    for eid, row_data in preserved_events.items():
+        mask = catalog["event_id"].astype(str) == eid
+        if mask.any():
+            current = catalog[mask].iloc[0]
+            if _same_event(row_data.get("time"), row_data.get("latitude"),
+                           row_data.get("longitude"), current.get("time"),
+                           current.get("latitude"), current.get("longitude")):
+                for col, val in row_data.items():
+                    if col in catalog.columns:
+                        catalog.loc[mask, col] = val
+                restored_present += 1
+                continue
+            logger.warning(
+                "Event id %s now belongs to a different event after "
+                "re-association (preserved t=%s vs new t=%s) — keeping the "
+                "new event, restoring the reviewed row alongside it",
+                eid, row_data.get("time"), current.get("time"),
+            )
+        # Orphan path: the reviewed row has no (content-matching) id in the
+        # new generation. If its fresh twin exists under a new id, drop the
+        # twin — the reviewed row IS that event.
+        twin = None
+        for _, cand in catalog.iterrows():  # O(n·m); fine at catalog scale
+            cid = str(cand.get("event_id"))
+            if cid == eid or cid in twin_ids:
+                continue
+            if str(cand.get("review_status") or "").strip():
+                continue  # never silently drop another reviewed row
+            if _same_event(row_data.get("time"), row_data.get("latitude"),
+                           row_data.get("longitude"), cand.get("time"),
+                           cand.get("latitude"), cand.get("longitude")):
+                twin = cid
+                break
+        if twin is not None:
+            twin_ids.add(twin)
+            reclaimed += 1
+            logger.info("Reviewed event %s reclaimed its re-associated twin %s",
+                        eid, twin)
+        else:
+            restored_orphan += 1
+        append_rows.append({col: row_data.get(col, "") for col in catalog.columns})
+
+    if twin_ids:
+        catalog = catalog[~catalog["event_id"].astype(str).isin(twin_ids)]
+        catalog = catalog.reset_index(drop=True)
+        if not assignments.empty:
+            assignments = assignments[
+                ~assignments["event_id"].astype(str).isin(twin_ids)
+            ].reset_index(drop=True)
+    if append_rows:
+        catalog = pd.concat([catalog, pd.DataFrame(append_rows)], ignore_index=True)
+
+    # Replace assignments for preserved events with the snapshot's picks.
+    if preserved_assignments:
+        if not assignments.empty:
+            keep_mask = ~assignments["event_id"].astype(str).isin(preserved_assignments.keys())
+            assignments = assignments[keep_mask].reset_index(drop=True)
+        rebuilt_rows = [r for rows in preserved_assignments.values() for r in rows]
+        if rebuilt_rows:
+            preserved_df = pd.DataFrame(rebuilt_rows)
+            assignments = (
+                pd.concat([assignments, preserved_df], ignore_index=True)
+                if not assignments.empty
+                else preserved_df
+            )
+
+    logger.info(
+        "Restored %d reviewed row(s) in-place, %d reclaimed a re-associated "
+        "twin, %d orphan(s)",
+        restored_present, reclaimed, restored_orphan,
+    )
+    return catalog, assignments
+
+
+def warn_near_duplicates(catalog, logger):
+    """Post-merge safety net: warn on near-duplicate pairs in the catalog."""
+    try:
+        rows = catalog[["event_id", "time", "latitude", "longitude"]].to_dict("records")
+        rows.sort(key=lambda r: _parse_utc(r["time"]))
+    except (ValueError, TypeError, KeyError):
+        return 0
+    found = 0
+    for i, a in enumerate(rows):
+        for b in rows[i + 1:]:
+            if (_parse_utc(b["time"]) - _parse_utc(a["time"])).total_seconds() > DUP_DT_S:
+                break
+            if _same_event(a["time"], a["latitude"], a["longitude"],
+                           b["time"], b["latitude"], b["longitude"]):
+                logger.warning(
+                    "Near-duplicate events in catalog: %s and %s — "
+                    "run scripts/dedup_catalog.py",
+                    a["event_id"], b["event_id"],
+                )
+                found += 1
+    return found
 
 
 def day_key(year, jday):
@@ -344,61 +506,22 @@ def main():
         assignments = existing_assignments
 
     # ── Restore reviewed-event rows from snapshot ────────────────────
-    # For each reviewed event_id captured before rebuild: if it still
-    # appears in the rebuilt catalog, overwrite that row entirely (so the
-    # user's manual relocation, edited picks, and review metadata win over
-    # whatever step 4's GaMMA re-generated). If the event_id no longer
-    # appears (e.g. step 4 produced a different number of events on that
-    # day), keep the reviewed row anyway as an "orphan" so the user's
-    # annotation isn't lost.
-    if preserved_events:
-        for col in ("reviewed", "review_status", "event_type"):
-            if col not in catalog.columns:
-                catalog[col] = ""
-
-        catalog_eids = set(catalog["event_id"].astype(str))
-        restored_present = 0
-        restored_orphan = 0
-        for eid, row_data in preserved_events.items():
-            if eid in catalog_eids:
-                mask = catalog["event_id"].astype(str) == eid
-                for col, val in row_data.items():
-                    if col in catalog.columns:
-                        catalog.loc[mask, col] = val
-                restored_present += 1
-            else:
-                # Reviewed event missing from new generation — append it.
-                new_row = {col: row_data.get(col, "") for col in catalog.columns}
-                catalog = pd.concat(
-                    [catalog, pd.DataFrame([new_row])],
-                    ignore_index=True,
-                )
-                restored_orphan += 1
-
-        # Replace assignments for preserved events.
-        if preserved_assignments:
-            if not assignments.empty:
-                keep_mask = ~assignments["event_id"].astype(str).isin(preserved_assignments.keys())
-                assignments = assignments[keep_mask].reset_index(drop=True)
-            rebuilt_rows = [r for rows in preserved_assignments.values() for r in rows]
-            if rebuilt_rows:
-                preserved_df = pd.DataFrame(rebuilt_rows)
-                assignments = (
-                    pd.concat([assignments, preserved_df], ignore_index=True)
-                    if not assignments.empty
-                    else preserved_df
-                )
-
-        logger.info(
-            "Restored %d reviewed row(s) in-place + %d orphan reviewed row(s)",
-            restored_present,
-            restored_orphan,
-        )
+    # Content-aware overlay: preserves manual review work across rebuilds
+    # without duplicating events whose GaMMA index changed on
+    # re-association. See restore_reviewed_events() for the failure modes
+    # this guards against.
+    catalog, assignments = restore_reviewed_events(
+        catalog, assignments, preserved_events, preserved_assignments, logger
+    )
 
     # Sort chronologically
     catalog = catalog.sort_values("time").reset_index(drop=True)
     if not assignments.empty:
         assignments = assignments.sort_values("time").reset_index(drop=True)
+
+    # Safety net: this class of bug (same physical event under two ids)
+    # must never accumulate silently again.
+    warn_near_duplicates(catalog, logger)
 
     # ── Write (atomic: temp + fsync + replace) ───────────────────────
     # catalog.csv is the only file containing reviewed-event state. A bare
