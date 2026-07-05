@@ -16,7 +16,6 @@ Usage (run from project root):
 
 import argparse
 import datetime
-import math
 import sys
 from pathlib import Path
 
@@ -64,13 +63,18 @@ def make_event_id(year, jday, event_index):
     return f"ep{_jday_to_date(year, jday)}-{int(event_index):04d}"
 
 
-# ── Duplicate-identity thresholds ─────────────────────────────────────
-# Two catalog rows within BOTH thresholds are treated as the same physical
-# event. Keep in sync with scripts/dedup_catalog.py and the dashboard's
-# save-time guard (dashboard/routes/review.py).
-DUP_DT_S = 2.0
-DUP_DIST_KM = 5.0
-_DEG2KM = 111.19
+# ── Event-identity threshold (time-only) ──────────────────────────────
+# Two catalog rows with origin times within RECLAIM_DT_S are treated as the
+# same physical event. Deliberately NO distance test: manual/NLLoc review
+# moves epicenters 5-53 km (median ~15 km, measured 2026-07-05) from the
+# GaMMA initial locations, so any spatial threshold either misses reviewed
+# events' raw twins or is so wide it's meaningless. Time alone is safe here
+# because association clusters picks with dbscan_eps=60 s — a single run
+# cannot emit two separate events this close together, and origin-time
+# shifts from relocation stay under ~5 s.
+# (scripts/dedup_catalog.py and the dashboard save guard keep a stricter
+# ±2 s + 5 km test — they compare like-for-like solutions.)
+RECLAIM_DT_S = 10.0
 
 
 def _parse_utc(iso):
@@ -81,19 +85,13 @@ def _parse_utc(iso):
     return t
 
 
-def _same_event(time_a, lat_a, lon_a, time_b, lat_b, lon_b):
-    """Content-identity test: origins within DUP_DT_S and DUP_DIST_KM."""
+def _same_origin(time_a, time_b):
+    """Identity test: origin times within RECLAIM_DT_S seconds."""
     try:
         dt = abs((_parse_utc(time_a) - _parse_utc(time_b)).total_seconds())
-        lat_a, lon_a, lat_b, lon_b = (float(lat_a), float(lon_a),
-                                      float(lat_b), float(lon_b))
     except (ValueError, TypeError):
         return False
-    if dt > DUP_DT_S:
-        return False
-    dlat = (lat_b - lat_a) * _DEG2KM
-    dlon = (lon_b - lon_a) * _DEG2KM * math.cos(math.radians((lat_a + lat_b) / 2))
-    return math.hypot(dlat, dlon) <= DUP_DIST_KM
+    return dt <= RECLAIM_DT_S
 
 
 def restore_reviewed_events(catalog, assignments, preserved_events,
@@ -111,9 +109,15 @@ def restore_reviewed_events(catalog, assignments, preserved_events,
     * the old id was REUSED by a different event — a blind in-place
       overwrite would silently replace that new event with stale data.
 
-    Identity is therefore verified by content (±DUP_DT_S s / DUP_DIST_KM
-    km) before either restore path, and an unreviewed fresh twin of a
+    Identity is therefore verified by origin time (±RECLAIM_DT_S s,
+    time-only — see the constant's comment for why no distance test)
+    before either restore path, and an unreviewed fresh twin of a
     reclaimed reviewed row is dropped rather than duplicated.
+
+    Restored rows never collide with fresh ids: a reviewed event whose old
+    id was taken over keeps its twin's id (its identity in the current
+    generation), or — with no twin — gets the day's next free suffix. Its
+    picks are re-keyed to match.
     """
     if not preserved_events:
         return catalog, assignments
@@ -125,25 +129,37 @@ def restore_reviewed_events(catalog, assignments, preserved_events,
     restored_present = 0
     reclaimed = 0
     restored_orphan = 0
-    twin_ids: set = set()
+    drop_row_ids: set = set()      # fresh catalog rows to remove (reclaimed twins)
+    drop_assign_ids: set = set()   # fresh assignment rows to replace with snapshot picks
+    used_ids: set = set(catalog["event_id"].astype(str))
     append_rows = []
+    append_picks = []
+
+    def _next_free_id(old_id):
+        """Next unused NNNN suffix for old_id's day prefix (epYYYYMMDD-)."""
+        prefix = old_id.rsplit("-", 1)[0]
+        taken = [int(u.rsplit("-", 1)[1]) for u in used_ids
+                 if u.startswith(prefix + "-") and u.rsplit("-", 1)[1].isdigit()]
+        return f"{prefix}-{(max(taken) + 1 if taken else 0):04d}"
 
     for eid, row_data in preserved_events.items():
+        id_taken = False
         mask = catalog["event_id"].astype(str) == eid
         if mask.any():
             current = catalog[mask].iloc[0]
-            if _same_event(row_data.get("time"), row_data.get("latitude"),
-                           row_data.get("longitude"), current.get("time"),
-                           current.get("latitude"), current.get("longitude")):
+            if _same_origin(row_data.get("time"), current.get("time")):
                 for col, val in row_data.items():
                     if col in catalog.columns:
                         catalog.loc[mask, col] = val
                 restored_present += 1
+                drop_assign_ids.add(eid)
+                append_picks.extend(preserved_assignments.get(eid, []))
                 continue
+            id_taken = True
             logger.warning(
                 "Event id %s now belongs to a different event after "
                 "re-association (preserved t=%s vs new t=%s) — keeping the "
-                "new event, restoring the reviewed row alongside it",
+                "new event, restoring the reviewed row under a new id",
                 eid, row_data.get("time"), current.get("time"),
             )
         # Orphan path: the reviewed row has no (content-matching) id in the
@@ -152,47 +168,54 @@ def restore_reviewed_events(catalog, assignments, preserved_events,
         twin = None
         for _, cand in catalog.iterrows():  # O(n·m); fine at catalog scale
             cid = str(cand.get("event_id"))
-            if cid == eid or cid in twin_ids:
+            if cid == eid or cid in drop_row_ids:
                 continue
             if str(cand.get("review_status") or "").strip():
                 continue  # never silently drop another reviewed row
-            if _same_event(row_data.get("time"), row_data.get("latitude"),
-                           row_data.get("longitude"), cand.get("time"),
-                           cand.get("latitude"), cand.get("longitude")):
+            if _same_origin(row_data.get("time"), cand.get("time")):
                 twin = cid
                 break
         if twin is not None:
-            twin_ids.add(twin)
+            drop_row_ids.add(twin)
+            drop_assign_ids.add(twin)
             reclaimed += 1
+            # If the old id now belongs to a different event, the reviewed
+            # row adopts its twin's id — its identity in the current
+            # generation, stable across future rebuilds.
+            out_id = twin if id_taken else eid
             logger.info("Reviewed event %s reclaimed its re-associated twin %s",
                         eid, twin)
         else:
             restored_orphan += 1
-        append_rows.append({col: row_data.get(col, "") for col in catalog.columns})
+            out_id = _next_free_id(eid) if id_taken else eid
+        if out_id != eid:
+            logger.info("Reviewed event %s restored as %s", eid, out_id)
+        used_ids.add(out_id)
+        row = {col: row_data.get(col, "") for col in catalog.columns}
+        row["event_id"] = out_id
+        append_rows.append(row)
+        for pick in preserved_assignments.get(eid, []):
+            append_picks.append({**pick, "event_id": out_id})
 
-    if twin_ids:
-        catalog = catalog[~catalog["event_id"].astype(str).isin(twin_ids)]
+    if drop_row_ids:
+        catalog = catalog[~catalog["event_id"].astype(str).isin(drop_row_ids)]
         catalog = catalog.reset_index(drop=True)
-        if not assignments.empty:
-            assignments = assignments[
-                ~assignments["event_id"].astype(str).isin(twin_ids)
-            ].reset_index(drop=True)
     if append_rows:
         catalog = pd.concat([catalog, pd.DataFrame(append_rows)], ignore_index=True)
 
-    # Replace assignments for preserved events with the snapshot's picks.
-    if preserved_assignments:
-        if not assignments.empty:
-            keep_mask = ~assignments["event_id"].astype(str).isin(preserved_assignments.keys())
-            assignments = assignments[keep_mask].reset_index(drop=True)
-        rebuilt_rows = [r for rows in preserved_assignments.values() for r in rows]
-        if rebuilt_rows:
-            preserved_df = pd.DataFrame(rebuilt_rows)
-            assignments = (
-                pd.concat([assignments, preserved_df], ignore_index=True)
-                if not assignments.empty
-                else preserved_df
-            )
+    # Replace the affected events' fresh assignment rows with snapshot picks.
+    # Per-event (not blanket by snapshot key): a stolen id's fresh picks
+    # belong to the NEW event and must survive.
+    if not assignments.empty and drop_assign_ids:
+        keep_mask = ~assignments["event_id"].astype(str).isin(drop_assign_ids)
+        assignments = assignments[keep_mask].reset_index(drop=True)
+    if append_picks:
+        picks_df = pd.DataFrame(append_picks)
+        assignments = (
+            pd.concat([assignments, picks_df], ignore_index=True)
+            if not assignments.empty
+            else picks_df
+        )
 
     logger.info(
         "Restored %d reviewed row(s) in-place, %d reclaimed a re-associated "
@@ -205,23 +228,21 @@ def restore_reviewed_events(catalog, assignments, preserved_events,
 def warn_near_duplicates(catalog, logger):
     """Post-merge safety net: warn on near-duplicate pairs in the catalog."""
     try:
-        rows = catalog[["event_id", "time", "latitude", "longitude"]].to_dict("records")
+        rows = catalog[["event_id", "time"]].to_dict("records")
         rows.sort(key=lambda r: _parse_utc(r["time"]))
     except (ValueError, TypeError, KeyError):
         return 0
     found = 0
     for i, a in enumerate(rows):
         for b in rows[i + 1:]:
-            if (_parse_utc(b["time"]) - _parse_utc(a["time"])).total_seconds() > DUP_DT_S:
-                break
-            if _same_event(a["time"], a["latitude"], a["longitude"],
-                           b["time"], b["latitude"], b["longitude"]):
-                logger.warning(
-                    "Near-duplicate events in catalog: %s and %s — "
-                    "run scripts/dedup_catalog.py",
-                    a["event_id"], b["event_id"],
-                )
-                found += 1
+            if not _same_origin(a["time"], b["time"]):
+                break  # rows are time-sorted
+            logger.warning(
+                "Near-duplicate events in catalog: %s and %s (origins within "
+                "%gs) — run scripts/dedup_catalog.py",
+                a["event_id"], b["event_id"], RECLAIM_DT_S,
+            )
+            found += 1
     return found
 
 

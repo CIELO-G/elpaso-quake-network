@@ -47,7 +47,7 @@ import logging
 
 import pandas as pd
 
-from catalog import _same_event, restore_reviewed_events, warn_near_duplicates
+from catalog import _same_origin, restore_reviewed_events, warn_near_duplicates
 
 _log = logging.getLogger("test_catalog")
 
@@ -70,26 +70,22 @@ REVIEWED = {
 }
 
 
-class TestSameEvent:
+class TestSameOrigin:
     def test_identical(self):
-        assert _same_event("2026-01-21T00:13:39.5Z", 31.68, -106.41,
-                           "2026-01-21T00:13:39.5Z", 31.68, -106.41)
+        assert _same_origin("2026-01-21T00:13:39.5Z", "2026-01-21T00:13:39.5Z")
 
-    def test_close_in_time_and_space(self):
-        assert _same_event("2026-01-21T00:13:39.5Z", 31.68, -106.41,
-                           "2026-01-21T00:13:40.9Z", 31.69, -106.42)
+    def test_within_window(self):
+        # Relocation origin-time shifts up to ~5 s were observed; ±10 s covers.
+        assert _same_origin("2026-01-21T00:13:39.5Z", "2026-01-21T00:13:44.0Z")
 
-    def test_far_in_time(self):
-        assert not _same_event("2026-01-21T00:13:39.5Z", 31.68, -106.41,
-                               "2026-01-21T00:13:45.0Z", 31.68, -106.41)
-
-    def test_far_in_space(self):
-        assert not _same_event("2026-01-21T00:13:39.5Z", 31.68, -106.41,
-                               "2026-01-21T00:13:39.5Z", 31.90, -106.41)
+    def test_outside_window(self):
+        assert not _same_origin("2026-01-21T00:13:39.5Z", "2026-01-21T00:13:55.0Z")
 
     def test_naive_vs_z_suffix(self):
-        assert _same_event("2026-01-21T00:13:39.5", 31.68, -106.41,
-                           "2026-01-21T00:13:39.5Z", 31.68, -106.41)
+        assert _same_origin("2026-01-21T00:13:39.5", "2026-01-21T00:13:39.5Z")
+
+    def test_garbage_is_not_a_match(self):
+        assert not _same_origin("not-a-time", "2026-01-21T00:13:39.5Z")
 
 
 class TestRestoreReviewedEvents:
@@ -117,6 +113,18 @@ class TestRestoreReviewedEvents:
         assert list(out["event_id"]) == ["ep20260121-0008"]
         assert list(out_assigns["event_id"].unique()) == ["ep20260121-0008"]
 
+    def test_orphan_reclaims_far_relocated_twin(self):
+        # Review moved the epicenter tens of km from the GaMMA solution —
+        # identity must still hold on time alone (2026-07-05 fix; observed
+        # reviewed-vs-raw offsets were 5-53 km).
+        twin = {**REVIEWED, "event_id": "ep20260121-0002",
+                "time": "2026-01-21T00:13:43.1", "latitude": 31.9,
+                "longitude": -106.0, "reviewed": "", "review_status": "",
+                "event_type": ""}
+        out, _ = restore_reviewed_events(
+            _cat([twin]), pd.DataFrame(), {"ep20260121-0008": REVIEWED}, {}, _log)
+        assert list(out["event_id"]) == ["ep20260121-0008"]
+
     def test_orphan_without_twin_is_appended(self):
         other = {**REVIEWED, "event_id": "ep20260122-0000",
                  "time": "2026-01-22T10:00:00.000Z", "reviewed": "",
@@ -132,11 +140,42 @@ class TestRestoreReviewedEvents:
                      "review_status": "", "event_type": ""}
         out, _ = restore_reviewed_events(
             _cat([different]), pd.DataFrame(), {"ep20260121-0008": REVIEWED}, {}, _log)
-        # New event survives untouched; reviewed row restored alongside.
+        # New event survives untouched; reviewed row restored alongside
+        # under a fresh id — never a duplicate id.
         assert len(out) == 2
+        assert out["event_id"].nunique() == 2
         new_row = out[out["time"] == "2026-01-21T09:00:00.000Z"].iloc[0]
+        assert new_row["event_id"] == "ep20260121-0008"
         assert str(new_row["review_status"]).strip() == ""
-        assert (out["review_status"] == "confirmed").sum() == 1
+        restored = out[out["review_status"] == "confirmed"].iloc[0]
+        assert restored["event_id"].startswith("ep20260121-")
+
+    def test_stolen_id_with_twin_adopts_twin_id(self):
+        # The 2026-05-08 case: a NEW event took the reviewed row's old id,
+        # and the reviewed event exists in the fresh generation under a
+        # different id. The reviewed row must adopt the twin's id — no
+        # duplicate ids, twin's fresh picks replaced, new event's picks kept.
+        new_owner = {**REVIEWED, "event_id": "ep20260121-0008",
+                     "time": "2026-01-21T10:06:26.854", "reviewed": "",
+                     "review_status": "", "event_type": ""}
+        twin = {**REVIEWED, "event_id": "ep20260121-0002",
+                "time": "2026-01-21T00:13:39.692", "reviewed": "",
+                "review_status": "", "event_type": ""}
+        assigns = pd.DataFrame([
+            {"event_id": "ep20260121-0008", "station": "NEWOWNER"},
+            {"event_id": "ep20260121-0002", "station": "FRESHTWIN"},
+        ])
+        out, out_assigns = restore_reviewed_events(
+            _cat([new_owner, twin]), assigns, {"ep20260121-0008": REVIEWED},
+            {"ep20260121-0008": [{"event_id": "ep20260121-0008", "station": "REVIEWEDPICK"}]},
+            _log)
+        assert out["event_id"].nunique() == len(out) == 2
+        restored = out[out["review_status"] == "confirmed"].iloc[0]
+        assert restored["event_id"] == "ep20260121-0002"  # adopted twin's id
+        by_station = dict(zip(out_assigns["station"], out_assigns["event_id"]))
+        assert by_station["NEWOWNER"] == "ep20260121-0008"   # untouched
+        assert by_station["REVIEWEDPICK"] == "ep20260121-0002"  # re-keyed
+        assert "FRESHTWIN" not in by_station                 # replaced
 
     def test_never_drops_another_reviewed_row(self):
         # A reviewed near-twin must not be reclaimed/dropped.
