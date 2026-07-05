@@ -98,14 +98,15 @@ def keeper_key(row: dict) -> tuple:
 
 
 def pick_identity(p: dict) -> tuple:
-    # Normalize the time — assignments mix 'Z'-suffixed and naive UTC strings,
-    # and the same pick must compare equal in either spelling.
-    raw = p.get("time", "")
-    try:
-        t = parse_time(raw).isoformat()
-    except ValueError:
-        t = raw
-    return (p.get("network", ""), p.get("station", ""), p.get("phase", ""), t)
+    """Identity for fold-dedup: station + phase, NOT time.
+
+    A local event has one P and one S arrival per station; two same-phase
+    picks at one station are re-picks of the same arrival from different
+    review sessions (observed offsets 0.1-1.5 s), not new information.
+    Folding them would double every arrival and bias any relocation, so
+    the keeper's own pick wins.
+    """
+    return (p.get("network", ""), p.get("station", ""), p.get("phase", ""))
 
 
 def main() -> int:
