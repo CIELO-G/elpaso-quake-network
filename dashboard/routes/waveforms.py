@@ -746,3 +746,80 @@ def _build_traces_for_window(
     n_workers = min(os.cpu_count() or 1, max(1, len(tasks)))
     with ThreadPoolExecutor(max_workers=n_workers, thread_name_prefix="trace") as ex:
         return list(ex.map(_load_one, tasks))
+
+
+# ── Helicorder (day drum plot) ───────────────────────────────────
+@router.get("/api/helicorder")
+async def helicorder(
+    station: str = Query(...),
+    date: str = Query(..., description="UTC calendar day, YYYY-MM-DD"),
+    channel: str = Query(default="EHZ"),
+    fmin: float = Query(default=1.0, ge=0),
+    fmax: float = Query(default=20.0, ge=0),
+    bins: int = Query(default=1400, ge=200, le=4000),
+):
+    """Min/max-decimated full-day trace as 24 hourly rows for drum plotting.
+
+    Min/max binning (not striding) so brief blasts survive decimation;
+    values are normalized to the day's absolute max, the client applies
+    gain. Bandpass defaults to 1-20 Hz — broadband stations (KIDD) are
+    unreadable on a drum without it.
+    """
+    import numpy as np
+    from obspy import UTCDateTime
+
+    meta = next((s for s in load_stations() if s["station"] == station), None)
+    if meta is None:
+        raise HTTPException(status_code=404, detail=f"Unknown station: {station}")
+    network = meta["network"]
+
+    day0 = UTCDateTime(date)
+    day_dir = PROCESSED_DIR / str(day0.year) / f"{day0.julday:03d}"
+    candidates = _find_mseed(day_dir, network, station, channel)
+    if not candidates:
+        raise HTTPException(
+            status_code=404, detail=f"No data for {station} {channel} on {date}"
+        )
+
+    st = _get_obspy_stream(candidates[0]).copy()
+    st.merge(method=1, fill_value=0.0)
+    st.trim(day0, day0 + 86400, pad=True, fill_value=0.0)
+    tr = st[0]
+    if fmax > fmin > 0:
+        tr.detrend("demean")
+        tr.filter("bandpass", freqmin=fmin, freqmax=fmax, corners=4, zerophase=True)
+
+    fs = tr.stats.sampling_rate
+    data = np.asarray(tr.data, dtype=np.float64)
+    abs_max = float(np.max(np.abs(data))) or 1.0
+    data = data / abs_max
+
+    per_hour = int(round(fs * 3600))
+    rows = []
+    for hour in range(24):
+        seg = data[hour * per_hour : (hour + 1) * per_hour]
+        if seg.size == 0:
+            rows.append({"hour": hour, "min": [], "max": []})
+            continue
+        k = max(1, seg.size // bins)
+        usable = (seg.size // k) * k
+        m = seg[:usable].reshape(-1, k)
+        rows.append(
+            {
+                "hour": hour,
+                "min": [round(v, 3) for v in m.min(axis=1).tolist()],
+                "max": [round(v, 3) for v in m.max(axis=1).tolist()],
+            }
+        )
+
+    return {
+        "station": station,
+        "network": network,
+        "channel": tr.stats.channel,
+        "date": date,
+        "sampling_rate": fs,
+        "abs_max": abs_max,
+        "fmin": fmin,
+        "fmax": fmax,
+        "rows": rows,
+    }

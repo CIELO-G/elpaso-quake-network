@@ -277,6 +277,18 @@
   .review-queue-count.rv-queue-clear { color: var(--green); border-color: var(--green); }
   .review-queue-count:empty { display: none; }
 
+  /* Helicorder tab */
+  .heli-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: var(--canvas-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-2);
+  }
+  .heli-body canvas { display: block; }
+
   /* Station state-of-health panel bits (rendered in event-detail overlay) */
   .sd-ok   { color: var(--green); }
   .sd-warn { color: var(--amber); }

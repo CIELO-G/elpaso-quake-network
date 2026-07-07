@@ -71,6 +71,7 @@
   <button class="menu-item" data-action="tab-pipeline">Pipeline</button>
   <button class="menu-item" data-action="tab-catalog">Catalog</button>
   <button class="menu-item" data-action="tab-waveviewer">Waveviewer</button>
+  <button class="menu-item" data-action="tab-helicorder">Helicorder</button>
 </div>
 <div class="menu-panel" id="menu-help" role="menu">
   <button class="menu-item" data-action="about">About&hellip;</button>
@@ -122,6 +123,7 @@
   <button class="tab-btn" data-tab="pipeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Pipeline</button>
   <button class="tab-btn" data-tab="catalog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Catalog</button>
   <button class="tab-btn" data-tab="waveviewer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 13 4 13 6 11 8 15 10 5 12 19 14 9 16 13 19 13 23 13"/></svg>Waveviewer</button>
+  <button class="tab-btn" data-tab="helicorder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><path d="M7 6c1-2 2-2 3 0s2 2 3 0"/></svg>Helicorder</button>
 </div>
 
 <!-- Tab: Monitor (map only) -->
@@ -368,6 +370,32 @@
   </div>
   <div class="wv-trace-body" id="wv-trace-body">
     <div class="empty-state">Pick a date and time (UTC), then click Load Waveforms.</div>
+  </div>
+</div>
+
+<!-- Tab: Helicorder -->
+<div class="tab-content-full" id="tab-helicorder">
+  <div class="wv-toolbar">
+    <label>Station</label>
+    <select id="heli-station" style="width:8rem"></select>
+    <label>Date (UTC)</label><input type="date" id="heli-date" />
+    <label>Fmin</label>
+    <input type="number" id="heli-fmin" value="1" min="0" max="50" step="1" style="width:4rem" />
+    <label>Fmax</label>
+    <input type="number" id="heli-fmax" value="20" min="0" max="50" step="1" style="width:4rem" />
+    <label>Gain</label>
+    <select id="heli-gain" style="width:4.5rem">
+      <option value="1">1&times;</option>
+      <option value="2" selected>2&times;</option>
+      <option value="5">5&times;</option>
+      <option value="10">10&times;</option>
+      <option value="20">20&times;</option>
+    </select>
+    <button class="btn-sm btn-primary" id="heli-load">Load Day</button>
+    <span id="heli-summary" style="margin-left:auto;font-size:.65rem;color:var(--muted)"></span>
+  </div>
+  <div class="heli-body" id="heli-body">
+    <div class="empty-state">Pick a station and date (UTC), then Load Day.</div>
   </div>
 </div>
 
