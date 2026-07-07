@@ -48,6 +48,18 @@ def main() -> None:
         action="store_true",
         help="Allow binding beyond localhost WITHOUT auth (not recommended).",
     )
+    p.add_argument(
+        "--app",
+        action="store_true",
+        help="Desktop-app mode: auto-start and supervise the pipeline; "
+        "closing the window shuts everything down cleanly. "
+        "(Used by El Paso Monitor.app — see deploy/app/.)",
+    )
+    p.add_argument(
+        "--no-autostart",
+        action="store_true",
+        help="With --app: do not auto-start or supervise the pipeline.",
+    )
     args = p.parse_args()
 
     if args.host not in ("127.0.0.1", "localhost", "::1") and not args.allow_insecure:
@@ -63,6 +75,12 @@ def main() -> None:
                 "    export DASHBOARD_PASSWORD='...'\n"
                 "or pass --allow-insecure to accept the risk."
             )
+
+    if args.app:
+        from dashboard.appmode import run_app
+
+        run_app(args.port, host=args.host, autostart=not args.no_autostart)
+        return
 
     # The local URL we open in the browser/window. Always use 127.0.0.1
     # for the client side even when binding to 0.0.0.0 — the user's own

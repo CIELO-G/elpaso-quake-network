@@ -34,3 +34,8 @@ Thumbs.db
 
 # Tool config
 .claude/
+
+# Generated app-icon artifacts (deploy/app/make_icon.py + iconutil)
+/deploy/app/AppIcon.iconset/
+/deploy/app/AppIcon.icns
+/deploy/app/icon_1024.png

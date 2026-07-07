@@ -453,6 +453,24 @@ python -m dashboard --port 9000
 
 The dashboard serves at `http://127.0.0.1:8000` by default.
 
+### Desktop app (El Paso Monitor.app)
+
+Build a double-clickable macOS app (a thin launcher over this repo and the
+`elpaso-quake` conda env — no bundling):
+
+```bash
+./deploy/app/build_app.sh          # installs to /Applications
+```
+
+Launching the app starts the dashboard, opens the window, and auto-starts
+the pipeline in continuous mode. A watchdog restarts the pipeline if it
+crashes (with backoff; an explicit Stop in the UI is respected). Closing
+the window stops the pipeline gracefully and quits. A second launch while
+the monitor is running just opens another window onto it. Equivalent CLI:
+`python -m dashboard --app` (add `--no-autostart` to skip pipeline
+management). App logs go to `logs/app.log`. Rebuild the app after moving
+the repo or recreating the conda env.
+
 ### Remote access (LAN / Tailscale)
 
 To reach the dashboard from other machines, bind beyond localhost and enable

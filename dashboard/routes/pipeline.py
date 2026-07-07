@@ -251,6 +251,12 @@ async def throughput():
 
 
 # ── Pipeline lifecycle (start / stop / running) ──────────────────
+# True after an explicit /api/pipeline/stop, cleared by /api/pipeline/start.
+# App mode's watchdog reads this (via /api/pipeline/running) so it never
+# restarts a pipeline the user deliberately stopped.
+_user_stopped = False
+
+
 def _is_pipeline_running() -> tuple[bool, int | None]:
     """Whether the pipeline subprocess is running.
 
@@ -279,13 +285,14 @@ def _is_pipeline_running() -> tuple[bool, int | None]:
 @router.get("/api/pipeline/running")
 async def pipeline_running():
     running, pid = _is_pipeline_running()
-    return {"running": running, "pid": pid}
+    return {"running": running, "pid": pid, "user_stopped": _user_stopped}
 
 
 @router.post("/api/pipeline/start")
 async def pipeline_start(request: Request):
-    global _pipeline_proc
+    global _pipeline_proc, _user_stopped
 
+    _user_stopped = False
     running, _ = _is_pipeline_running()
     if running:
         raise HTTPException(status_code=409, detail="Pipeline is already running")
@@ -335,8 +342,9 @@ async def pipeline_start(request: Request):
 
 @router.post("/api/pipeline/stop")
 async def pipeline_stop():
-    global _pipeline_proc
+    global _pipeline_proc, _user_stopped
 
+    _user_stopped = True
     running, pid = _is_pipeline_running()
     if not running or pid is None:
         raise HTTPException(status_code=404, detail="No pipeline process is running")
