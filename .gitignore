@@ -39,3 +39,4 @@ Thumbs.db
 /deploy/app/AppIcon.iconset/
 /deploy/app/AppIcon.icns
 /deploy/app/icon_1024.png
+/deploy/app/local.env
