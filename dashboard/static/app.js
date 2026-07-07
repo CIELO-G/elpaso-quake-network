@@ -856,7 +856,51 @@ function shouldRenderEventOnMap(e) {
   return true;
 }
 
+// ── New-event notifications ─────────────────────────────────────
+// Toast when the catalog grows while the app is open. The known-ID set
+// only ever grows, so filter changes can never resurrect a "new" event;
+// the first fetch seeds silently.
+var _knownEventIds = null;
+
+function _notifyNewEvents(events) {
+  if (_knownEventIds === null) {
+    _knownEventIds = new Set(events.map(function(e) { return e.event_id; }));
+    return;
+  }
+  events.forEach(function(e) {
+    if (_knownEventIds.has(e.event_id)) return;
+    _knownEventIds.add(e.event_id);
+    _showToast(e);
+  });
+}
+
+function _showToast(e) {
+  var stack = document.getElementById('toast-stack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.id = 'toast-stack';
+    document.body.appendChild(stack);
+  }
+  var t = document.createElement('div');
+  t.className = 'toast';
+  var mag = e.magnitude != null ? 'M' + Number(e.magnitude).toFixed(1) : 'M?';
+  var when = (e.time || '').slice(11, 16) + ' UTC';
+  t.innerHTML = '<span class="toast-dot"></span><b>New event</b> ' +
+    esc(mag) + ' · ' + esc(when) + ' · ' + esc(e.event_id) +
+    '<button class="toast-x" aria-label="Dismiss">&times;</button>';
+  t.addEventListener('click', function(ev) {
+    if (ev.target.classList.contains('toast-x')) { t.remove(); return; }
+    if (activeTab !== 'monitor') switchTab('monitor');
+    if (e.latitude != null && e.longitude != null) map.flyTo([e.latitude, e.longitude], 13);
+    showEventDetail(e.event_id);
+    t.remove();
+  });
+  stack.appendChild(t);
+  setTimeout(function() { if (t.parentNode) t.remove(); }, 12000);
+}
+
 function renderEvents(events) {
+  _notifyNewEvents(events);
   allEvents = events;
   eventLayer.clearLayers();
   if (!events || events.length === 0) return;
@@ -1677,6 +1721,7 @@ function eventTypeBadge(t) {
 }
 
 function loadCatalogTable() {
+  updateReviewQueueCount();
   var params = ['page=' + catPage, 'per_page=' + catPerPage, 'sort_by=' + catSortBy, 'sort_order=' + catSortOrder];
   if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
   if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
@@ -1738,6 +1783,10 @@ document.getElementById('cat-next').addEventListener('click', function() { catPa
 document.getElementById('cat-search').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { catPage = 1; loadCatalogTable(); }
 });
+document.getElementById('cat-review-next').addEventListener('click', function() {
+  advanceToNextUnreviewed();
+});
+
 document.getElementById('cat-filter-apply').addEventListener('click', function() {
   var v = document.getElementById('cat-min-mag').value;
   catMinMag = v ? parseFloat(v) : null;
@@ -2270,6 +2319,7 @@ function _formatTimeOffset(offsetSec, interval) {
 }
 
 function openReviewMode(eventId) {
+  updateReviewQueueCount();
   reviewState.eventId = eventId;
   reviewState.picks = [];
   reviewState.relocated = false;
@@ -3538,8 +3588,31 @@ document.getElementById('rv-reject').addEventListener('click', function() {
   });
 });
 
+// ── Review queue ────────────────────────────────────────────────
+// Count of unreviewed events; drives the "Review next" button in the
+// catalog toolbar and the counter chip in the review header.
+function updateReviewQueueCount() {
+  fetchJSON('/api/catalog?review_status=unreviewed&per_page=1')
+    .then(function(data) {
+      var n = (data && data.total) || 0;
+      var btn = document.getElementById('cat-review-next');
+      if (btn) {
+        btn.hidden = n === 0;
+        var c = document.getElementById('cat-queue-count');
+        if (c) c.textContent = '(' + n + ')';
+      }
+      var chip = document.getElementById('rv-queue');
+      if (chip) {
+        chip.textContent = n > 0 ? n + ' in queue' : 'queue clear';
+        chip.classList.toggle('rv-queue-clear', n === 0);
+      }
+    })
+    .catch(function() {});
+}
+
 // Auto-advance to next unreviewed event
 function advanceToNextUnreviewed() {
+  updateReviewQueueCount();
   fetchJSON('/api/catalog?review_status=unreviewed&per_page=1&sort_by=time&sort_order=asc')
     .then(function(data) {
       if (data && data.events && data.events.length > 0) {

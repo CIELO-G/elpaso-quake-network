@@ -315,6 +315,9 @@
     <input type="number" id="cat-min-picks" step="1" placeholder="0" />
     <button class="btn-sm btn-primary" id="cat-filter-apply">Filter</button>
     <button class="btn-sm" id="cat-filter-clear">Clear</button>
+    <button class="btn-sm btn-primary" id="cat-review-next" style="margin-left:.75rem" hidden>
+      Review next <span id="cat-queue-count"></span> &#9656;
+    </button>
     <span style="margin-left:auto;font-size:.65rem;color:var(--muted)" id="cat-summary"></span>
   </div>
   <div class="catalog-table-wrap">
@@ -406,6 +409,7 @@
 <div class="review-overlay" id="review-overlay">
   <div class="review-header">
     <h3 id="rv-title">Review Mode</h3>
+    <span class="review-queue-count" id="rv-queue" title="Unreviewed events remaining"></span>
     <span class="review-pick-status" id="rv-pick-status">0P + 0S picks</span>
     <span class="unsaved-dot" id="rv-unsaved-dot" title="Unsaved changes"></span>
     <button class="btn-sm btn-primary" id="rv-relocate">Relocate</button>
