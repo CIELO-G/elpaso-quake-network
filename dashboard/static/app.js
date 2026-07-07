@@ -729,8 +729,53 @@ function renderStations(stations) {
     var m = L.marker([s.latitude, s.longitude], { icon: stationIcon() })
       .bindTooltip('<b>' + esc(s.station) + '</b><br>' + esc(s.network) + ' \u00b7 ' + esc(s.model) + '<br>' + esc(s.channels), { className: '' })
       .addTo(stationLayer);
+    m.on('click', function() { openStationDetail(s.station); });
     stationMarkers[s.station] = { marker: m, data: s };
   });
+}
+
+// ── Station state-of-health panel (marker click) ────────────────
+// Latency thresholds account for the ~30 h day-batch ingest lag:
+// data ending "yesterday" is the healthy steady state.
+function _latencyClass(h) {
+  if (h == null) return { cls: 'sd-gray', label: 'no data' };
+  if (h <= 36) return { cls: 'sd-ok', label: 'nominal' };
+  if (h <= 60) return { cls: 'sd-warn', label: 'lagging' };
+  return { cls: 'sd-bad', label: 'stale' };
+}
+
+function openStationDetail(station) {
+  var overlay = document.getElementById('event-detail');
+  var body = document.getElementById('detail-body');
+  var title = document.getElementById('detail-title');
+  title.textContent = 'Station ' + station;
+  body.innerHTML = '<div class="empty-state">Loading…</div>';
+  overlay.classList.add('visible');
+
+  fetchJSON('/api/station/' + encodeURIComponent(station) + '/detail')
+    .then(function(d) {
+      var lat = _latencyClass(d.latency_hours);
+      var maxFiles = Math.max.apply(null, d.days.map(function(x) { return x.files; }).concat([1]));
+      var bars = d.days.map(function(x) {
+        var hpx = x.files > 0 ? Math.max(4, Math.round(22 * x.files / maxFiles)) : 2;
+        return '<span class="sd-bar' + (x.files === 0 ? ' sd-bar-empty' : '') +
+          '" style="height:' + hpx + 'px" title="' + esc(x.date) + ': ' +
+          x.files + ' file(s)"></span>';
+      }).join('');
+      body.innerHTML =
+        '<div class="detail-row"><span>Network / model</span><b>' + esc(d.network) + ' · ' + esc(d.model || '?') + '</b></div>' +
+        '<div class="detail-row"><span>Channels</span><b>' + esc(d.channels || '?') + '</b></div>' +
+        '<div class="detail-row"><span>Elevation</span><b>' + (d.elevation_m != null ? d.elevation_m + ' m' : '—') + '</b></div>' +
+        '<div class="detail-row"><span>Data latency</span><b class="' + lat.cls + '">' +
+          (d.latency_hours != null ? d.latency_hours + ' h (' + lat.label + ')' : lat.label) + '</b></div>' +
+        '<div class="detail-row"><span>Newest data</span><b>' + esc(d.last_data_utc ? d.last_data_utc.slice(0, 19).replace('T', ' ') + ' UTC' : '—') + '</b></div>' +
+        '<div class="detail-row"><span>Coverage (' + d.days_window + ' d)</span><b>' + d.days_covered + '/' + d.days_window + ' days</b></div>' +
+        '<div class="sd-days">' + bars + '</div>' +
+        '<div class="sd-days-label">raw files per day · last ' + d.days_window + ' days</div>';
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div class="empty-state">Failed to load: ' + esc(err.message) + '</div>';
+    });
 }
 
 // ── Update station health on map ────────────────────────────────

@@ -277,6 +277,32 @@
   .review-queue-count.rv-queue-clear { color: var(--green); border-color: var(--green); }
   .review-queue-count:empty { display: none; }
 
+  /* Station state-of-health panel bits (rendered in event-detail overlay) */
+  .sd-ok   { color: var(--green); }
+  .sd-warn { color: var(--amber); }
+  .sd-bad  { color: var(--red); }
+  .sd-gray { color: var(--muted); }
+  .sd-days {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 24px;
+    margin-top: var(--space-3);
+  }
+  .sd-bar {
+    flex: 1;
+    background: var(--accent);
+    border-radius: 1px;
+    min-width: 4px;
+  }
+  .sd-bar-empty { background: var(--border); }
+  .sd-days-label {
+    font-size: var(--text-2xs);
+    color: var(--muted);
+    margin-top: .25rem;
+    font-family: var(--font-mono);
+  }
+
   /* New-event toasts — bottom-right, above the status bar */
   #toast-stack {
     position: fixed;
