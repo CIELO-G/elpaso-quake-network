@@ -50,6 +50,12 @@
     --amber: #d97706;
     --gray: #94a3b8;
     --canvas-bg: #ffffff;
+
+    /* Brand accent — the app-icon orange. Interactive/identity color only;
+       --blue/--green/--red keep their semantic meanings (info/ok/error). */
+    --accent: #ea680c;
+    --accent-hover: #c95a0a;
+    --accent-soft: rgba(234, 104, 12, .12);
   }
 
   [data-theme="dark"] {
@@ -64,6 +70,10 @@
     --amber: #f59e0b;
     --gray: #475569;
     --canvas-bg: #050a14;
+
+    --accent: #f57c00;
+    --accent-hover: #ff8f1f;
+    --accent-soft: rgba(245, 124, 0, .16);
 
     /* Dark needs the native calendar indicator inverted to read */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
@@ -101,11 +111,54 @@
     flex: 0 0 auto;
   }
   .brand {
-    font-weight: 600;
-    font-size: var(--text-sm);
-    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
     padding-right: var(--space-3);
     border-right: 1px solid var(--border);
+  }
+  .brand-mark {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    color: var(--accent);
+  }
+  .brand-word {
+    font-weight: 700;
+    font-size: var(--text-xs);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .brand-ver {
+    font-size: var(--text-2xs);
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  /* Top-right UTC clock + pipeline LED cluster */
+  .top-clock {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .led {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gray);
+    vertical-align: middle;
+  }
+  .led-green { background: var(--green); animation: led-pulse 2s ease-in-out infinite; }
+  .led-amber { background: var(--amber); }
+  .led-red   { background: var(--red); }
+  @keyframes led-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, .45); }
+    50%      { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
   }
   .menubar {
     display: flex;
@@ -124,7 +177,7 @@
   }
   .menu-label:hover { background: var(--border); }
   .menu-label.active {
-    background: var(--blue);
+    background: var(--accent);
     color: #fff;
   }
   .topbar-spacer { flex: 1; }
@@ -176,25 +229,40 @@
     gap: var(--space-1);
   }
   .icon-btn svg { display: block; flex: 0 0 auto; }
-  .theme-toggle {
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    z-index: 9999;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    border-radius: .5rem;
-    padding: .4rem .7rem;
-    font-size: .75rem;
-    cursor: pointer;
+  /* ============================================================
+     Status bar — persistent bottom strip, licensed-software style.
+     Data is filled by app.js from the same polls that feed the
+     panels; every item is optional (missing data shows an em dash).
+     ============================================================ */
+  .statusbar {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: .35rem;
-    box-shadow: var(--shadow-md);
-    transition: background .2s, color .2s, border-color .2s;
+    gap: 0;
+    height: 26px;
+    padding: 0 var(--space-3);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--muted);
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
   }
-  .theme-toggle:hover { color: var(--text); background: var(--border); }
+  .sb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: 0 var(--space-3);
+    border-right: 1px solid var(--border);
+    height: 100%;
+  }
+  .sb-item:first-child { padding-left: 0; }
+  .sb-item:last-child { border-right: none; }
+  .sb-item b { color: var(--text); font-weight: 600; }
+  .sb-spacer { flex: 1; border: none; }
+  .sb-clock { font-variant-numeric: tabular-nums; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: var(--font-sans);
@@ -363,7 +431,7 @@
   .filter-preset:last-child { border-right: none; }
   .filter-preset:hover { background: var(--border); color: var(--text); }
   .filter-preset.active {
-    background: var(--blue);
+    background: var(--accent);
     color: #fff;
   }
 
@@ -427,8 +495,8 @@
     transition: background .15s;
   }
   .btn-sm:hover { background: var(--border); }
-  .btn-sm.btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-  .btn-sm.btn-primary:hover { background: #2563eb; }
+  .btn-sm.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-sm.btn-primary:hover { background: var(--accent-hover); }
 
   /* main layout */
   .main {
@@ -565,7 +633,7 @@
     width: 12px;
     height: 12px;
     border: 2px solid var(--border);
-    border-top-color: var(--blue);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin .6s linear infinite;
     display: inline-block;
@@ -1001,9 +1069,17 @@
   .tab-btn.active {
     color: var(--text);
     background: var(--bg);
-    border-bottom: 2px solid var(--blue);
+    border-bottom: 2px solid var(--accent);
     z-index: 1;
   }
+  .tab-btn svg {
+    width: 12px;
+    height: 12px;
+    margin-right: .4rem;
+    vertical-align: -1.5px;
+    opacity: .75;
+  }
+  .tab-btn.active svg { opacity: 1; color: var(--accent); }
   .tab-content { display: none; }
   .tab-content.active { display: flex; }
   .tab-content-full { display: none; flex-direction: column; flex: 1; min-height: 0; padding: 0 1rem 1rem; }
@@ -1066,7 +1142,7 @@
     border-color: var(--blue);
     transform: translateY(-1px);
   }
-  .hero-stat.clickable:hover .hero-stat-value { color: var(--blue); }
+  .hero-stat.clickable:hover .hero-stat-value { color: var(--accent); }
   /* "Latest event" value is a timestamp — shrink so it fits */
   #stat-card-latest .hero-stat-value { font-size: 1.05rem; font-weight: 600; }
 

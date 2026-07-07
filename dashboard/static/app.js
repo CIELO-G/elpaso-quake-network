@@ -70,11 +70,42 @@ function switchAppTheme(theme) {
 
 document.addEventListener('DOMContentLoaded', function() {
   _applyThemeUI(_currentAppTheme);
-  document.getElementById('theme-toggle').addEventListener('click', function() {
+  // Legacy floating toggle (removed from index.html; View > Toggle Theme
+  // is the control now). Guarded so old cached pages keep working.
+  var legacyToggle = document.getElementById('theme-toggle');
+  if (legacyToggle) legacyToggle.addEventListener('click', function() {
     switchAppTheme(_currentAppTheme === 'light' ? 'dark' : 'light');
   });
   _initMenubar();
+  _startClocks();
 });
+
+// ── Application chrome: clocks + status bar ─────────────────────
+// The status bar is fed opportunistically from the same polls that fill
+// the panels; every setter is null-guarded so partial data never throws.
+function _sbSet(id, text) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function _startClocks() {
+  function tick() {
+    var now = new Date();
+    var utc = now.toISOString().slice(11, 19);
+    _sbSet('top-clock', utc + ' UTC');
+    _sbSet('sb-clock-utc', now.toISOString().slice(0, 10) + ' ' + utc + ' UTC');
+    _sbSet('sb-clock-local', now.toTimeString().slice(0, 8) + ' local');
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+function _sbConn(state) {  // 'live' | 'polling' | 'offline'
+  _sbSet('sb-conn', state);
+  var led = document.getElementById('sb-conn-led');
+  if (led) led.className = 'led ' +
+    (state === 'live' ? 'led-green' : state === 'polling' ? 'led-amber' : 'led-red');
+}
 
 // ── In-window menubar ───────────────────────────────────────────
 // Replaces the previous pywebview-native menubar. Works identically in
@@ -636,6 +667,7 @@ function onApiFailure(e) {
   apiFailCount++;
   if (apiFailCount >= 3) {
     showErrorBanner('Cannot reach API server. Retrying...');
+    _sbConn('offline');
   }
 }
 
@@ -646,6 +678,7 @@ function renderStatus(data) {
   const steps = data.steps || [];
 
   const mode = p.mode || 'single';
+  _sbSet('sb-pipeline', p.status + (mode === 'continuous' ? ' · continuous' : ''));
 
   // Status badge, subheader, and step-strip elements were removed from the
   // top of the page in favor of the Start/Stop button as the single state
@@ -703,6 +736,8 @@ function renderStations(stations) {
 // ── Update station health on map ────────────────────────────────
 function renderStationHealth(healthData) {
   var HEALTH_LABEL = { ok: 'OK', warning: 'Intermittent', error: 'Offline', unknown: 'Unknown' };
+  var up = healthData.filter(function(h) { return h.status === 'ok'; }).length;
+  _sbSet('sb-stations', up + '/' + healthData.length + ' up');
   healthData.forEach(function(h) {
     var entry = stationMarkers[h.station];
     if (!entry) return;
@@ -903,6 +938,7 @@ function renderStats(s) {
     var d = new Date(s.latest_event_time);
     var timeStr = d.toISOString().slice(0, 16).replace('T', ' ');
     latestEl.textContent = timeStr;
+    _sbSet('sb-last-event', timeStr + ' UTC');
     latestCard.classList.add('clickable');
     latestCard.onclick = function() {
       if (activeTab !== 'monitor') switchTab('monitor');
@@ -1118,6 +1154,7 @@ function renderCompleteness(data) {
 function renderDisk(d) {
   var bar = document.getElementById('disk-bar');
   var pct = d.usage_percent || 0;
+  _sbSet('sb-disk', pct.toFixed(0) + '% · ' + d.free_gb + ' GB free');
   bar.style.width = pct + '%';
   bar.style.background = pct >= 85 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : 'var(--green)';
 
@@ -1325,6 +1362,7 @@ function connectWebSocket() {
     wsConn.onopen = function() {
       var ind = document.getElementById('ws-indicator');
       if (ind) { ind.textContent = 'live'; ind.classList.add('ws-connected'); }
+      _sbConn('live');
     };
 
     wsConn.onmessage = function(evt) {
@@ -1338,6 +1376,7 @@ function connectWebSocket() {
     wsConn.onclose = function() {
       var ind = document.getElementById('ws-indicator');
       if (ind) { ind.textContent = 'polling'; ind.classList.remove('ws-connected'); }
+      _sbConn('polling');
       wsConn = null;
       // Retry after 5s
       if (useWebSocket) {

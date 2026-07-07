@@ -11,7 +11,14 @@
 <body>
 
 <header class="topbar">
-  <div class="brand">El Paso Seismic Monitor</div>
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="1 13 5 13 7 11 9 15 11 5 13 19 15 9 17 13 19 13 23 13"/>
+    </svg>
+    <span class="brand-word">El Paso Monitor</span>
+    <span class="brand-ver">v1.0</span>
+  </div>
   <nav class="menubar" id="menubar">
     <button class="menu-label" data-menu="file">File</button>
     <button class="menu-label" data-menu="pipeline">Pipeline</button>
@@ -19,6 +26,7 @@
     <button class="menu-label" data-menu="help">Help</button>
   </nav>
   <div class="topbar-spacer"></div>
+  <span class="top-clock" id="top-clock" title="UTC">--:--:-- UTC</span>
   <!-- Pipeline Start / Stop quick-action, top-right. The existing dropdown
        (Continuous vs Backfill) is preserved verbatim so its JS handlers
        continue to attach to the same IDs. -->
@@ -110,10 +118,10 @@
 </div>
 
 <div class="tab-bar">
-  <button class="tab-btn active" data-tab="monitor">Monitor</button>
-  <button class="tab-btn" data-tab="pipeline">Pipeline</button>
-  <button class="tab-btn" data-tab="catalog">Catalog</button>
-  <button class="tab-btn" data-tab="waveviewer">Waveviewer</button>
+  <button class="tab-btn active" data-tab="monitor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Monitor</button>
+  <button class="tab-btn" data-tab="pipeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Pipeline</button>
+  <button class="tab-btn" data-tab="catalog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Catalog</button>
+  <button class="tab-btn" data-tab="waveviewer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 13 4 13 6 11 8 15 10 5 12 19 14 9 16 13 19 13 23 13"/></svg>Waveviewer</button>
 </div>
 
 <!-- Tab: Monitor (map only) -->
@@ -221,7 +229,7 @@
       <div class="panel-loading" id="loading-progress"><span class="spinner"></span></div>
       <div style="display:flex;align-items:center;gap:.5rem">
         <span id="progress-badge" style="font-size:.65rem;font-weight:700;white-space:nowrap"></span>
-        <div class="bar-outer" style="flex:1"><div class="bar-inner" id="progress-bar" style="width:0; background:var(--blue)"></div></div>
+        <div class="bar-outer" style="flex:1"><div class="bar-inner" id="progress-bar" style="width:0; background:var(--accent)"></div></div>
         <span id="progress-count" style="font-size:.65rem;color:var(--muted);white-space:nowrap"></span>
       </div>
       <div class="progress-text" id="progress-text">&mdash;</div>
@@ -468,9 +476,18 @@
   </div>
 </div>
 
+<!-- Status bar: persistent application footer, filled by app.js -->
+<footer class="statusbar" id="statusbar">
+  <span class="sb-item"><span class="led" id="sb-conn-led"></span><span id="sb-conn">connecting</span></span>
+  <span class="sb-item">Pipeline: <b id="sb-pipeline">&mdash;</b></span>
+  <span class="sb-item">Stations: <b id="sb-stations">&mdash;</b></span>
+  <span class="sb-item">Last event: <b id="sb-last-event">&mdash;</b></span>
+  <span class="sb-item">Disk: <b id="sb-disk">&mdash;</b></span>
+  <span class="sb-item sb-spacer"></span>
+  <span class="sb-item sb-clock" id="sb-clock-local" title="Local time">&mdash;</span>
+  <span class="sb-item sb-clock" id="sb-clock-utc" title="UTC">&mdash;</span>
+</footer>
+
 <script src="/static/app.js"></script>
-<button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">
-  <span id="theme-icon">☀️</span><span id="theme-label">Light</span>
-</button>
 </body>
 </html>
