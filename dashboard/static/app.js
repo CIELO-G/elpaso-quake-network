@@ -1696,12 +1696,11 @@ function drawHelicorder() {
   var wrap = document.getElementById('heli-body');
   if (!canvas || !wrap) return;
 
+  // Same palette as review mode (_waveColors) so traces look identical
+  // across the app: blue trace on canvas-bg, border-grey grid.
+  var c = _waveColors();
   var css = getComputedStyle(document.documentElement);
-  var cAccent = css.getPropertyValue('--accent').trim() || '#f57c00';
-  var cMuted = css.getPropertyValue('--muted').trim() || '#94a3b8';
-  var cBorder = css.getPropertyValue('--border').trim() || '#334155';
   var cAmber = css.getPropertyValue('--amber').trim() || '#f59e0b';
-  var cBlue = css.getPropertyValue('--blue').trim() || '#3b82f6';
 
   var mL = 56, mR = 10, mT = 10, mB = 24, rowH = 30;
   var W = Math.max(640, wrap.clientWidth - 20);
@@ -1713,7 +1712,8 @@ function drawHelicorder() {
   canvas.style.height = H + 'px';
   var ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = c.bg;
+  ctx.fillRect(0, 0, W, H);
 
   var plotW = W - mL - mR;
   var gain = parseFloat(document.getElementById('heli-gain').value) || 1;
@@ -1721,14 +1721,14 @@ function drawHelicorder() {
   var clip = rowH * 1.45;  // allow gentle overlap into neighbor rows, like a real drum
 
   ctx.font = '9px ui-monospace, Menlo, monospace';
-  ctx.strokeStyle = cBorder;
+  ctx.strokeStyle = c.grid;
   ctx.lineWidth = 0.5;
   ctx.globalAlpha = 0.5;
   for (var m = 0; m <= 60; m += 10) {
     var gx = mL + (m / 60) * plotW;
     ctx.beginPath(); ctx.moveTo(gx, mT); ctx.lineTo(gx, H - mB); ctx.stroke();
     ctx.globalAlpha = 1;
-    ctx.fillStyle = cMuted;
+    ctx.fillStyle = c.axisText;
     ctx.textAlign = 'center';
     ctx.fillText('+' + m + 'm', gx, H - mB + 12);
     ctx.globalAlpha = 0.5;
@@ -1737,12 +1737,12 @@ function drawHelicorder() {
 
   _heliData.rows.forEach(function(row) {
     var y0 = mT + row.hour * rowH + half;
-    ctx.fillStyle = cMuted;
+    ctx.fillStyle = c.axisText;
     ctx.textAlign = 'right';
     ctx.fillText(String(row.hour).padStart(2, '0') + ':00', mL - 8, y0 + 3);
     var n = row.max.length;
     if (!n) return;
-    ctx.strokeStyle = cAccent;
+    ctx.strokeStyle = c.trace;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (var i = 0; i < n; i++) {
@@ -1761,7 +1761,7 @@ function drawHelicorder() {
     var frac = (t.getUTCMinutes() * 60 + t.getUTCSeconds()) / 3600;
     var x = mL + frac * plotW;
     var y = mT + hour * rowH + 4;
-    ctx.fillStyle = e.event_type === 'earthquake' ? cBlue : cAmber;
+    ctx.fillStyle = e.event_type === 'earthquake' ? c.trace : cAmber;
     ctx.beginPath();
     ctx.moveTo(x, y + 6);
     ctx.lineTo(x - 4, y);
