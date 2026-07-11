@@ -16,8 +16,11 @@ DEST="${1:-/Applications}"
 APP="$DEST/El Paso Monitor.app"
 
 PYTHON="$(conda run -n elpaso-quake python -c 'import sys; print(sys.executable)')"
+# <conda_root>/envs/<env>/bin/python -> <conda_root>
+CONDA_BASE="$(dirname "$(dirname "$(dirname "$(dirname "$PYTHON")")")")"
 echo "Repo:   $REPO"
 echo "Python: $PYTHON"
+echo "Conda:  $CONDA_BASE"
 
 # ── Remote-access credentials (kept OUT of git) ───────────────────────
 # deploy/app/local.env is gitignored and holds DASHBOARD_USERNAME/PASSWORD.
@@ -75,6 +78,10 @@ cat > "$APP/Contents/MacOS/ElPasoMonitor" <<LAUNCHER
 # rebuild to update (credentials come from deploy/app/local.env, gitignored).
 cd "$REPO"
 mkdir -p logs
+# Finder launches apps with a minimal PATH; give subprocesses the conda
+# toolchain (detection resolves env pythons directly, but keep PATH sane
+# for anything else that shells out).
+export PATH="$(dirname "$PYTHON"):$CONDA_BASE/condabin:\$PATH"
 export DASHBOARD_AUTH_ENABLED=1
 export DASHBOARD_USERNAME='$DASHBOARD_USERNAME'
 export DASHBOARD_PASSWORD='$DASHBOARD_PASSWORD'

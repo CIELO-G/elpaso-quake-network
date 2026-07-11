@@ -187,16 +187,41 @@ def _resolve_python(config: dict, logger) -> list[str]:
     ``phasenet_python`` in config can be:
       - null / omitted  → use the current interpreter
       - an absolute path → use that Python binary directly
-      - a bare name      → treat as a conda env name, use ``conda run -n``
+      - a bare name      → a conda env name; resolved to that env's python
+        binary directly (sibling of this interpreter's env), falling back
+        to ``conda run -n``.
+
+    The direct-binary resolution matters: when the pipeline is launched by
+    the desktop app (Finder), PATH is minimal and bare ``conda`` does not
+    exist — that broke detection for 2026-07-08..10.
     """
     val = config.get("phasenet_python")
     if not val:
         return [sys.executable]
     if os.path.sep in val or os.path.isabs(val):
         return [val]
-    # Treat as conda env name
-    logger.info("Using conda env '%s' for PhaseNet", val)
-    return ["conda", "run", "-n", val, "python"]
+
+    # Conda env name. Prefer the env's python directly — no conda, no PATH
+    # dependence, no `conda run` startup overhead. sys.executable is
+    # <conda_root>/envs/<this_env>/bin/python, so siblings live two up.
+    from pathlib import Path as _Path
+
+    env_python = _Path(sys.executable).parents[2] / val / "bin" / "python"
+    if env_python.exists():
+        logger.info("Using conda env '%s' for PhaseNet (%s)", val, env_python)
+        return [str(env_python)]
+
+    import shutil as _shutil
+
+    conda = _shutil.which("conda") or os.environ.get("CONDA_EXE")
+    if conda:
+        logger.info("Using conda env '%s' for PhaseNet (via %s)", val, conda)
+        return [conda, "run", "-n", val, "python"]
+    raise RuntimeError(
+        f"Cannot resolve conda env '{val}': {env_python} does not exist and "
+        "'conda' is not on PATH. Set phasenet_python to an absolute "
+        "interpreter path in 3-detection/config.yaml."
+    )
 
 
 def run_phasenet(config: dict, tmp_dir: str, logger) -> bool:
