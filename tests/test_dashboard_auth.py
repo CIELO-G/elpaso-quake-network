@@ -96,6 +96,22 @@ def test_loopback_bypasses_auth(auth_on):
     assert c.post("/api/thing").status_code == 200
 
 
+def test_proxied_loopback_requires_auth(auth_on):
+    # tailscale serve proxies remote users via 127.0.0.1 but sets
+    # X-Forwarded-For — they must be treated as remote.
+    c = client_for(make_app(), LOOPBACK_IP)
+    fwd = {"X-Forwarded-For": "100.100.100.100"}
+    assert c.post("/api/thing", headers=fwd).status_code == 401
+    ok = {**fwd, **basic("marc", "correct-horse")}
+    assert c.post("/api/thing", headers=ok).status_code == 200
+
+
+def test_proxied_loopback_cannot_hit_admin(auth_on):
+    c = client_for(make_app(), LOOPBACK_IP)
+    hdrs = {"X-Forwarded-For": "100.100.100.100", **basic("marc", "correct-horse")}
+    assert c.post("/api/admin/quit", headers=hdrs).status_code == 403
+
+
 def test_health_stays_open_for_remote(auth_on):
     app = make_app()
 

@@ -37,7 +37,17 @@ _auth_failures: dict[str, list[float]] = defaultdict(list)
 
 
 def is_loopback(request: Request) -> bool:
-    return request.client is not None and request.client.host in LOOPBACK_HOSTS
+    """True only for DIRECT local connections (the pywebview window).
+
+    Requests proxied by ``tailscale serve`` also arrive from 127.0.0.1 but
+    carry an X-Forwarded-For header — those are remote users and must NOT
+    inherit the local-window auth bypass (or the admin local-only rule).
+    A local process could forge the header's absence, but a local process
+    is already past every boundary this check defends.
+    """
+    if request.client is None or request.client.host not in LOOPBACK_HOSTS:
+        return False
+    return "x-forwarded-for" not in request.headers
 
 
 class BasicAuthMiddleware(BaseHTTPMiddleware):

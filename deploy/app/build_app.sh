@@ -40,7 +40,9 @@ CREDS
 fi
 # shellcheck disable=SC1090
 source "$LOCAL_ENV"
-HOST="0.0.0.0"
+# Bind loopback only: remote access goes through `tailscale serve` (TLS,
+# tailnet-only), so nothing listens on the LAN. See README Remote access.
+HOST="127.0.0.1"
 
 # ── Icon ──────────────────────────────────────────────────────────────
 if [ ! -f "$HERE/AppIcon.icns" ]; then
