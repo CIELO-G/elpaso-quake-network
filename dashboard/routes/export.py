@@ -14,16 +14,23 @@ from dashboard.deps import filter_by_date, read_assignments, read_catalog
 router = APIRouter()
 
 
+def _drop_rejected(rows: list[dict]) -> list[dict]:
+    """Exports exclude rejected events — they are false detections, kept in
+    the working catalog only for review bookkeeping."""
+    return [r for r in rows if (r.get("review_status") or "").lower() != "rejected"]
+
+
 # ── Flat CSV ─────────────────────────────────────────────────────
 @router.get("/api/catalog/export")
 async def catalog_export(
     start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
 ):
-    """Filtered catalog as a flat CSV download."""
+    """Filtered catalog as a flat CSV download (rejected events excluded)."""
     rows = read_catalog()
     if start_date or end_date:
         rows = filter_by_date(rows, start_date, end_date)
+    rows = _drop_rejected(rows)
 
     if not rows:
         raise HTTPException(
@@ -46,6 +53,7 @@ async def catalog_export(
         "num_ml_sta",
         "reviewed",
         "review_status",
+        "event_type",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
@@ -65,7 +73,8 @@ async def catalog_export_quakeml(
     start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
 ):
-    """Filtered catalog as QuakeML (origins + magnitudes + picks)."""
+    """Filtered catalog as QuakeML (origins + magnitudes + picks;
+    rejected events excluded)."""
     from obspy import UTCDateTime
     from obspy.core.event import (
         Catalog as ObsCatalog,
@@ -85,9 +94,13 @@ async def catalog_export_quakeml(
     rows = read_catalog()
     if start_date or end_date:
         rows = filter_by_date(rows, start_date, end_date)
+    rows = _drop_rejected(rows)
 
     if not rows:
         raise HTTPException(status_code=404, detail="No catalog data for the selected date range")
+
+    # Catalog event_type -> QuakeML EventType enum (note the space)
+    qml_event_type = {"quarry_blast": "quarry blast", "earthquake": "earthquake"}
 
     # Index assignments by event_id for O(1) lookup while building the catalog.
     assign_by_event: dict[str, list[dict]] = {}
@@ -113,6 +126,7 @@ async def catalog_export_quakeml(
             resource_id=f"smi:elpaso/{event_id}",
             origins=[origin],
             preferred_origin_id=origin.resource_id,
+            event_type=qml_event_type.get((r.get("event_type") or "").lower()),
         )
 
         if r.get("magnitude"):
