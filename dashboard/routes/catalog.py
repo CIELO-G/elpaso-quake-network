@@ -16,6 +16,7 @@ from dashboard.deps import (
     CATALOG_FILE,
     EVENTS_DIR,
     PICKS_DIR,
+    PROCESSED_DIR,
     RAW_DIR,
     filter_by_date,
     load_stations,
@@ -147,13 +148,21 @@ async def stats(request: Request):
         except OSError:
             pass
 
-    days_with_raw = 0
-    if RAW_DIR.exists():
-        for year_dir in RAW_DIR.iterdir():
+    # Raw ∪ processed: local raw is pruned after archiving, but processed
+    # day files prove the day's data existed.
+    waveform_days: set[tuple[str, str]] = set()
+    for base in (RAW_DIR, PROCESSED_DIR):
+        if not base.exists():
+            continue
+        for year_dir in base.iterdir():
             if year_dir.is_dir():
                 for d in year_dir.iterdir():
-                    if d.is_dir() and sum(1 for _ in d.glob("*.mseed")) >= 3:
-                        days_with_raw += 1
+                    key = (year_dir.name, d.name)
+                    if key in waveform_days or not d.is_dir():
+                        continue
+                    if sum(1 for _ in d.glob("*.mseed")) >= 3:
+                        waveform_days.add(key)
+    days_with_raw = len(waveform_days)
 
     station_count = len(load_stations())
 

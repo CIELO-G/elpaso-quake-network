@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException
 
-from dashboard.deps import RAW_DIR, load_stations
+from dashboard.deps import PROCESSED_DIR, RAW_DIR, load_stations
 
 router = APIRouter()
 
@@ -21,8 +21,9 @@ async def stations():
 
 @router.get("/api/station/{station}/detail")
 async def station_detail(station: str):
-    """State-of-health for one station: recent per-day raw-file coverage
-    and the end time of its newest data.
+    """State-of-health for one station: recent per-day file coverage
+    (raw, falling back to processed for pruned days) and the end time of
+    its newest data.
 
     Day-batch context matters for interpretation: with the pipeline's
     ~30 h ingest lag, "newest data ends ~a day ago" is HEALTHY. The
@@ -37,8 +38,15 @@ async def station_detail(station: str):
     newest_file = None
     for offset in range(DETAIL_DAYS - 1, -1, -1):
         d = today - timedelta(days=offset)
-        day_dir = RAW_DIR / str(d.year) / f"{d.timetuple().tm_yday:03d}"
-        files = sorted(day_dir.glob(f"*.{station}.*.mseed")) if day_dir.is_dir() else []
+        rel = f"{d.year}/{d.timetuple().tm_yday:03d}"
+        # Raw first (freshest, but pruned to the newest few days after
+        # archiving); processed covers the rest of the window.
+        files: list = []
+        for base in (RAW_DIR, PROCESSED_DIR):
+            day_dir = base / rel
+            files = sorted(day_dir.glob(f"*.{station}.*.mseed")) if day_dir.is_dir() else []
+            if files:
+                break
         days.append({"date": d.isoformat(), "files": len(files)})
         if files:
             newest_file = files[-1]

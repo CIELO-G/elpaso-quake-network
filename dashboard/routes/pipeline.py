@@ -40,6 +40,27 @@ _pipeline_proc: subprocess.Popen | None = None
 
 
 # ── Tree-walking helpers (used by progress) ──────────────────────
+def _day_dir_keys(base: Path, min_files: int = 0) -> set[tuple[int, int]]:
+    """Set of (year, jday) day-dirs under a year/jday tree.
+
+    Local raw is pruned to the newest few days after archiving
+    (scripts/prune_raw.py), so "was this day ingested" must consider
+    processed output too — a processed day was necessarily ingested.
+    """
+    keys: set[tuple[int, int]] = set()
+    if not base.exists():
+        return keys
+    for year_dir in base.iterdir():
+        if year_dir.is_dir() and year_dir.name.isdigit():
+            for d in year_dir.iterdir():
+                if not d.is_dir() or not d.name.isdigit():
+                    continue
+                if min_files > 0 and sum(1 for f in d.iterdir() if f.is_file()) < min_files:
+                    continue
+                keys.add((int(year_dir.name), int(d.name)))
+    return keys
+
+
 def _count_day_dirs(base: Path, min_files: int = 0) -> int:
     count = 0
     if not base.exists():
@@ -123,12 +144,14 @@ async def progress(request: Request):
     target_date = (datetime.now(timezone.utc) - timedelta(hours=LAG_HOURS)).date()
     total_days = max((target_date - PIPELINE_START_DATE).days + 1, 0)
 
-    days_ingested = _count_day_dirs(RAW_DIR, min_files=3)
+    # Raw ∪ processed: local raw is pruned after archiving, but a
+    # processed day was necessarily ingested first.
+    days_ingested = len(_day_dir_keys(RAW_DIR, min_files=3) | _day_dir_keys(PROCESSED_DIR))
     days_processed = _count_day_dirs(PROCESSED_DIR)
     days_detected = _count_days_with_data(PICKS_DIR, "*.picks.csv")
     days_associated = _count_days_with_data(EVENTS_DIR, "*.events.csv")
 
-    last_ingested = _latest_day_dir(RAW_DIR, min_files=3)
+    last_ingested = _latest_day_dir(RAW_DIR, min_files=3) or _latest_day_dir(PROCESSED_DIR)
     last_processed = _latest_day_dir(PROCESSED_DIR)
     last_detected = _latest_day_csv(PICKS_DIR, "*.picks.csv")
     last_associated = _latest_day_csv(EVENTS_DIR, "*.events.csv")
@@ -416,37 +439,52 @@ async def station_health():
     return results
 
 
-# ── Raw data completeness matrix (calendar heatmap) ──────────────
+# ── Data completeness matrix (calendar heatmap) ──────────────────
+def _station_day_counts(base: Path) -> dict[str, dict[str, int]]:
+    """{station: {YYYY-MM-DD: n_mseed_files}} for a year/jday tree."""
+    counts: dict[str, dict[str, int]] = {}
+    if not base.exists():
+        return counts
+    for year_dir in base.iterdir():
+        if not year_dir.is_dir() or not year_dir.name.isdigit():
+            continue
+        year = int(year_dir.name)
+        for doy_dir in year_dir.iterdir():
+            if not doy_dir.is_dir() or not doy_dir.name.isdigit():
+                continue
+            doy = int(doy_dir.name)
+            day_iso = (date(year, 1, 1) + timedelta(days=doy - 1)).isoformat()
+            for f in doy_dir.iterdir():
+                if not f.name.endswith(".mseed"):
+                    continue
+                parts = f.name.split(".")
+                if len(parts) >= 2:
+                    sta = parts[1]
+                    if sta not in counts:
+                        counts[sta] = {}
+                    counts[sta][day_iso] = counts[sta].get(day_iso, 0) + 1
+    return counts
+
+
 @router.get("/api/data_completeness")
 async def data_completeness(request: Request):
-    # Walks year/jday/file in RAW_DIR — at 14 stations × 365 days × 3 chan
-    # = ~15k iterdir() calls. Cache 60s; new mseeds only land at ingest cadence.
+    # Walks year/jday/file trees — at 14 stations × 365 days × 3 chan
+    # = ~30k iterdir() calls. Cache 60s; new mseeds only land at ingest cadence.
     entry = get_cached("data_completeness", ttl=60.0)
     if entry:
         return etag_response(entry.data, entry.etag, request)
     stations_data = load_stations()
     station_names = [s["station"] for s in stations_data]
 
-    counts: dict[str, dict[str, int]] = {}
-    if RAW_DIR.exists():
-        for year_dir in RAW_DIR.iterdir():
-            if not year_dir.is_dir() or not year_dir.name.isdigit():
-                continue
-            year = int(year_dir.name)
-            for doy_dir in year_dir.iterdir():
-                if not doy_dir.is_dir() or not doy_dir.name.isdigit():
-                    continue
-                doy = int(doy_dir.name)
-                day_iso = (date(year, 1, 1) + timedelta(days=doy - 1)).isoformat()
-                for f in doy_dir.iterdir():
-                    if not f.name.endswith(".mseed"):
-                        continue
-                    parts = f.name.split(".")
-                    if len(parts) >= 2:
-                        sta = parts[1]
-                        if sta not in counts:
-                            counts[sta] = {}
-                        counts[sta][day_iso] = counts[sta].get(day_iso, 0) + 1
+    # Raw is pruned to the newest few days after archiving; processed is
+    # kept in full and mirrors raw's channel-file layout. Per station-day
+    # take the richer of the two so history and the not-yet-processed
+    # freshest day both show.
+    counts = _station_day_counts(PROCESSED_DIR)
+    for sta, per_day in _station_day_counts(RAW_DIR).items():
+        dst = counts.setdefault(sta, {})
+        for day_iso, n in per_day.items():
+            dst[day_iso] = max(dst.get(day_iso, 0), n)
 
     all_days = sorted({d for per_sta in counts.values() for d in per_sta})
     matrix = []

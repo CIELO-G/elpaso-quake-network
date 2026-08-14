@@ -35,6 +35,7 @@ STATUS_FILE = ROOT / "output" / "pipeline_status.json"
 EVENTS_DIR = ROOT / "output" / "4-events"
 STATIONS_FILE = ROOT / "stations.json"
 RAW_DIR = ROOT / "output" / "1-raw"
+PROCESSED_DIR = ROOT / "output" / "2-processed"
 
 # ── continuous-mode defaults ──────────────────────────────────────────────────
 
@@ -208,7 +209,13 @@ def _scan_gaps(
     scan_end: date,
     stations: list[tuple[str, str, date]],
 ) -> list[tuple[date, list[str]]]:
-    """Find days with missing station data in 1-raw/.
+    """Find days with station data missing from BOTH 1-raw/ and 2-processed/.
+
+    Local raw is pruned to the newest few days after archiving
+    (scripts/prune_raw.py), so a missing raw day-dir does NOT mean the
+    day was never ingested — processed output proves it was. Without the
+    processed check, --gap-fill after a prune would try to re-download
+    and force-reprocess the entire history.
 
     Returns list of (day, [missing_station_ids]) for days that have gaps.
     """
@@ -216,7 +223,7 @@ def _scan_gaps(
     day = scan_start
     while day <= scan_end:
         doy = day.timetuple().tm_yday
-        day_dir = RAW_DIR / str(day.year) / f"{doy:03d}"
+        rel = f"{day.year}/{doy:03d}"
 
         # stations expected to be online this day
         expected = {f"{net}.{sta}" for net, sta, start in stations if start <= day}
@@ -224,19 +231,20 @@ def _scan_gaps(
             day += timedelta(days=1)
             continue
 
-        if not day_dir.exists():
-            # entire day missing
-            gaps.append((day, sorted(expected)))
-        else:
-            # parse NET.STA from mseed filenames
-            present = set()
+        # parse NET.STA from mseed filenames in either tree
+        present = set()
+        for base in (RAW_DIR, PROCESSED_DIR):
+            day_dir = base / rel
+            if not day_dir.exists():
+                continue
             for f in day_dir.iterdir():
                 parts = f.name.split(".")
                 if len(parts) >= 2:
                     present.add(f"{parts[0]}.{parts[1]}")
-            missing = expected - present
-            if missing:
-                gaps.append((day, sorted(missing)))
+
+        missing = expected - present
+        if missing:
+            gaps.append((day, sorted(missing)))
 
         day += timedelta(days=1)
     return gaps
