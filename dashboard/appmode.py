@@ -165,6 +165,10 @@ def run_app(port: int, host: str = "127.0.0.1", autostart: bool = True) -> None:
     """Entry point for --app mode. Blocks until the window closes."""
     import webview
 
+    # Off by default in pywebview; without it the export buttons navigate
+    # the WebKit view to the raw CSV/XML instead of saving a file.
+    webview.settings["ALLOW_DOWNLOADS"] = True
+
     url = f"http://127.0.0.1:{port}"
 
     # Second launch? Attach a viewer window to the existing server and do
