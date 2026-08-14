@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 """
+data_retention.py -- DEPRECATED. Use scripts/prune_raw.py instead.
+
+Superseded 2026-08-04: raw retention is now handled by prune_raw.py,
+which verifies each day is fully present in the drive archive (file
+count + byte sizes) before deleting it locally. This script deletes
+WITHOUT any archive check, so running it can destroy the only copy of
+un-archived days. It now refuses to run.
+
+Original description follows.
+
 data_retention.py -- Auto-delete raw waveforms older than N days.
 
 Removes miniSEED files from output/1-raw/ that are older than the
@@ -48,6 +58,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    raise SystemExit(
+        "data_retention.py is DEPRECATED and disabled: it deletes raw days "
+        "without verifying they are archived. Use instead:\n"
+        "    python scripts/prune_raw.py            # dry run\n"
+        "    python scripts/prune_raw.py --apply    # archive-verified delete"
+    )
     args = parse_args()
     cutoff = date.today() - timedelta(days=args.days)
     print(f"Retention: {args.days} days | Cutoff: {cutoff} | Dry run: {args.dry_run}")

@@ -12,7 +12,7 @@
 set -euo pipefail
 
 SRC="/Users/marcgarcia/Research/Elpaso/elpaso-quake-network"
-DST="/Volumes/Marc/Data/elpaso-seismic-archive"
+DST="/Volumes/Marc/Data/Research/Elpaso/elpaso-quake-network"
 
 # Check drive is mounted
 if [ ! -d "/Volumes/Marc" ]; then
@@ -28,8 +28,11 @@ mkdir -p "$DST"
 echo "=== Archiving elpaso-quake-network to $DST ==="
 echo ""
 
-# 1. Output data (the big one: ~485 GB as of Jul 2026, and growing)
-echo "--- output/ (raw ~140G + processed ~340G + picks + events + catalog + nlloc + metadata + caches) ---"
+# 1. Output data (the big one: ~545 GB as of Aug 2026, and growing)
+# NOTE: local 1-raw is pruned after verified backup (scripts/prune_raw.py);
+# this archive keeps the only local copy of old raw days. NEVER add
+# --delete to this rsync — it would erase pruned days from the archive.
+echo "--- output/ (raw ~160G + processed ~385G + picks + events + catalog + nlloc + metadata + caches) ---"
 rsync -avh --progress $EXTRA_FLAGS "$SRC/output/" "$DST/output/"
 
 # 2. Station definitions and response metadata
@@ -43,10 +46,6 @@ rsync -avh --progress $EXTRA_FLAGS "$SRC/stations/" "$DST/stations/"
 # 3. Config files (all step configs)
 echo ""
 echo "--- config files ---"
-for cfg in "$SRC"/*/config.yaml; do
-    [ -f "$cfg" ] && rsync -avh --progress $EXTRA_FLAGS --relative "$cfg" "$DST/" 2>/dev/null || true
-done
-# Use rsync with individual files to preserve directory structure
 for step_dir in 1-ingestion 2-processing 3-detection 4-association; do
     cfg="$SRC/$step_dir/config.yaml"
     if [ -f "$cfg" ]; then
@@ -69,7 +68,7 @@ done
 
 # 6. Log this backup
 if [[ ! "$EXTRA_FLAGS" == *"--dry-run"* ]]; then
-    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') — backup completed" >> "$DST/backup.log"
+    echo "$(date -u '+%Y-%m-%d %H:%M:%S UTC') — backup completed" >> "$DST/output/backup.log"
 fi
 
 echo ""
