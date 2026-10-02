@@ -6,6 +6,7 @@ This module owns the WebSocket status fan-out (`_ws_clients` + `broadcast`).
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import time
 
@@ -17,7 +18,7 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from dashboard.cache import etag_response, get_cached, set_cached
 from dashboard.deps import (
@@ -46,6 +47,22 @@ _app_start_time = time.monotonic()
 @router.get("/", response_class=HTMLResponse)
 async def index():
     return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+
+
+@router.get("/api/mapconfig.js")
+async def mapconfig():
+    """Runtime map configuration for the frontend.
+
+    Injects the CARTO basemaps key (from CARTO_BASEMAPS_KEY, kept in the
+    gitignored deploy/app/local.env — never in the repo). Without a key
+    the frontend falls back to keyless OpenFreeMap vector basemaps.
+    """
+    key = os.environ.get("CARTO_BASEMAPS_KEY", "")
+    return Response(
+        content=f"window.CARTO_BASEMAPS_KEY = {json.dumps(key)};\n",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/api/faults")

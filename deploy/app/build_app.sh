@@ -87,6 +87,7 @@ export PATH="$(dirname "$PYTHON"):$CONDA_BASE/condabin:\$PATH"
 export DASHBOARD_AUTH_ENABLED=1
 export DASHBOARD_USERNAME='$DASHBOARD_USERNAME'
 export DASHBOARD_PASSWORD='$DASHBOARD_PASSWORD'
+export CARTO_BASEMAPS_KEY='${CARTO_BASEMAPS_KEY:-}'
 exec "$PYTHON" -m dashboard --app --host $HOST >> logs/app.log 2>&1
 LAUNCHER
 chmod +x "$APP/Contents/MacOS/ElPasoMonitor"
