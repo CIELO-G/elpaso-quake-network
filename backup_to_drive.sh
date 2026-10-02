@@ -11,12 +11,15 @@
 
 set -euo pipefail
 
-SRC="/Users/marcgarcia/Research/Elpaso/elpaso-quake-network"
-DST="/Volumes/Marc/Data/Research/Elpaso/elpaso-quake-network"
+# Repo root = this script's directory (no hard-coded home path; survives
+# moving the repo or changing user). Archive drive overridable via env.
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARCHIVE_DRIVE="${ELPASO_ARCHIVE_DRIVE:-/Volumes/Marc}"
+DST="$ARCHIVE_DRIVE/Data/Research/Elpaso/elpaso-quake-network"
 
 # Check drive is mounted
-if [ ! -d "/Volumes/Marc" ]; then
-    echo "ERROR: /Volumes/Marc is not mounted. Plug in the drive and retry."
+if [ ! -d "$ARCHIVE_DRIVE" ]; then
+    echo "ERROR: $ARCHIVE_DRIVE is not mounted. Plug in the drive and retry."
     exit 1
 fi
 
