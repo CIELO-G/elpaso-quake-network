@@ -40,3 +40,8 @@ Thumbs.db
 /deploy/app/AppIcon.icns
 /deploy/app/icon_1024.png
 /deploy/app/local.env
+
+# PhaseNO upstream example data (284 MB Ridgecrest mseed) — never commit
+/3-detection/phaseno/example/waveforms/
+/3-detection/phaseno/example/results/
+/3-detection/phaseno/_review_tmp/
