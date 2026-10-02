@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.atomic_io import atomic_write_df
 from lib.config import load_config, load_stations
+from lib.triage import TriageConfig, apply_triage
 from lib.logger import setup_logging
 
 DEFAULTS = {
@@ -49,6 +50,12 @@ def parse_args():
         "--rebuild", action="store_true", help="Force full catalog rebuild from scratch"
     )
     parser.add_argument("--debug", action="store_true", help="Enable debug-level logging")
+    parser.add_argument(
+        "--retriage",
+        action="store_true",
+        help="Recompute triage labels on the existing catalog and exit "
+             "(no new days ingested; review_status untouched)",
+    )
     return parser.parse_args()
 
 
@@ -368,6 +375,21 @@ def main():
     output_dir = Path(config["output_dir"])
     catalog_path = output_dir / config["catalog_file"]
     assignments_path = output_dir / config["assignments_file"]
+    triage_cfg = TriageConfig.from_config(config.get("triage"))
+
+    if getattr(args, "retriage", False):
+        # Relabel the existing catalog in place (atomic write). Used for
+        # the initial backfill and after changing triage thresholds.
+        existing_catalog, _ = load_existing_catalog(catalog_path, logger)
+        existing_assignments = load_existing_assignments(assignments_path, logger)
+        if existing_catalog.empty:
+            logger.warning("No catalog to retriage")
+            return
+        relabelled = apply_triage(existing_catalog, existing_assignments, triage_cfg)
+        atomic_write_df(relabelled, catalog_path, index=False)
+        counts = relabelled["triage"].value_counts().to_dict()
+        logger.info("Retriaged %d events: %s", len(relabelled), counts)
+        return
 
     # Ensure output directory exists
     catalog_path.parent.mkdir(parents=True, exist_ok=True)
@@ -543,6 +565,12 @@ def main():
     # Safety net: this class of bug (same physical event under two ids)
     # must never accumulate silently again.
     warn_near_duplicates(catalog, logger)
+
+    # Triage labels (never touches review_status). Recomputed for every
+    # row on each run so threshold changes take effect immediately.
+    catalog = apply_triage(catalog, assignments, triage_cfg)
+    if triage_cfg.enabled:
+        logger.info("Triage: %s", catalog["triage"].value_counts().to_dict())
 
     # ── Write (atomic: temp + fsync + replace) ───────────────────────
     # catalog.csv is the only file containing reviewed-event state. A bare

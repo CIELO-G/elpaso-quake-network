@@ -137,6 +137,8 @@ def parse_catalog_row(r: dict) -> dict:
         "reviewed": r.get("reviewed", ""),
         "review_status": r.get("review_status", ""),
         "event_type": r.get("event_type", "undetermined"),
+        "triage": r.get("triage", "") or "",
+        "triage_reason": r.get("triage_reason", "") or "",
     }
 
 
