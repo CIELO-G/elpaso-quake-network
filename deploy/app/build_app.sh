@@ -34,7 +34,14 @@ if [ ! -f "$LOCAL_ENV" ]; then
     umask 177
     cat > "$LOCAL_ENV" <<CREDS
 DASHBOARD_USERNAME=marc
-DASHBOARD_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)
+DASHBOARD_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | cut -d- -f1 | cut -c1-20)
+# Alerts — fill in one or both, then rebuild the app:
+#ALERT_EMAIL_TO=you@example.edu
+#ALERT_EMAIL_FROM=you@example.edu
+#ALERT_SMTP_HOST=smtp.gmail.com
+#ALERT_SMTP_PORT=465
+#ALERT_SMTP_PASSWORD=app-password
+#ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...
 CREDS
     umask 022
 fi
@@ -103,6 +110,14 @@ export DASHBOARD_AUTH_ENABLED=1
 export DASHBOARD_USERNAME='$DASHBOARD_USERNAME'
 export DASHBOARD_PASSWORD='$DASHBOARD_PASSWORD'
 export CARTO_BASEMAPS_KEY='${CARTO_BASEMAPS_KEY:-}'
+# Alert channels (lib/monitoring.py). Empty = that channel is off; the
+# dashboard's /api/health shows which are configured.
+export ALERT_EMAIL_TO='${ALERT_EMAIL_TO:-}'
+export ALERT_EMAIL_FROM='${ALERT_EMAIL_FROM:-}'
+export ALERT_SMTP_HOST='${ALERT_SMTP_HOST:-}'
+export ALERT_SMTP_PORT='${ALERT_SMTP_PORT:-}'
+export ALERT_SMTP_PASSWORD='${ALERT_SMTP_PASSWORD:-}'
+export ALERT_WEBHOOK_URL='${ALERT_WEBHOOK_URL:-}'
 exec "$PYTHON" -m dashboard --app --host $HOST >> logs/app.log 2>&1
 LAUNCHER
 chmod 700 "$APP/Contents/MacOS/ElPasoMonitor"   # holds the dashboard password

@@ -34,7 +34,7 @@ from dashboard.deps import (
     dir_size,
     strip_ansi,
 )
-from lib.monitoring import data_volume_usage
+from lib.monitoring import alerting_status, data_volume_usage
 
 router = APIRouter()
 
@@ -111,6 +111,7 @@ async def health():
         "catalog_size": catalog_size,
         "disk_usage_percent": round((usage.used / usage.total) * 100, 1) if usage.total else 0,
         "uptime_seconds": uptime_sec,
+        "alerting": alerting_status(),
     }
 
 

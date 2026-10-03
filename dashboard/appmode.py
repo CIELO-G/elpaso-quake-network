@@ -125,6 +125,7 @@ class PipelineWatchdog(threading.Thread):
         self._stop_event = threading.Event()
         self.consecutive_restarts = 0
         self._last_healthy = time.monotonic()
+        self._exhaustion_alerted = False
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -136,6 +137,7 @@ class PipelineWatchdog(threading.Thread):
             except (urllib.error.URLError, OSError, ValueError):
                 continue  # server hiccup — not the pipeline's problem
             if state.get("running"):
+                self._exhaustion_alerted = False
                 if time.monotonic() - self._last_healthy > RESET_AFTER_S:
                     self.consecutive_restarts = 0
                 self._last_healthy = time.monotonic()
@@ -148,6 +150,20 @@ class PipelineWatchdog(threading.Thread):
                         "not restarting. Check logs/pipeline_stdout.log",
                         self.consecutive_restarts,
                     )
+                    if not self._exhaustion_alerted:
+                        self._exhaustion_alerted = True
+                        try:
+                            from lib.monitoring import notify
+
+                            notify(
+                                "[El Paso Pipeline] pipeline down — watchdog gave up",
+                                f"The pipeline crashed {self.consecutive_restarts} times in a row "
+                                "and the watchdog stopped restarting it. Nothing is being "
+                                "processed. Check logs/pipeline_stdout.log and restart the "
+                                "pipeline from the dashboard.\n",
+                            )
+                        except Exception as exc:  # never let alerting kill the watchdog
+                            logger.error("watchdog alert failed: %s", exc)
                 continue
             backoff = min(BACKOFF_START_S * (2 ** self.consecutive_restarts), BACKOFF_CAP_S)
             logger.warning(

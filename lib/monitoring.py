@@ -13,9 +13,11 @@ import csv
 import json
 import os
 import shutil
+import smtplib
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from email.mime.text import MIMEText
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -57,6 +59,62 @@ def data_volume_usage():
 
 
 # ── Webhook / Slack integration ─────────────────────────────────────────────
+
+
+# ── Alert channels ──────────────────────────────────────────────────────────
+# Configured entirely through the environment (deploy/app/local.env for the
+# desktop app):
+#   ALERT_EMAIL_TO       recipient; enables email
+#   ALERT_EMAIL_FROM     sender (defaults to ALERT_EMAIL_TO)
+#   ALERT_SMTP_HOST      default smtp.gmail.com
+#   ALERT_SMTP_PORT      default 465 (SMTP over SSL)
+#   ALERT_SMTP_PASSWORD  app password
+#   ALERT_WEBHOOK_URL    Slack/Discord-compatible incoming webhook; enables webhook
+
+
+def alerting_status() -> dict:
+    """Which alert channels are configured (never the secrets themselves)."""
+    return {
+        "email": bool(os.environ.get("ALERT_EMAIL_TO")),
+        "webhook": bool(os.environ.get("ALERT_WEBHOOK_URL")),
+    }
+
+
+def send_email(subject: str, body: str) -> bool:
+    """Send an email alert. Silently skips (False) when not configured."""
+    to_addr = os.environ.get("ALERT_EMAIL_TO")
+    if not to_addr:
+        return False
+    from_addr = os.environ.get("ALERT_EMAIL_FROM", to_addr)
+    host = os.environ.get("ALERT_SMTP_HOST", "smtp.gmail.com")
+    port = int(os.environ.get("ALERT_SMTP_PORT", "465"))
+    password = os.environ.get("ALERT_SMTP_PASSWORD", "")
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = to_addr
+    try:
+        with smtplib.SMTP_SSL(host, port, timeout=30) as srv:
+            if password:
+                srv.login(from_addr, password)
+            srv.sendmail(from_addr, [to_addr], msg.as_string())
+        print(f"  Alert email sent to {to_addr}")
+        return True
+    except Exception as exc:
+        print(f"  WARNING: failed to send alert email: {exc}")
+        return False
+
+
+def notify(subject: str, body: str) -> None:
+    """Send on every configured channel; print when none is configured."""
+    status = alerting_status()
+    if not (status["email"] or status["webhook"]):
+        print(f"  (alert not delivered — no ALERT_* channel configured) {subject}")
+    if status["email"]:
+        send_email(subject, body)
+    if status["webhook"]:
+        send_webhook(subject, body)
 
 
 def send_webhook(subject: str, body: str) -> None:
@@ -352,6 +410,37 @@ def validate_environment() -> bool:
     print("=" * 60)
 
     return all_ok
+
+
+def stations_without_data(
+    raw_dir: Path,
+    stations: list[tuple[str, str, date]],
+    last_day: date,
+    days: int = 3,
+) -> list[str]:
+    """Stations expected online that have NO raw files on any of the last
+    ``days`` days ending at ``last_day`` (inclusive). ``stations`` are
+    (network, station, start_date) tuples; a station only counts once it is
+    expected for the whole window.
+    """
+    dark: list[str] = []
+    first_day = last_day - timedelta(days=days - 1)
+    for net, sta, start in stations:
+        if start > first_day:
+            continue  # too new to judge over the full window
+        seen = False
+        for i in range(days):
+            d = first_day + timedelta(days=i)
+            day_dir = raw_dir / f"{d.year}" / f"{d.timetuple().tm_yday:03d}"
+            if not day_dir.is_dir():
+                continue
+            prefix = f"{net}.{sta}."
+            if any(f.name.startswith(prefix) for f in day_dir.iterdir()):
+                seen = True
+                break
+        if not seen:
+            dark.append(f"{net}.{sta}")
+    return dark
 
 
 def run_monitoring_checks(send_alert_fn=None) -> dict:

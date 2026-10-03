@@ -13,18 +13,17 @@ import argparse
 import json
 import os
 import signal
-import smtplib
 import subprocess
 import sys
 import time as _time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from email.mime.text import MIMEText
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))  # allow `from lib.constants import ...`
 
+from lib.monitoring import notify, send_email, stations_without_data  # noqa: E402
 from lib.pipeline_state import PipelineState, load_state, save_state  # noqa: E402
 from lib.constants import (  # noqa: E402  (path setup above)
     CONTINUOUS_LAG_HOURS,
@@ -176,30 +175,8 @@ def _make_step_statuses(initial: str = "pending") -> list[dict]:
 
 
 def _send_alert(subject: str, body: str) -> None:
-    """Send an email alert.  Silently skips if env vars are not configured."""
-    to_addr = os.environ.get("ALERT_EMAIL_TO")
-    if not to_addr:
-        print("  (email alert skipped — ALERT_EMAIL_TO not set)")
-        return
-
-    from_addr = os.environ.get("ALERT_EMAIL_FROM", to_addr)
-    host = os.environ.get("ALERT_SMTP_HOST", "smtp.gmail.com")
-    port = int(os.environ.get("ALERT_SMTP_PORT", "465"))
-    password = os.environ.get("ALERT_SMTP_PASSWORD", "")
-
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = from_addr
-    msg["To"] = to_addr
-
-    try:
-        with smtplib.SMTP_SSL(host, port, timeout=30) as srv:
-            if password:
-                srv.login(from_addr, password)
-            srv.sendmail(from_addr, [to_addr], msg.as_string())
-        print(f"  Alert email sent to {to_addr}")
-    except Exception as exc:
-        print(f"  WARNING: failed to send alert email: {exc}")
+    """Email alert (see lib.monitoring.send_email). Kept for existing call sites."""
+    send_email(subject, body)
 
 
 # ── gap-fill helpers ─────────────────────────────────────────────────────────
@@ -551,14 +528,43 @@ def _run_day(
 
 
 def _notify(subject: str, body: str) -> None:
-    """Email + webhook, best effort (both are no-ops when unconfigured)."""
-    _send_alert(subject=subject, body=body)
+    """Email + webhook, best effort (prints when neither is configured)."""
     try:
-        from lib.monitoring import send_webhook
+        notify(subject, body)
+    except Exception as exc:  # alerting must never take the pipeline down
+        print(f"  WARNING: alert delivery failed: {exc}")
 
-        send_webhook(subject, body)
-    except Exception:
-        pass
+
+STATION_DARK_DAYS = 3
+
+
+def _check_station_coverage(state: PipelineState, last_day: date) -> None:
+    """After each completed day: alert once when a station goes dark for
+    STATION_DARK_DAYS consecutive days, and once when it comes back.
+    """
+    try:
+        stations = _load_station_expectations()
+        dark = stations_without_data(RAW_DIR, stations, last_day, STATION_DARK_DAYS)
+    except Exception as exc:
+        print(f"  WARNING: station coverage check failed: {exc}")
+        return
+    newly_dark = sorted(set(dark) - set(state.dark_stations))
+    recovered = sorted(set(state.dark_stations) - set(dark))
+    if newly_dark:
+        _notify(
+            f"[El Paso Pipeline] {len(newly_dark)} station(s) dark for {STATION_DARK_DAYS} days",
+            f"No raw data on any of the last {STATION_DARK_DAYS} days (through {last_day}) for: "
+            f"{', '.join(newly_dark)}\nCheck the Shake(s) and the FDSN server; the day will "
+            f"be re-ingested automatically for up to {PARTIAL_MAX_AGE_DAYS} days.\n",
+        )
+    if recovered:
+        _notify(
+            f"[El Paso Pipeline] station(s) back: {', '.join(recovered)}",
+            f"Data seen again within the last {STATION_DARK_DAYS} days (through {last_day}).\n",
+        )
+    if newly_dark or recovered:
+        state.dark_stations = sorted(dark)
+        save_state(OUTPUT_DIR, state)
 
 
 def _retry_partial_days(args: argparse.Namespace, status_data: dict, state: PipelineState) -> None:
@@ -820,6 +826,8 @@ def continuous_run(args: argparse.Namespace) -> None:
                 except Exception as exc:
                     print(f"  WARNING: public site export failed: {exc}")
 
+                _check_station_coverage(state, date.fromisoformat(day_str))
+
                 # Run monitoring checks every 10 days
                 if days_completed % 10 == 0:
                     try:
@@ -849,13 +857,7 @@ def continuous_run(args: argparse.Namespace) -> None:
                     f"({', '.join(days_skipped)})\n"
                     f"Pipeline continues with the next day.\n"
                 )
-                _send_alert(subject=alert_subject, body=alert_body)
-                try:
-                    from lib.monitoring import send_webhook
-
-                    send_webhook(alert_subject, alert_body)
-                except Exception:
-                    pass
+                _notify(alert_subject, alert_body)
 
             _write_status(status_data)
 

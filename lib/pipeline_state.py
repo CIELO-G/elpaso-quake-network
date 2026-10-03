@@ -24,6 +24,7 @@ STATE_FILENAME = "pipeline_state.json"
 class PipelineState:
     days_skipped: list[str] = field(default_factory=list)
     days_partial: list[str] = field(default_factory=list)
+    dark_stations: list[str] = field(default_factory=list)  # NET.STA currently alerted as dark
     updated_at: str | None = None
 
     # ── mutation helpers (keep lists sorted + unique) ──
@@ -56,6 +57,7 @@ def load_state(output_dir: Path) -> PipelineState:
     st = PipelineState(
         days_skipped=sorted(set(raw.get("days_skipped", []))),
         days_partial=sorted(set(raw.get("days_partial", []))),
+        dark_stations=sorted(set(raw.get("dark_stations", []))),
         updated_at=raw.get("updated_at"),
     )
     return st

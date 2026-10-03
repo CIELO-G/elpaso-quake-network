@@ -19,7 +19,7 @@
 - [x] A4 resume from last day with events; gap-fill checks picks/events.
 - [x] A5 skipped days persisted across restarts.
 - [x] A6 partial-hour chunks recorded with coverage and re-fetched.
-- [ ] A7 alerts: env in local.env + launcher; per-station coverage check; watchdog-exhausted alert; health shows alert config.
+- [x] A7 alerts: env in local.env + launcher; per-station coverage check; watchdog-exhausted alert; health shows alert config.
 - [ ] A8 prune_raw.py refuses to run when 1-raw is not local.
 - [ ] A9 pipeline stop waits for exit; no double pipeline.
 - [ ] A10 atomic writes for all stage outputs.
@@ -53,4 +53,12 @@
   re-requested while younger than `refetch_window_days` (7); `ingest.py --force` (now passed by the
   orchestrator on partial re-runs and gap-fill) ignores the age. Complete chunks are never
   re-downloaded. Migration rehearsed on a copy of the live DB (99,154 success / 22,685 no_data rows,
-  no failed rows). Tests: 252 pass.
+  no failed rows). Tests: 243 pass.
+- 2026-10-03 A7 done. `lib/monitoring.py` now owns all delivery: `send_email`, `send_webhook`,
+  `notify` (both channels, prints when none configured), `alerting_status`. Launcher exports every
+  `ALERT_*` var from `deploy/app/local.env` (placeholders added there, commented out — **Marc must
+  fill in an email or Slack webhook and rebuild the app; until then alerts only print to
+  pipeline_stdout.log**). `/api/health` reports `alerting: {email, webhook}`. New daily check after
+  each completed day: a station with no raw files for 3 consecutive days → one alert; one more when
+  it returns (`dark_stations` persisted in pipeline_state.json). Watchdog alerts once when it stops
+  restarting the pipeline. Tests: 248 pass.
