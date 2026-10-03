@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-SRC="/Users/marcgarcia/Research/Elpaso/elpaso-quake-network"
+SRC="/Users/magarcia113/Research/Elpaso/elpaso-quake-network"
 DST="/Volumes/Marc/Data/Research/Elpaso/elpaso-quake-network"
 
 # Check drive is mounted
@@ -33,7 +33,23 @@ echo ""
 # this archive keeps the only local copy of old raw days. NEVER add
 # --delete to this rsync — it would erase pruned days from the archive.
 echo "--- output/ (raw ~160G + processed ~385G + picks + events + catalog + nlloc + metadata + caches) ---"
-rsync -avh --progress $EXTRA_FLAGS "$SRC/output/" "$DST/output/"
+# On the Mac Studio, output/1-raw and output/2-processed are symlinks to the
+# RAID. rsync -a would copy the links themselves, so sync those two trees
+# explicitly (trailing slash follows the link) and exclude them here. The
+# guard stops an unmounted RAID from looking like an empty source.
+for d in 1-raw 2-processed; do
+    if [ ! -d "$SRC/output/$d/" ]; then
+        echo "ERROR: $SRC/output/$d is not reachable (RAID unmounted?). Aborting."
+        exit 1
+    fi
+done
+rsync -avh --progress $EXTRA_FLAGS \
+    --exclude '/1-raw' --exclude '/2-processed' \
+    "$SRC/output/" "$DST/output/"
+for d in 1-raw 2-processed; do
+    mkdir -p "$DST/output/$d"
+    rsync -avh --progress $EXTRA_FLAGS "$SRC/output/$d/" "$DST/output/$d/"
+done
 
 # 2. Station definitions and response metadata
 echo ""

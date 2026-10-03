@@ -681,6 +681,17 @@ def continuous_run(args: argparse.Namespace) -> None:
                 cont["day_times"] = cont["day_times"][-100:]
                 current_day += timedelta(days=1)
 
+                # Refresh the public site (best-effort — a failed export or
+                # push must never affect the pipeline itself).
+                try:
+                    subprocess.run(
+                        [sys.executable, str(ROOT / "scripts" / "export_public_site.py"),
+                         "--push"],
+                        timeout=900, check=False,
+                    )
+                except Exception as exc:
+                    print(f"  WARNING: public site export failed: {exc}")
+
                 # Run monitoring checks every 10 days
                 if days_completed % 10 == 0:
                     try:

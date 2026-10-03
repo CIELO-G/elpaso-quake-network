@@ -6,6 +6,11 @@
 <title>El Paso Seismic Monitor</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- MapLibre GL renders the keyless OpenFreeMap vector basemaps (the
+     Positron / Dark Matter styles CARTO no longer serves as raster). -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
 <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -305,7 +310,9 @@
     <label>Status</label>
     <select id="cat-review-filter" style="width:6.5rem">
       <option value="">All</option>
+      <option value="queue">Queue</option>
       <option value="unreviewed">Unreviewed</option>
+      <option value="auto_rejected">Auto-rejected</option>
       <option value="confirmed">Confirmed</option>
       <option value="rejected">Rejected</option>
     </select>
@@ -520,6 +527,8 @@
   <span class="sb-item sb-clock" id="sb-clock-utc" title="UTC">&mdash;</span>
 </footer>
 
+<!-- Runtime map config (CARTO key from server env; never in the repo) -->
+<script src="/api/mapconfig.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

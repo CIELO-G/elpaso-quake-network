@@ -1757,3 +1757,9 @@
     .event-detail-overlay { max-width: calc(100% - 20px); }
     .tab-btn { padding: .3rem .7rem; font-size: .65rem; }
   }
+
+/* Triage chips (catalog table, unreviewed rows) */
+.triage-chip { display: inline-block; margin-left: .35rem; padding: 0 .35rem; border-radius: 4px;
+  font-size: .6rem; font-weight: 700; letter-spacing: .02em; vertical-align: middle; cursor: help; }
+.triage-reject { color: var(--red); border: 1px solid var(--red); opacity: .85; }
+.triage-flag { color: var(--amber); border: 1px solid var(--amber); opacity: .85; }

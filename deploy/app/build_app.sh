@@ -80,6 +80,21 @@ cat > "$APP/Contents/MacOS/ElPasoMonitor" <<LAUNCHER
 # rebuild to update (credentials come from deploy/app/local.env, gitignored).
 cd "$REPO"
 mkdir -p logs
+# output/1-raw and output/2-processed may be symlinks to an external volume
+# (RAID). At login that volume can mount after this app starts, so wait for
+# it; never start the pipeline against a missing data volume.
+for d in output/1-raw output/2-processed; do
+    tries=0
+    while [ ! -d "\$d/" ]; do
+        tries=\$((tries + 1))
+        if [ "\$tries" -gt 60 ]; then
+            echo "\$(date -u '+%Y-%m-%d %H:%M:%S UTC') ABORT: \$d not reachable (data volume not mounted?)" >> logs/app.log
+            osascript -e 'display alert "El Paso Monitor" message "The waveform data volume is not mounted. Mount the RAID and reopen the app."' >/dev/null 2>&1 || true
+            exit 1
+        fi
+        sleep 5
+    done
+done
 # Finder launches apps with a minimal PATH; give subprocesses the conda
 # toolchain (detection resolves env pythons directly, but keep PATH sane
 # for anything else that shells out).
@@ -87,9 +102,10 @@ export PATH="$(dirname "$PYTHON"):$CONDA_BASE/condabin:\$PATH"
 export DASHBOARD_AUTH_ENABLED=1
 export DASHBOARD_USERNAME='$DASHBOARD_USERNAME'
 export DASHBOARD_PASSWORD='$DASHBOARD_PASSWORD'
+export CARTO_BASEMAPS_KEY='${CARTO_BASEMAPS_KEY:-}'
 exec "$PYTHON" -m dashboard --app --host $HOST >> logs/app.log 2>&1
 LAUNCHER
-chmod +x "$APP/Contents/MacOS/ElPasoMonitor"
+chmod 700 "$APP/Contents/MacOS/ElPasoMonitor"   # holds the dashboard password
 
 echo "Built: $APP"
 echo "Remote access: http://<this-mac's-tailscale-name-or-ip>:8000"

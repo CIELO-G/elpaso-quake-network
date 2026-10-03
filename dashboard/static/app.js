@@ -34,12 +34,9 @@ function switchAppTheme(theme) {
   localStorage.setItem('theme', theme);
   _applyThemeUI(theme);
   // Switch main map tiles if map is ready
-  if (typeof mapTileLayers !== 'undefined' && typeof currentTileLayer !== 'undefined' && typeof map !== 'undefined') {
+  if (typeof _setMainMapStyle === 'function' && typeof map !== 'undefined') {
     var mapStyle = theme === 'light' ? 'light' : 'dark';
-    if (mapTileLayers[mapStyle] !== currentTileLayer) {
-      map.removeLayer(currentTileLayer);
-      currentTileLayer = mapTileLayers[mapStyle];
-      currentTileLayer.addTo(map);
+    if (_setMainMapStyle(mapStyle)) {
       // Sync the map style buttons
       document.querySelectorAll('.map-style-btn').forEach(function(b) {
         b.classList.toggle('active', b.getAttribute('data-style') === mapStyle);
@@ -49,12 +46,7 @@ function switchAppTheme(theme) {
   // Switch review map tiles if it exists
   if (typeof reviewMap !== 'undefined' && reviewMap && typeof _reviewTileLayer !== 'undefined') {
     reviewMap.removeLayer(_reviewTileLayer);
-    var url = theme === 'light'
-      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    _reviewTileLayer = L.tileLayer(url, {
-      attribution: '&copy; CARTO &copy; OSM', subdomains: 'abcd', maxZoom: 19
-    }).addTo(reviewMap);
+    _reviewTileLayer = makeBasemapLayer(theme).addTo(reviewMap);
   }
   // Redraw any visible waveform canvases so they pick up the new theme colors
   if (typeof reviewState !== 'undefined' && reviewState.traces && reviewState.traces.length > 0) {
@@ -311,15 +303,36 @@ const map = L.map('map', {
   zoomAnimation: true,
 }).setView(MAP_INIT_VIEW, MAP_INIT_ZOOM);
 
+// CARTO's raster basemaps require an API key since 2026-08. The key is
+// injected at runtime by /api/mapconfig.js (window.CARTO_BASEMAPS_KEY,
+// sourced from the gitignored deploy/app/local.env — never committed).
+// With a key: the original CARTO Positron / Dark Matter raster tiles.
+// Without one (e.g. a fresh clone): keyless OpenFreeMap vector tiles of
+// the same styles, rendered via MapLibre GL (see index.html includes).
+// GL layers cannot be shared across maps or reliably re-added after
+// removal, so every use site builds a fresh layer via this factory.
+function makeBasemapLayer(theme) {
+  var style = theme === 'light' ? 'light' : 'dark';
+  var key = window.CARTO_BASEMAPS_KEY || '';
+  if (key) {
+    return L.tileLayer(
+      'https://basemaps.cartocdn.com/' + style + '_all/{z}/{x}/{y}{r}.png?key=' + key, {
+        attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> ' +
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+        maxZoom: 19
+      });
+  }
+  return L.maplibreGL({
+    style: 'https://tiles.openfreemap.org/styles/' + (style === 'light' ? 'positron' : 'dark'),
+    attribution: '&copy; <a href="https://openfreemap.org">OpenFreeMap</a> ' +
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>, ' +
+      'style &copy; <a href="https://carto.com/">CARTO</a>'
+  });
+}
+
+// satellite/osm are shared raster layers (safe to re-add); dark/light GL
+// layers are built fresh on each activation via makeBasemapLayer().
 var mapTileLayers = {
-  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OSM</a>',
-    subdomains: 'abcd', maxZoom: 19
-  }),
-  light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OSM</a>',
-    subdomains: 'abcd', maxZoom: 19
-  }),
   satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Sources: Esri, Maxar, Earthstar',
     maxZoom: 19
@@ -329,21 +342,27 @@ var mapTileLayers = {
     maxZoom: 19
   }),
 };
-var _initMapStyle = _currentAppTheme === 'light' ? 'light' : 'dark';
-var currentTileLayer = mapTileLayers[_initMapStyle];
+var currentMapStyle = _currentAppTheme === 'light' ? 'light' : 'dark';
+var currentTileLayer = makeBasemapLayer(currentMapStyle);
 currentTileLayer.addTo(map);
 // Sync map style buttons to match theme
 document.querySelectorAll('.map-style-btn').forEach(function(b) {
-  b.classList.toggle('active', b.getAttribute('data-style') === _initMapStyle);
+  b.classList.toggle('active', b.getAttribute('data-style') === currentMapStyle);
 });
+
+// Swap the main map basemap; returns true if the style actually changed.
+function _setMainMapStyle(style) {
+  if (style === currentMapStyle) return false;
+  map.removeLayer(currentTileLayer);
+  currentTileLayer = mapTileLayers[style] || makeBasemapLayer(style);
+  currentTileLayer.addTo(map);
+  currentMapStyle = style;
+  return true;
+}
 
 document.querySelectorAll('.map-style-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var style = btn.getAttribute('data-style');
-    if (mapTileLayers[style] === currentTileLayer) return;
-    map.removeLayer(currentTileLayer);
-    currentTileLayer = mapTileLayers[style];
-    currentTileLayer.addTo(map);
+    if (!_setMainMapStyle(btn.getAttribute('data-style'))) return;
     document.querySelectorAll('.map-style-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
   });
@@ -1928,7 +1947,7 @@ function loadCatalogTable() {
     } else {
       tbody.innerHTML = data.events.map(function(e) {
         return '<tr data-eid="' + esc(e.event_id) + '">' +
-          '<td>' + (e.review_status === 'confirmed' ? '<span style="color:var(--green);font-weight:700;font-size:.7rem">\u25cf Confirmed</span>' : e.review_status === 'rejected' ? '<span style="color:var(--red);font-weight:700;font-size:.7rem">\u25cf Rejected</span>' : '<span style="color:var(--amber);font-weight:700;font-size:.7rem">\u25cf Unreviewed</span>') + '</td>' +
+          '<td>' + (e.review_status === 'confirmed' ? '<span style="color:var(--green);font-weight:700;font-size:.7rem">\u25cf Confirmed</span>' : e.review_status === 'rejected' ? '<span style="color:var(--red);font-weight:700;font-size:.7rem">\u25cf Rejected</span>' : '<span style="color:var(--amber);font-weight:700;font-size:.7rem">\u25cf Unreviewed</span>') + triageChip(e) + '</td>' +
           '<td>' + eventTypeBadge(e.event_type) + '</td>' +
           '<td>' + esc(e.event_id) + '</td>' +
           '<td>' + esc(e.time || '') + '<div class="local-time">' + esc(formatLocalTime(e.time)) + '</div></td>' +
@@ -3533,13 +3552,7 @@ var _reviewTileLayer = null;
 function initReviewMap() {
   if (reviewMap) return;
   reviewMap = L.map('rv-map-container', { zoomControl: true }).setView([31.85, -106.40], 10);
-  var rvUrl = _currentAppTheme === 'light'
-    ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-  _reviewTileLayer = L.tileLayer(rvUrl, {
-    attribution: '&copy; CARTO &copy; OSM',
-    subdomains: 'abcd', maxZoom: 19
-  }).addTo(reviewMap);
+  _reviewTileLayer = makeBasemapLayer(_currentAppTheme).addTo(reviewMap);
   reviewMapLayers.addTo(reviewMap);
 }
 
@@ -3775,11 +3788,20 @@ document.getElementById('rv-reject').addEventListener('click', function() {
   });
 });
 
+// Triage chip: shown on unreviewed rows only (reviewed rows carry a human
+// decision that supersedes the automatic label). Hover for the reason.
+function triageChip(e) {
+  if (e.review_status || !e.triage || e.triage === 'ok') return '';
+  var cls = e.triage === 'auto_reject' ? 'triage-chip triage-reject' : 'triage-chip triage-flag';
+  var txt = e.triage === 'auto_reject' ? 'auto-rejected' : 'flag';
+  return '<span class="' + cls + '" title="' + esc(e.triage_reason || '') + '">' + txt + '</span>';
+}
+
 // ── Review queue ────────────────────────────────────────────────
 // Count of unreviewed events; drives the "Review next" button in the
 // catalog toolbar and the counter chip in the review header.
 function updateReviewQueueCount() {
-  fetchJSON('/api/catalog?review_status=unreviewed&per_page=1')
+  fetchJSON('/api/catalog?review_status=queue&per_page=1')
     .then(function(data) {
       var n = (data && data.total) || 0;
       var btn = document.getElementById('cat-review-next');
@@ -3800,7 +3822,7 @@ function updateReviewQueueCount() {
 // Auto-advance to next unreviewed event
 function advanceToNextUnreviewed() {
   updateReviewQueueCount();
-  fetchJSON('/api/catalog?review_status=unreviewed&per_page=1&sort_by=time&sort_order=asc')
+  fetchJSON('/api/catalog?review_status=queue&per_page=1&sort_by=time&sort_order=asc')
     .then(function(data) {
       if (data && data.events && data.events.length > 0) {
         var nextId = data.events[0].event_id;

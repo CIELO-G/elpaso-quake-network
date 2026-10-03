@@ -42,7 +42,7 @@ async def catalog(
     max_depth: float | None = Query(default=None),
     min_picks: int | None = Query(default=None),
     search: str | None = Query(default=None, min_length=1, max_length=100),
-    review_status: str | None = Query(default=None, pattern=r"^(unreviewed|confirmed|rejected)$"),
+    review_status: str | None = Query(default=None, pattern=r"^(unreviewed|confirmed|rejected|queue|auto_rejected)$"),
 ):
     entry = get_cached("catalog", ttl=30.0, watch_file=CATALOG_FILE)
     if entry:
@@ -77,6 +77,13 @@ async def catalog(
     if review_status:
         if review_status == "unreviewed":
             all_events = [e for e in all_events if not e.get("review_status")]
+        elif review_status == "queue":
+            # the human review queue: unreviewed AND not triaged as auto_reject
+            all_events = [e for e in all_events
+                          if not e.get("review_status") and e.get("triage") != "auto_reject"]
+        elif review_status == "auto_rejected":
+            all_events = [e for e in all_events
+                          if not e.get("review_status") and e.get("triage") == "auto_reject"]
         else:
             all_events = [e for e in all_events if e.get("review_status") == review_status]
 

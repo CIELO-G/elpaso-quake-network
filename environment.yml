@@ -15,9 +15,20 @@ dependencies:
   - pip
   - pip:
       - torch==2.2.1
-      - xdas>=0.2.0
-      - gmma @ git+https://github.com/wayneweiqiang/GaMMA.git@c156136ed7afe3b585c2da2f6021268aca460808
+      # pip must not override the conda numpy/scipy above. An unpinned xdas
+      # (0.2.9 needs numpy>=2.3) dragged numpy to 2.5 and scipy to 1.18 on the
+      # 2026-10-02 Mac Studio rebuild; scipy 1.14.1 requires numpy<2.3.
+      - numpy>=2.2,<2.3
+      - numba==0.63.1
+      - xdas==0.2.8
+      # GaMMA: this is the commit the production env actually ran for every
+      # association since 2026-03 (its stdout prints "Clustering (eps=...)",
+      # which the previously pinned c156136 from 2024-08 never does). The old
+      # pin was never installed; it is deterministic but finds fewer events.
+      - gmma @ git+https://github.com/wayneweiqiang/GaMMA.git@f6b1ac7680f50bcc7d5d3928361ba02a7df0f523
       - fastapi==0.115.6
       - uvicorn[standard]==0.34.0
       - pywebview>=5.0
       - httpx==0.28.1
+      - pytest
+      - pytest-cov

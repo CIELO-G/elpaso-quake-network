@@ -30,3 +30,23 @@ assignments_file: "5-catalog/assignments.csv"
 log_dir: "logs"
 log_max_bytes: 10485760    # 10 MB per log file
 log_backup_count: 5        # keep 5 rotated files
+
+# -----------------------------------------------------------------------------
+# Triage — label likely-false associations so the review queue shows them
+# last. Labels only; review_status is never changed. Rules measured against
+# the reviewed catalog 2026-09-30 (98 % of confirmed kept, 80 % of rejected
+# auto-labelled). See lib/triage.py.
+# -----------------------------------------------------------------------------
+triage:
+  enabled: true
+  # Stations that real events in this network are built on. An event
+  # picked by fewer than min_core_stations of them is auto_reject.
+  core_stations: ["KIDD", "R0F2D", "R4B41", "RE2E7"]
+  min_core_stations: 2
+  # A large magnitude from very few picks is an amplitude artefact of a
+  # noisy station, not an event (a real M2.2 lights up the whole network).
+  inflated_mag_min: 2.2
+  inflated_mag_max_picks: 4
+  # Events with this many picks or fewer are flagged "unconstrained"
+  # (real ones exist, but 4 picks / 4 unknowns cannot locate them).
+  unconstrained_max_picks: 4

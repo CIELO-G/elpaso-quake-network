@@ -6,7 +6,7 @@ This module owns the WebSocket status fan-out (`_ws_clients` + `broadcast`).
 from __future__ import annotations
 
 import json
-import shutil
+import os
 import time
 
 from fastapi import (
@@ -17,7 +17,7 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from dashboard.cache import etag_response, get_cached, set_cached
 from dashboard.deps import (
@@ -28,13 +28,13 @@ from dashboard.deps import (
     MAX_LOG_BYTES,
     OUTPUT_DIR,
     QUARRIES_FILE,
-    ROOT,
     STATIC_DIR,
     STATUS_FILE,
     VALID_STEP_NAMES,
     dir_size,
     strip_ansi,
 )
+from lib.monitoring import data_volume_usage
 
 router = APIRouter()
 
@@ -46,6 +46,22 @@ _app_start_time = time.monotonic()
 @router.get("/", response_class=HTMLResponse)
 async def index():
     return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+
+
+@router.get("/api/mapconfig.js")
+async def mapconfig():
+    """Runtime map configuration for the frontend.
+
+    Injects the CARTO basemaps key (from CARTO_BASEMAPS_KEY, kept in the
+    gitignored deploy/app/local.env — never in the repo). Without a key
+    the frontend falls back to keyless OpenFreeMap vector basemaps.
+    """
+    key = os.environ.get("CARTO_BASEMAPS_KEY", "")
+    return Response(
+        content=f"window.CARTO_BASEMAPS_KEY = {json.dumps(key)};\n",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/api/faults")
@@ -85,7 +101,7 @@ async def health():
         except OSError:
             pass
 
-    usage = shutil.disk_usage(ROOT)
+    usage = data_volume_usage()
     uptime_sec = round(time.monotonic() - _app_start_time, 1)
 
     return {
@@ -213,7 +229,7 @@ async def disk(request: Request):
     if entry:
         return etag_response(entry.data, entry.etag, request)
 
-    usage = shutil.disk_usage(ROOT)
+    usage = data_volume_usage()
     total_gb = round(usage.total / (1024**3), 1)
     used_gb = round(usage.used / (1024**3), 1)
     free_gb = round(usage.free / (1024**3), 1)

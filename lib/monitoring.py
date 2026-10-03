@@ -24,6 +24,38 @@ CATALOG_FILE = OUTPUT_DIR / "5-catalog" / "catalog.csv"
 EVENTS_DIR = OUTPUT_DIR / "4-events"
 
 
+def data_volume_path() -> Path:
+    """Path on the volume that holds the bulk waveform data.
+
+    ``output/2-processed`` may be a symlink to another volume (RAID); disk
+    checks must measure that volume, not the one holding the code. Falls
+    back to the repo root when the target is missing (volume unmounted).
+    """
+    processed = OUTPUT_DIR / "2-processed"
+    return processed if processed.exists() else ROOT
+
+
+def data_volume_usage():
+    """Disk usage (total, used, free in bytes) of the waveform data volume.
+
+    ``shutil.disk_usage`` goes through ``statvfs``, whose block counts are
+    32-bit on macOS: volumes larger than 16 TiB wrap around (a 109 TiB RAID
+    reports as 13 TiB, 38% full instead of 5%). ``df`` uses the 64-bit
+    ``statfs``, so prefer it and fall back to ``shutil`` if it fails.
+    """
+    path = data_volume_path()
+    try:
+        import subprocess
+
+        out = subprocess.run(
+            ["/bin/df", "-Pk", str(path)], capture_output=True, text=True, timeout=10, check=True
+        ).stdout.strip().splitlines()[-1].split()
+        total, used, free = (int(v) * 1024 for v in out[1:4])
+        return type(shutil.disk_usage(ROOT))(total, used, free)
+    except Exception:
+        return shutil.disk_usage(path)
+
+
 # ── Webhook / Slack integration ─────────────────────────────────────────────
 
 
@@ -61,7 +93,7 @@ def check_disk_space(threshold_percent: float = 80.0) -> tuple[bool, str]:
 
     Returns (is_ok, message).
     """
-    usage = shutil.disk_usage(ROOT)
+    usage = data_volume_usage()
     percent = (usage.used / usage.total) * 100 if usage.total else 0
     free_gb = usage.free / (1024**3)
 
