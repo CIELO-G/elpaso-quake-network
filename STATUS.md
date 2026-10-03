@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** see the checklist below; first unchecked item.
+- **Next step:** after 2026-10-04 06:00 UTC, check `logs/pipeline_stdout.log`, `output/pipeline_state.json`, `/api/health`, and that `1-downloads.db` now has a `coverage` column with values for day 2026-10-03. Then Phase 2 (`ENGINEERING_REVIEW.md` section B).
 
 ## Phase 1 checklist
 
@@ -25,7 +25,7 @@
 - [x] A10 atomic writes for all stage outputs.
 - [x] A11 no zero-fill in raw storage.
 - [x] A12 NaN amplitude guard.
-- [ ] Restart pipeline after a day completes; verify next day end to end.
+- [x] Restart pipeline after a day completes (done 2026-10-03 18:45 UTC). [ ] Verify 2026-10-03 end to end after the 2026-10-04 06:00 UTC run.
 
 ## Log
 
@@ -75,3 +75,8 @@
   (written with zeros) are unchanged. Smoke re-check on 2026-09-27: picks identical (2,822),
   38 processed files, no .tmp leftovers. Tests: 258 pass.
   **All 12 code items done. Remaining: restart the app after a day completes, verify end to end.**
+- 2026-10-03 18:45 UTC: Phase 1 code live. 2026-10-02 had completed under the old code (55 min,
+  2 new events → 114). Stopped pipeline via API, quit app, rebuilt app (launcher now exports
+  ALERT_*), relaunched. Health OK, pipeline waiting for 2026-10-03 at 06:00 UTC Oct 4,
+  `alerting: {email: false, webhook: false}` until Marc fills in local.env. Branch
+  `phase1-hardening` has 7 commits on top of main; not merged or pushed.
