@@ -13,7 +13,7 @@
 
 ## Phase 1 checklist
 
-- [ ] A1 review record: cross-process lock shared by catalog step and dashboard; every dashboard save appended to `reviews.jsonl`; backfill sidecar from current catalog.
+- [x] A1 review record: cross-process lock shared by catalog step and dashboard; every dashboard save appended to `reviews.jsonl`; backfill sidecar from current catalog.
 - [ ] A2 ingest exits non-zero on failure.
 - [ ] A3 association leaves no outputs and exits non-zero on failure.
 - [ ] A4 resume from last day with events; gap-fill checks picks/events.
@@ -30,3 +30,12 @@
 ## Log
 
 - 2026-10-03: review written (`ENGINEERING_REVIEW.md`), plan agreed, Phase 1 started.
+  Baseline commit `9d61e10` on main = exactly what is running; branch `phase1-hardening`.
+- 2026-10-03 A1 done. New `lib/catalog_lock.py` (flock on `output/5-catalog/.catalog.lock`) held by
+  `5-catalog/catalog.py` for its whole merge and by both dashboard save handlers (which now run in a
+  worker thread, 503 after 30 s if the pipeline holds the lock). New `lib/reviews.py`; every dashboard
+  save/status change appends to `reviews.jsonl` with a `source` field. Backfilled 96 reviewed events
+  (`scripts/backfill_reviews_sidecar.py --apply`; pre-backfill copy in RAID `catalog_snapshots/`).
+  Sidecar has 97 events: 96 current + 1 legacy July record for an event no longer reviewed in the
+  catalog (not investigated). Tests: 224 pass. NOTE: the running app still has the old code until
+  the end-of-phase restart.

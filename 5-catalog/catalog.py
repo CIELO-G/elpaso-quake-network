@@ -25,9 +25,14 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.atomic_io import atomic_write_df
+from lib.catalog_lock import CatalogLockTimeout, catalog_lock
 from lib.config import load_config, load_stations
+from lib.reviews import SIDECAR_FILENAME, append_review_records, jsonable
 from lib.triage import TriageConfig, apply_triage
 from lib.logger import setup_logging
+
+# Max seconds to wait for another catalog writer (dashboard save, dedup script).
+CATALOG_LOCK_TIMEOUT_S = 120.0
 
 DEFAULTS = {
     "stations_file": "stations.json",
@@ -314,50 +319,18 @@ def write_reviews_sidecar(
     sidecar_path: Path,
     events: dict[str, dict],
     assignments: dict[str, list],
+    *,
+    source: str = "rebuild",
 ) -> int:
-    """Append every reviewed event + its picks to an append-only JSON Lines file.
+    """Append reviewed events + picks to the append-only sidecar.
 
-    Each line is a self-contained record with ``timestamp``, ``event_id``,
-    full ``event`` row, and ``picks`` list. The file is never rewritten or
-    truncated — if a future rebuild loses an event, you can grep this file
-    by event_id and take the most recent record to reconstruct it.
-
-    Returns the number of records appended.
+    Thin wrapper over :func:`lib.reviews.append_review_records` kept for the
+    existing call sites and tests. Returns the number of records appended.
     """
-    import json
-
-    if not events:
-        return 0
-    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
-    ts = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
-    n = 0
-    # Append-only: open in 'a' mode; never read or rewrite the file here.
-    with sidecar_path.open("a", encoding="utf-8") as f:
-        for eid, ev in events.items():
-            record = {
-                "timestamp": ts,
-                "event_id": eid,
-                "event": _jsonable(ev),
-                "picks": [_jsonable(p) for p in assignments.get(eid, [])],
-            }
-            f.write(json.dumps(record, default=str) + "\n")
-            n += 1
-        f.flush()
-    return n
+    return append_review_records(Path(sidecar_path), events, assignments, source=source)
 
 
-def _jsonable(row: dict) -> dict:
-    """Convert pandas/numpy scalars to JSON-serializable Python primitives."""
-    out = {}
-    for k, v in row.items():
-        # pandas NaN floats are not JSON; serialize as None
-        if v is None or (isinstance(v, float) and v != v):
-            out[k] = None
-        elif hasattr(v, "item"):  # numpy scalar
-            out[k] = v.item()
-        else:
-            out[k] = v
-    return out
+_jsonable = jsonable
 
 
 def main():
@@ -402,6 +375,22 @@ def main():
 
     logger.info("Discovered %d day(s) with event files", len(daily_files))
 
+    # The merge below is a whole-file read-modify-write of catalog.csv and
+    # assignments.csv. The dashboard (reviewer saves) and maintenance scripts
+    # do the same, from other processes, so hold the shared flock for the
+    # entire read→merge→write window. A reviewer's save never lands inside it.
+    try:
+        with catalog_lock(catalog_path.parent, timeout=CATALOG_LOCK_TIMEOUT_S):
+            _merge_under_lock(
+                args, daily_files, catalog_path, assignments_path, triage_cfg, logger
+            )
+    except CatalogLockTimeout as e:
+        logger.error("%s — leaving catalog untouched; the orchestrator will retry.", e)
+        sys.exit(3)
+
+
+def _merge_under_lock(args, daily_files, catalog_path, assignments_path, triage_cfg, logger):
+    """Snapshot → load → merge new days → restore reviews → triage → write."""
     # ── Snapshot reviewed-event metadata BEFORE rebuild wipes it ─────
     # Even in --rebuild mode we must preserve user-supplied annotations:
     # reviewed/confirmed/rejected status, manually relocated lat/lon/depth,
@@ -436,7 +425,7 @@ def main():
                     preserved_assignments.setdefault(eid, []).append(row)
             # Write sidecar BEFORE proceeding with destructive rebuild
             sidecar_count = write_reviews_sidecar(
-                catalog_path.parent / "reviews.jsonl",
+                catalog_path.parent / SIDECAR_FILENAME,
                 preserved_events,
                 preserved_assignments,
             )

@@ -24,16 +24,36 @@ from dashboard.deps import (
     read_catalog,
 )
 from dashboard.locators import init_nlloc_locator
+from lib.catalog_lock import CatalogLockTimeout, catalog_lock
+from lib.reviews import SIDECAR_FILENAME, append_review_records
 
 router = APIRouter()
 
-# Serializes catalog/assignments read-modify-write across concurrent reviewers.
-# Without this, two reviewers saving simultaneously (3-user Tailscale deploy)
-# would both read the same starting state and the second write would silently
-# overwrite the first. asyncio.Lock is sufficient because uvicorn runs as a
-# single-process single-worker — if we ever scale to multi-worker uvicorn this
-# needs to become an fcntl.flock on a sentinel file.
+# Serializes catalog/assignments read-modify-write across concurrent reviewers
+# in this process. The cross-process half — the catalog pipeline step and the
+# maintenance scripts rewrite the same files — is lib.catalog_lock (flock on
+# output/5-catalog/.catalog.lock), taken inside the worker thread below.
 _catalog_write_lock = asyncio.Lock()
+
+# How long a save waits for the pipeline's catalog step before giving up.
+_CATALOG_LOCK_TIMEOUT_S = 30.0
+_REVIEWS_SIDECAR = CATALOG_FILE.parent / SIDECAR_FILENAME
+
+
+def _append_sidecar(event_id: str, row: dict, picks: list[dict], source: str) -> None:
+    """Record the saved state in the append-only reviews.jsonl.
+
+    Failure here must not fail the save (the catalog row is already written),
+    but it must be loud: the sidecar is the durable history of human review.
+    """
+    try:
+        append_review_records(_REVIEWS_SIDECAR, {event_id: row}, {event_id: picks}, source=source)
+    except Exception as exc:  # pragma: no cover - disk full etc.
+        import logging
+
+        logging.getLogger("dashboard.review").error(
+            "could not append %s to %s: %s", event_id, _REVIEWS_SIDECAR, exc
+        )
 
 # Near-duplicate detection thresholds for the save-time warning (matches
 # scripts/dedup_catalog.py defaults).
@@ -290,7 +310,11 @@ async def event_save(event_id: str, request: Request):
     # Whole read-modify-write must be serialized: concurrent reviewers
     # saving at the same time would both read the same starting state and
     # the second writer would overwrite the first writer's edits.
-    async with _catalog_write_lock:
+    def _save_under_lock() -> list[dict]:
+        with catalog_lock(CATALOG_FILE.parent, timeout=_CATALOG_LOCK_TIMEOUT_S):
+            return _apply_save()
+
+    def _apply_save() -> list[dict]:
         # ── Update the matching catalog row in-place ──
         catalog_rows = read_catalog()
         found = False
@@ -323,8 +347,9 @@ async def event_save(event_id: str, request: Request):
 
         # ── Replace assignments for this event with the new pick set ──
         others = [a for a in read_assignments() if a.get("event_id") != event_id]
+        new_picks: list[dict] = []
         for p in picks_input:
-            others.append(
+            new_picks.append(
                 {
                     "event_id": event_id,
                     "network": p.get("network", ""),
@@ -338,9 +363,21 @@ async def event_save(event_id: str, request: Request):
                     "amplitude_channel": p.get("amplitude_channel", ""),
                 }
             )
+        others.extend(new_picks)
         atomic_write_csv(ASSIGNMENTS_FILE, others, _ASSIGNMENT_COLUMNS)
 
+        saved_row = next(r for r in catalog_rows if r.get("event_id") == event_id)
+        _append_sidecar(event_id, saved_row, new_picks, "dashboard_save")
         clear_caches()
+        return catalog_rows
+
+    async with _catalog_write_lock:
+        try:
+            # Worker thread: the flock wait and the CSV rewrites are blocking
+            # I/O that must not stall the event loop for other reviewers.
+            catalog_rows = await asyncio.to_thread(_save_under_lock)
+        except CatalogLockTimeout as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     duplicates = _near_duplicates(
         catalog_rows,
@@ -374,8 +411,7 @@ async def event_review_status(event_id: str, request: Request):
 
     now_utc = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    # Lock the read-modify-write — see comment on _catalog_write_lock above.
-    async with _catalog_write_lock:
+    def _apply_status() -> list[dict]:
         catalog_rows = read_catalog()
         found = False
         for row in catalog_rows:
@@ -391,7 +427,22 @@ async def event_review_status(event_id: str, request: Request):
             raise HTTPException(status_code=404, detail=f"Event {event_id} not found in catalog")
 
         atomic_write_csv(CATALOG_FILE, catalog_rows, _catalog_columns_from_rows(catalog_rows))
+        saved_row = next(r for r in catalog_rows if r.get("event_id") == event_id)
+        picks = [a for a in read_assignments() if a.get("event_id") == event_id]
+        _append_sidecar(event_id, saved_row, picks, "dashboard_status")
         clear_caches()
+        return catalog_rows
+
+    def _status_under_lock() -> list[dict]:
+        with catalog_lock(CATALOG_FILE.parent, timeout=_CATALOG_LOCK_TIMEOUT_S):
+            return _apply_status()
+
+    # Lock the read-modify-write — see comment on _catalog_write_lock above.
+    async with _catalog_write_lock:
+        try:
+            catalog_rows = await asyncio.to_thread(_status_under_lock)
+        except CatalogLockTimeout as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     for row in catalog_rows:
         if row.get("event_id") == event_id:
