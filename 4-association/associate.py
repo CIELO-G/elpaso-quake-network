@@ -461,7 +461,9 @@ def compute_event_ml(
 
         pick = picks_df.iloc[pick_idx]
         amp_vel = pick.get("amplitude", pick.get("amp", None))
-        if amp_vel is None or amp_vel <= 0:
+        # NaN (empty amplitude column) compares False to everything, so an
+        # explicit check is needed or NaN reaches the ML median.
+        if amp_vel is None or (isinstance(amp_vel, float) and math.isnan(amp_vel)) or amp_vel <= 0:
             continue
 
         sta_id = f"{pick.get('network', '')}.{pick.get('station', '')}"

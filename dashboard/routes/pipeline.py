@@ -11,6 +11,8 @@ import json
 import os
 import signal
 import subprocess
+import time
+import threading
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -349,13 +351,16 @@ async def pipeline_start(request: Request):
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     log_file = open(LOGS_DIR / "pipeline_stdout.log", "a")
 
-    _pipeline_proc = subprocess.Popen(
-        cmd,
-        stdout=log_file,
-        stderr=log_file,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    try:
+        _pipeline_proc = subprocess.Popen(
+            cmd,
+            stdout=log_file,
+            stderr=log_file,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    finally:
+        log_file.close()  # the child holds its own descriptor
 
     PIPELINE_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
     PIPELINE_PID_FILE.write_text(str(_pipeline_proc.pid))
@@ -363,9 +368,47 @@ async def pipeline_start(request: Request):
     return {"started": True, "pid": _pipeline_proc.pid, "mode": mode}
 
 
+# How long a stopped pipeline gets to finish its current step before SIGKILL.
+STOP_GRACE_S = 90.0
+
+
+def _reap(pid: int, proc: subprocess.Popen | None, grace_s: float) -> None:
+    """Wait for ``pid`` to exit after SIGTERM; SIGKILL after ``grace_s``.
+
+    Runs in a daemon thread. Only once the process is really gone does the
+    PID file disappear, so /api/pipeline/running keeps reporting ``running``
+    for the whole shutdown and nobody starts a second pipeline meanwhile.
+    """
+    global _pipeline_proc
+    deadline = time.monotonic() + grace_s
+    while time.monotonic() < deadline:
+        if proc is not None:
+            if proc.poll() is not None:
+                break
+        else:
+            try:
+                os.kill(pid, 0)
+            except (ProcessLookupError, PermissionError):
+                break
+        time.sleep(0.5)
+    else:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        if proc is not None:
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                pass
+    if _pipeline_proc is proc:
+        _pipeline_proc = None
+    PIPELINE_PID_FILE.unlink(missing_ok=True)
+
+
 @router.post("/api/pipeline/stop")
 async def pipeline_stop():
-    global _pipeline_proc, _user_stopped
+    global _user_stopped
 
     _user_stopped = True
     running, pid = _is_pipeline_running()
@@ -377,10 +420,15 @@ async def pipeline_stop():
     except ProcessLookupError:
         pass
 
-    _pipeline_proc = None
-    PIPELINE_PID_FILE.unlink(missing_ok=True)
+    # Keep the handle and PID file until the process has actually exited:
+    # run_pipeline finishes its current step on SIGTERM, which can take
+    # minutes, and a premature "not running" let the app relaunch a second
+    # pipeline on top of the first.
+    threading.Thread(
+        target=_reap, args=(pid, _pipeline_proc, STOP_GRACE_S), name="pipeline-reaper", daemon=True
+    ).start()
 
-    return {"stopped": True, "pid": pid}
+    return {"stopped": True, "pid": pid, "stopping": True}
 
 
 # ── Per-station health (last 3 days of raw data coverage) ───────

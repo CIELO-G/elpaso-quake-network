@@ -20,11 +20,11 @@
 - [x] A5 skipped days persisted across restarts.
 - [x] A6 partial-hour chunks recorded with coverage and re-fetched.
 - [x] A7 alerts: env in local.env + launcher; per-station coverage check; watchdog-exhausted alert; health shows alert config.
-- [ ] A8 prune_raw.py refuses to run when 1-raw is not local.
-- [ ] A9 pipeline stop waits for exit; no double pipeline.
+- [x] A8 prune_raw.py refuses to run when 1-raw is not local.
+- [x] A9 pipeline stop waits for exit; no double pipeline.
 - [ ] A10 atomic writes for all stage outputs.
 - [ ] A11 no zero-fill in raw storage.
-- [ ] A12 NaN amplitude guard.
+- [x] A12 NaN amplitude guard.
 - [ ] Restart pipeline after a day completes; verify next day end to end.
 
 ## Log
@@ -62,3 +62,8 @@
   each completed day: a station with no raw files for 3 consecutive days → one alert; one more when
   it returns (`dark_stations` persisted in pipeline_state.json). Watchdog alerts once when it stops
   restarting the pipeline. Tests: 248 pass.
+- 2026-10-03 A8, A9, A12 done. prune_raw.py exits 2 with REFUSING when output/1-raw is a symlink
+  or resolves outside the repo. Dashboard stop keeps the handle + PID file until the process really
+  exits (reaper thread, SIGKILL after 90 s), so the app cannot relaunch a second pipeline; the
+  pipeline_stdout.log fd is no longer leaked per start. NaN amplitudes are skipped in associate and
+  compute_ml_station. Tests: 253 pass.

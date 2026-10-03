@@ -93,7 +93,12 @@ def compute_ml_station(
     if cfg is None:
         cfg = MLConfig()
 
-    if amp_vel_m_per_s <= 0 or hypocentral_distance_km < cfg.min_distance_km:
+    if (
+        amp_vel_m_per_s is None
+        or math.isnan(amp_vel_m_per_s)
+        or amp_vel_m_per_s <= 0
+        or hypocentral_distance_km < cfg.min_distance_km
+    ):
         return None
 
     a_wa_mm = velocity_to_wa_displacement_mm(amp_vel_m_per_s, cfg.freq_hz, cfg.wa_gain)

@@ -57,6 +57,17 @@ def main() -> int:
                     help="always keep the newest N calendar days (default 5)")
     args = ap.parse_args()
 
+    # Pruning only ever made sense when raw lived on the Mac's small SSD and
+    # the external drive was the only full copy. On the Mac Studio, 1-raw IS
+    # the RAID (a symlink out of the repo): deleting from it after checking
+    # against a possibly stale external drive would destroy the primary copy.
+    if LOCAL_RAW.is_symlink() or not LOCAL_RAW.resolve().is_relative_to(REPO.resolve()):
+        print(
+            f"REFUSING: {LOCAL_RAW} resolves to {LOCAL_RAW.resolve()}, outside the repo.\n"
+            "Raw data lives on the RAID now and is never pruned (see MACSTUDIO_INSTALL.md)."
+        )
+        return 2
+
     if not ARCHIVE_RAW.is_dir():
         print(f"ERROR: archive not mounted ({ARCHIVE_RAW})")
         return 1
