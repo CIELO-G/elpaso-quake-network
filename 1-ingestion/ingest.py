@@ -123,6 +123,28 @@ _circuit_breaker = CircuitBreaker()
 # ---------------------------------------------------------------------------
 
 
+# ── Exit codes ───────────────────────────────────────────────────────────
+# The orchestrator keys on these. 0: every requested chunk is either stored
+# or genuinely has no data. 2: some data was stored but some chunks failed or
+# some stations were unreachable — the day can proceed, but it is incomplete
+# and must be re-ingested later. 1: nothing was obtained although something
+# was requested (server outage) — retry the whole window.
+EXIT_OK = 0
+EXIT_TOTAL_FAILURE = 1
+EXIT_PARTIAL = 2
+
+
+def exit_code_for(totals: dict[str, int], n_unreachable: int, n_stations: int) -> int:
+    """Map the run's counters to the exit-code policy above."""
+    problems = totals["failed"] > 0 or n_unreachable > 0
+    if not problems:
+        return EXIT_OK
+    obtained = totals["success"] + totals["no_data"] + totals["skipped"]
+    if obtained == 0 or n_unreachable >= n_stations:
+        return EXIT_TOTAL_FAILURE
+    return EXIT_PARTIAL
+
+
 def fetch_station_metadata(
     client: Client,
     network: str,
@@ -670,14 +692,17 @@ def main() -> None:
         return new_client
 
     db = DownloadDB(config["output_dir"])
+    exit_code = EXIT_OK
 
     try:
         max_workers = config["max_workers"]
         logger.info("Processing %d station(s) with %d worker(s)", len(stations), max_workers)
 
         totals: dict[str, int] = {"success": 0, "no_data": 0, "failed": 0, "skipped": 0}
+        n_stations_unreachable = 0
 
         def fetch_station(station_cfg: dict) -> dict[str, int]:
+            nonlocal n_stations_unreachable
             url = station_cfg.get("fdsnws_url", default_url)
             client = get_client(url)
             if client is None:
@@ -687,6 +712,7 @@ def main() -> None:
                     station_cfg["station"],
                     url,
                 )
+                n_stations_unreachable += 1
                 return {"success": 0, "no_data": 0, "failed": 0, "skipped": 0}
             t0 = time.monotonic()
             result = process_station(
@@ -716,6 +742,7 @@ def main() -> None:
                     for k in totals:
                         totals[k] += counts[k]
                 except FDSNException as exc:
+                    n_stations_unreachable += 1
                     logger.error(
                         "Station %s.%s FDSN error: %s: %s",
                         station_cfg["network"],
@@ -724,6 +751,7 @@ def main() -> None:
                         exc,
                     )
                 except (ConnectionError, OSError) as exc:
+                    n_stations_unreachable += 1
                     logger.error(
                         "Station %s.%s network error: %s: %s",
                         station_cfg["network"],
@@ -742,11 +770,26 @@ def main() -> None:
             totals["skipped"],
         )
         logger.info("=" * 60)
+        exit_code = exit_code_for(totals, n_stations_unreachable, len(stations))
+        if exit_code == EXIT_TOTAL_FAILURE:
+            logger.error(
+                "No data obtained for any station (failed=%d, unreachable=%d) — "
+                "exiting %d so the orchestrator retries this window.",
+                totals["failed"], n_stations_unreachable, exit_code,
+            )
+        elif exit_code == EXIT_PARTIAL:
+            logger.warning(
+                "%d chunk(s) failed and %d station(s) unreachable; partial data written. "
+                "Exiting %d so the orchestrator records the day as incomplete.",
+                totals["failed"], n_stations_unreachable, exit_code,
+            )
 
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
+        exit_code = 130
     finally:
         db.close()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

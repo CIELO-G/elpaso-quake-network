@@ -17,6 +17,7 @@ import smtplib
 import subprocess
 import sys
 import time as _time
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -24,6 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))  # allow `from lib.constants import ...`
 
+from lib.pipeline_state import PipelineState, load_state, save_state  # noqa: E402
 from lib.constants import (  # noqa: E402  (path setup above)
     CONTINUOUS_LAG_HOURS,
     DEFAULT_MAX_RETRIES,
@@ -31,6 +33,7 @@ from lib.constants import (  # noqa: E402  (path setup above)
     PIPELINE_START_DATE_ISO,
 )
 
+OUTPUT_DIR = ROOT / "output"
 STATUS_FILE = ROOT / "output" / "pipeline_status.json"
 EVENTS_DIR = ROOT / "output" / "4-events"
 STATIONS_FILE = ROOT / "stations.json"
@@ -45,6 +48,11 @@ RETRY_WAIT = DEFAULT_RETRY_WAIT_SECONDS
 PIPELINE_START = date.fromisoformat(PIPELINE_START_DATE_ISO)
 MAX_SKIP_RETRY_PASSES = 3  # retry all skipped days this many times after catching up
 SKIP_RETRY_WAIT = 600  # 10-minute cooldown between retry passes
+# Ingest exit code meaning "some data stored, some chunks failed" (see
+# 1-ingestion/ingest.py exit_code_for). The day proceeds but is recorded as
+# partial and re-ingested on later caught-up cycles, up to this age.
+INGEST_EXIT_PARTIAL = 2
+PARTIAL_MAX_AGE_DAYS = 7
 
 # ── graceful shutdown ────────────────────────────────────────────────────────
 
@@ -243,6 +251,10 @@ def _scan_gaps(
                     present.add(f"{parts[0]}.{parts[1]}")
 
         missing = expected - present
+        if not missing and present and not _events_file(day).exists():
+            # Ingested and processed, but detect/associate never finished
+            # (crash mid-day). Re-running the day with --force completes it.
+            missing = {"(pipeline incomplete: no events file)"}
         if missing:
             gaps.append((day, sorted(missing)))
 
@@ -299,8 +311,10 @@ def build_command(
     *,
     start_override: str | None = None,
     end_override: str | None = None,
+    force_override: bool | None = None,
 ) -> list[str]:
     """Build the subprocess command list for a step."""
+    force = args.force if force_override is None else force_override
     cmd = [sys.executable, str(ROOT / step["script"]), "--config", str(ROOT / step["config"])]
     if step["accepts_dates"]:
         start = start_override or args.start
@@ -312,7 +326,7 @@ def build_command(
             cmd += ["--start", start]
         if end:
             cmd += ["--end", end]
-    if args.force:
+    if force:
         if step["accepts_force"]:
             cmd.append("--force")
         elif step["accepts_rebuild"]:
@@ -433,41 +447,67 @@ def single_run(args: argparse.Namespace) -> None:
 # ── continuous mode ──────────────────────────────────────────────────────────
 
 
-def _find_next_day() -> date:
-    """Auto-detect where to resume by checking the last day in 2-processed/.
+def _events_file(day: date) -> Path:
+    doy = day.timetuple().tm_yday
+    return EVENTS_DIR / f"{day.year}" / f"{doy:03d}" / f"{day.year}.{doy:03d}.events.csv"
 
-    Uses processed output rather than events, since spillover directories
-    (from traces crossing midnight) only appear in raw/picks/events but
-    never in processed (the 1-sample files fail processing).
-    """
-    processed_dir = ROOT / "output" / "2-processed"
-    if not processed_dir.exists():
-        return PIPELINE_START
-    latest = None
-    for year_dir in processed_dir.iterdir():
+
+def _iter_day_dirs(base: Path):
+    """Yield dates for every YYYY/DOY directory under ``base``."""
+    if not base.exists():
+        return
+    for year_dir in base.iterdir():
         if not year_dir.is_dir() or not year_dir.name.isdigit():
             continue
         year = int(year_dir.name)
         for doy_dir in year_dir.iterdir():
             if not doy_dir.is_dir() or not doy_dir.name.isdigit():
                 continue
-            doy = int(doy_dir.name)
-            d = date(year, 1, 1) + timedelta(days=doy - 1)
-            if latest is None or d > latest:
-                latest = d
+            yield date(year, 1, 1) + timedelta(days=int(doy_dir.name) - 1)
+
+
+def _find_next_day() -> date:
+    """Auto-detect where to resume: the day after the last COMPLETED day.
+
+    A day counts as completed only if it has both a 2-processed/ directory
+    and its 4-events/ events file. Processed alone is not enough: process.py
+    creates that directory before detect/associate/catalog have run, so a
+    crash mid-day used to make the restart skip that day forever. Events
+    alone is not enough either: traces crossing midnight create spill-over
+    directories in raw/picks/events (never in processed) for the next day.
+    """
+    latest = None
+    for d in _iter_day_dirs(PROCESSED_DIR):
+        if _events_file(d).exists() and (latest is None or d > latest):
+            latest = d
     if latest is None:
         return PIPELINE_START
     return latest + timedelta(days=1)
 
 
-def _run_day(day_str: str, args: argparse.Namespace, status_data: dict) -> tuple[bool, dict]:
+@dataclass
+class DayResult:
+    """Outcome of running the five steps for one day."""
+
+    ok: bool
+    partial: bool
+    timing: dict
+
+
+def _run_day(
+    day_str: str, args: argparse.Namespace, status_data: dict, *, force: bool | None = None
+) -> DayResult:
     """Run all 5 pipeline steps for a single day.
 
     Updates ``status_data["steps"]`` in-place so the dashboard sees
-    real-time step progress.  Returns ``(success, timing_dict)``.
+    real-time step progress. ``force`` overrides ``args.force`` (used when
+    re-running a partial day so downstream steps reprocess the new data).
+    Ingest exit code ``INGEST_EXIT_PARTIAL`` lets the day continue but marks
+    the result ``partial``.
     """
     steps = status_data["steps"]
     timing: dict = {"day": day_str, "total": 0.0, "steps": {}}
+    partial = False
 
     for i, step in enumerate(STEPS):
         steps[i]["status"] = "running"
@@ -477,7 +517,9 @@ def _run_day(day_str: str, args: argparse.Namespace, status_data: dict) -> tuple
         _write_status(status_data)
 
         end_str = (date.fromisoformat(day_str) + timedelta(days=1)).isoformat()
-        cmd = build_command(step, args, start_override=day_str, end_override=end_str)
+        cmd = build_command(
+            step, args, start_override=day_str, end_override=end_str, force_override=force
+        )
         t0 = datetime.now(timezone.utc)
         result = subprocess.run(cmd, stdin=subprocess.DEVNULL)
         elapsed = (datetime.now(timezone.utc) - t0).total_seconds()
@@ -490,17 +532,69 @@ def _run_day(day_str: str, args: argparse.Namespace, status_data: dict) -> tuple
         if result.returncode == 0:
             steps[i]["status"] = "completed"
             print(f"  {step['name']}: completed ({_format_elapsed(elapsed)})")
+        elif step["name"] == "ingest" and result.returncode == INGEST_EXIT_PARTIAL:
+            steps[i]["status"] = "completed"
+            steps[i]["partial"] = True
+            partial = True
+            print(f"  {step['name']}: completed with gaps ({_format_elapsed(elapsed)}) — day marked partial")
         else:
             steps[i]["status"] = "failed"
             print(f"  {step['name']}: FAILED (exit {result.returncode})")
             timing["total"] = round(sum(timing["steps"].values()), 1)
             _write_status(status_data)
-            return False, timing
+            return DayResult(False, partial, timing)
 
         _write_status(status_data)
 
     timing["total"] = round(sum(timing["steps"].values()), 1)
-    return True, timing
+    return DayResult(True, partial, timing)
+
+
+def _notify(subject: str, body: str) -> None:
+    """Email + webhook, best effort (both are no-ops when unconfigured)."""
+    _send_alert(subject=subject, body=body)
+    try:
+        from lib.monitoring import send_webhook
+
+        send_webhook(subject, body)
+    except Exception:
+        pass
+
+
+def _retry_partial_days(args: argparse.Namespace, status_data: dict, state: PipelineState) -> None:
+    """Re-run days whose ingest was partial, with --force so downstream
+    steps pick up the late-arriving data. A day leaves the list when ingest
+    comes back clean, or when it is older than PARTIAL_MAX_AGE_DAYS (alerted).
+    """
+    today = _target_date()
+    for day_str in list(state.days_partial):
+        age = (today - date.fromisoformat(day_str)).days
+        if age > PARTIAL_MAX_AGE_DAYS:
+            print(f"  {day_str}: still partial after {age} days — giving up")
+            state.remove_partial(day_str)
+            save_state(OUTPUT_DIR, state)
+            _notify(
+                f"[El Paso Pipeline] {day_str} remains incomplete",
+                f"Ingest for {day_str} was still partial {age} days later; no further "
+                f"automatic retries. Run `run_pipeline.py --gap-fill --start {day_str} "
+                f"--end {day_str}` by hand once the station data is available.\n",
+            )
+            continue
+        print(f"  Re-ingesting partial day {day_str} (age {age} d) ...")
+        status_data["steps"] = _make_step_statuses()
+        status_data["pipeline"]["status"] = "running"
+        status_data["pipeline"]["args"]["start"] = day_str
+        status_data["pipeline"]["args"]["end"] = day_str
+        _write_status(status_data)
+        res = _run_day(day_str, args, status_data, force=True)
+        if res.ok and not res.partial:
+            print(f"    {day_str} is now complete")
+            state.remove_partial(day_str)
+            save_state(OUTPUT_DIR, state)
+        elif res.ok:
+            print(f"    {day_str} still partial")
+        else:
+            print(f"    {day_str} re-run failed; will try again next cycle")
 
 
 def continuous_run(args: argparse.Namespace) -> None:
@@ -511,11 +605,16 @@ def continuous_run(args: argparse.Namespace) -> None:
         current_day = _find_next_day()
 
     days_completed = 0
-    days_skipped: list[str] = []
+    state: PipelineState = load_state(OUTPUT_DIR)
+    days_skipped: list[str] = list(state.days_skipped)
     pipeline_started = _now()
 
     print(f"Continuous mode: starting from {current_day}")
     print(f"Lag: {LAG_HOURS}h | Retries: {MAX_RETRIES} | Ctrl+C to stop")
+    if days_skipped:
+        print(f"Skipped days carried over from the last run: {', '.join(days_skipped)}")
+    if state.days_partial:
+        print(f"Partial days carried over from the last run: {', '.join(state.days_partial)}")
     print()
 
     # Persistent status structure shared across iterations
@@ -536,7 +635,8 @@ def continuous_run(args: argparse.Namespace) -> None:
             "continuous": {
                 "current_day": current_day.isoformat(),
                 "days_completed": 0,
-                "days_skipped": [],
+                "days_skipped": list(days_skipped),
+                "days_partial": list(state.days_partial),
                 "target_date": _target_date().isoformat(),
                 "waiting": False,
                 "next_run_at": None,
@@ -577,14 +677,16 @@ def continuous_run(args: argparse.Namespace) -> None:
                         _write_status(status_data)
 
                         print(f"    Retrying {skip_day} ...")
-                        ok, timing = _run_day(skip_day, args, status_data)
+                        res = _run_day(skip_day, args, status_data)
+                        ok, timing = res.ok, res.timing
 
                         if not ok:
                             # one more attempt after a short wait
                             _time.sleep(RETRY_WAIT)
                             status_data["steps"] = _make_step_statuses()
                             _write_status(status_data)
-                            ok, timing = _run_day(skip_day, args, status_data)
+                            res = _run_day(skip_day, args, status_data)
+                            ok, timing = res.ok, res.timing
 
                         if ok:
                             print(f"    {skip_day} recovered!")
@@ -592,6 +694,10 @@ def continuous_run(args: argparse.Namespace) -> None:
                             cont["days_completed"] = days_completed
                             cont["day_times"].append(timing)
                             cont["day_times"] = cont["day_times"][-100:]
+                            state.remove_skipped(skip_day)
+                            if res.partial:
+                                state.add_partial(skip_day)
+                            save_state(OUTPUT_DIR, state)
                         else:
                             print(f"    {skip_day} still failing")
                             still_skipped.append(skip_day)
@@ -602,6 +708,8 @@ def continuous_run(args: argparse.Namespace) -> None:
 
                 days_skipped = still_skipped
                 cont["days_skipped"] = days_skipped
+                state.days_skipped = sorted(set(days_skipped))
+                save_state(OUTPUT_DIR, state)
                 _write_status(status_data)
 
                 if days_skipped:
@@ -617,6 +725,12 @@ def continuous_run(args: argparse.Namespace) -> None:
                     )
                 else:
                     print("  All skipped days recovered!")
+
+            # ── retry partial days (late-arriving data) before sleeping ──
+            if current_day > target and state.days_partial:
+                _retry_partial_days(args, status_data, state)
+                cont["days_partial"] = list(state.days_partial)
+                _write_status(status_data)
 
             # ── caught up — sleep until next day is eligible ──────────
             if current_day > target:
@@ -659,7 +773,8 @@ def continuous_run(args: argparse.Namespace) -> None:
             print(f"[Day {days_completed + 1}] {day_str}  (target: {target})")
 
             # ── attempt + retries ─────────────────────────────────────
-            success, timing = _run_day(day_str, args, status_data)
+            res = _run_day(day_str, args, status_data)
+            success, timing = res.ok, res.timing
 
             if not success:
                 for attempt in range(1, MAX_RETRIES + 1):
@@ -670,7 +785,8 @@ def continuous_run(args: argparse.Namespace) -> None:
                     status_data["steps"] = _make_step_statuses()
                     status_data["pipeline"]["status"] = "running"
                     _write_status(status_data)
-                    success, timing = _run_day(day_str, args, status_data)
+                    res = _run_day(day_str, args, status_data)
+                    success, timing = res.ok, res.timing
                     if success:
                         break
 
@@ -680,6 +796,18 @@ def continuous_run(args: argparse.Namespace) -> None:
                 cont["day_times"].append(timing)
                 cont["day_times"] = cont["day_times"][-100:]
                 current_day += timedelta(days=1)
+                if res.partial:
+                    state.add_partial(day_str)
+                    cont["days_partial"] = list(state.days_partial)
+                    save_state(OUTPUT_DIR, state)
+                    _notify(
+                        f"[El Paso Pipeline] {day_str} ingested with gaps",
+                        f"Ingest for {day_str} stored data but some chunks failed or a "
+                        f"station was unreachable. The day was processed with what arrived "
+                        f"and will be re-ingested on later cycles for up to "
+                        f"{PARTIAL_MAX_AGE_DAYS} days.\nPartial days: "
+                        f"{', '.join(state.days_partial)}\n",
+                    )
 
                 # Refresh the public site (best-effort — a failed export or
                 # push must never affect the pipeline itself).
@@ -708,6 +836,8 @@ def continuous_run(args: argparse.Namespace) -> None:
 
                 days_skipped.append(day_str)
                 cont["days_skipped"] = days_skipped
+                state.add_skipped(day_str)
+                save_state(OUTPUT_DIR, state)
                 current_day += timedelta(days=1)
 
                 alert_subject = f"[El Paso Pipeline] SKIPPED — {day_str} failed"
@@ -812,7 +942,8 @@ def gap_fill_run(args: argparse.Namespace) -> None:
         status_data["pipeline"]["status"] = "running"
         _write_status(status_data)
 
-        success, timing = _run_day(day_str, args, status_data)
+        res = _run_day(day_str, args, status_data)
+        success, timing = res.ok, res.timing
 
         if not success:
             for attempt in range(1, MAX_RETRIES + 1):
@@ -821,7 +952,8 @@ def gap_fill_run(args: argparse.Namespace) -> None:
                 status_data["steps"] = _make_step_statuses()
                 status_data["pipeline"]["status"] = "running"
                 _write_status(status_data)
-                success, timing = _run_day(day_str, args, status_data)
+                res = _run_day(day_str, args, status_data)
+                success, timing = res.ok, res.timing
                 if success:
                     break
 

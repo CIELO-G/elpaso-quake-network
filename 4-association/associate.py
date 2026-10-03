@@ -690,9 +690,12 @@ def main() -> None:
         )
 
         if events_list is None or assignments_list is None:
-            logger.error("Association returned no results for %s/%s", year, jday)
-            write_catalog_csv([], catalog_path, logger)
-            write_assignments_csv([], assignments_path, logger)
+            # GaMMA raised. Write NOTHING: an empty events file is the
+            # "quiet day, done" marker and would hide the failure forever.
+            # Leaving the day unmarked makes the next run retry it.
+            logger.error(
+                "Association failed for %s/%s — day left unmarked for retry", year, jday
+            )
             totals["failed"] += 1
             totals["days"] += 1
             continue
@@ -773,6 +776,15 @@ def main() -> None:
         totals["failed"],
     )
     logger.info("=" * 60)
+
+    # Non-zero exit on any failed day so the orchestrator retries instead of
+    # marking the day complete (same convention as detect.py).
+    if totals["failed"] > 0:
+        logger.error(
+            "%d day(s) failed association and were left unmarked. Re-run will retry them.",
+            totals["failed"],
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

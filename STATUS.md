@@ -14,10 +14,10 @@
 ## Phase 1 checklist
 
 - [x] A1 review record: cross-process lock shared by catalog step and dashboard; every dashboard save appended to `reviews.jsonl`; backfill sidecar from current catalog.
-- [ ] A2 ingest exits non-zero on failure.
-- [ ] A3 association leaves no outputs and exits non-zero on failure.
-- [ ] A4 resume from last day with events; gap-fill checks picks/events.
-- [ ] A5 skipped days persisted across restarts.
+- [x] A2 ingest exits non-zero on failure.
+- [x] A3 association leaves no outputs and exits non-zero on failure.
+- [x] A4 resume from last day with events; gap-fill checks picks/events.
+- [x] A5 skipped days persisted across restarts.
 - [ ] A6 partial-hour chunks recorded with coverage and re-fetched.
 - [ ] A7 alerts: env in local.env + launcher; per-station coverage check; watchdog-exhausted alert; health shows alert config.
 - [ ] A8 prune_raw.py refuses to run when 1-raw is not local.
@@ -39,3 +39,11 @@
   Sidecar has 97 events: 96 current + 1 legacy July record for an event no longer reviewed in the
   catalog (not investigated). Tests: 224 pass. NOTE: the running app still has the old code until
   the end-of-phase restart.
+- 2026-10-03 A2–A5 done (one commit). Ingest now exits 0 / 2 (partial: some data, some
+  failures) / 1 (nothing obtained); associate writes nothing and exits 1 on a GaMMA failure.
+  Orchestrator: `DayResult(ok, partial, timing)`; ingest exit 2 lets the day proceed but records it in
+  the new persisted `output/pipeline_state.json` (`lib/pipeline_state.py`, also holds `days_skipped`,
+  loaded at start). Partial days are re-run with --force each caught-up cycle, dropped with an alert
+  after 7 days. Resume point = last day with BOTH 2-processed dir and 4-events file. Gap scan also
+  flags days with processed data but no events file. Tests: 237 pass. Behaviour note: a day with a
+  dead RS server now retries 5× then is skipped and alerted (before: silently "completed" empty).
