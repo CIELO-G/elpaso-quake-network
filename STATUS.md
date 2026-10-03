@@ -22,8 +22,8 @@
 - [x] A7 alerts: env in local.env + launcher; per-station coverage check; watchdog-exhausted alert; health shows alert config.
 - [x] A8 prune_raw.py refuses to run when 1-raw is not local.
 - [x] A9 pipeline stop waits for exit; no double pipeline.
-- [ ] A10 atomic writes for all stage outputs.
-- [ ] A11 no zero-fill in raw storage.
+- [x] A10 atomic writes for all stage outputs.
+- [x] A11 no zero-fill in raw storage.
 - [x] A12 NaN amplitude guard.
 - [ ] Restart pipeline after a day completes; verify next day end to end.
 
@@ -67,3 +67,11 @@
   exits (reaper thread, SIGKILL after 90 s), so the app cannot relaunch a second pipeline; the
   pipeline_stdout.log fd is no longer leaked per start. NaN amplitudes are skipped in associate and
   compute_ml_station. Tests: 253 pass.
+- 2026-10-03 A10, A11 done. `lib/atomic_io.py` gains `atomic_replace`, `atomic_write_rows`,
+  `atomic_write_stream`; raw day files, processed files, picks CSV, events/assignments CSVs are all
+  written tmp+fsync+replace. Associate writes assignments BEFORE events (events file = done
+  marker). Ingest no longer zero-fills gaps: `merge(method=1)` then `split()`, so a day file holds
+  one trace per contiguous segment; downstream merges with interpolate as before. Existing raw days
+  (written with zeros) are unchanged. Smoke re-check on 2026-09-27: picks identical (2,822),
+  38 processed files, no .tmp leftovers. Tests: 258 pass.
+  **All 12 code items done. Remaining: restart the app after a day completes, verify end to end.**

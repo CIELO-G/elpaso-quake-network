@@ -15,7 +15,6 @@ Usage (run from project root):
 from __future__ import annotations
 
 import argparse
-import csv
 import gc
 import math
 import sys
@@ -40,6 +39,7 @@ if not hasattr(sklearn.base.BaseEstimator, "_check_n_features"):
 # Allow imports from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from lib.atomic_io import atomic_write_rows
 from lib.config import load_config, load_stations
 from lib.constants import (
     DEGREES_TO_KM,
@@ -575,24 +575,15 @@ def format_assignments(assignments_list: list, picks_df, logger) -> list[dict]:
 
 
 def write_catalog_csv(rows: list[dict], output_path: Path, logger) -> None:
-    """Write event catalog CSV."""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=EVENT_CSV_COLUMNS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(row)
+    """Write event catalog CSV atomically. This file is the day's "done"
+    marker, so write it LAST (after assignments)."""
+    atomic_write_rows(output_path, rows, EVENT_CSV_COLUMNS)
     logger.info("Wrote %d event(s) to %s", len(rows), output_path)
 
 
 def write_assignments_csv(rows: list[dict], output_path: Path, logger) -> None:
-    """Write pick-assignment CSV."""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=ASSIGNMENT_CSV_COLUMNS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(row)
+    """Write pick-assignment CSV atomically."""
+    atomic_write_rows(output_path, rows, ASSIGNMENT_CSV_COLUMNS)
     logger.info("Wrote %d assignment(s) to %s", len(rows), output_path)
 
 
@@ -661,8 +652,8 @@ def main() -> None:
         if not picks_path.exists():
             logger.warning("No picks file for %s/%s: %s", year, jday, picks_path)
             # Write empty outputs so skip logic works next time
-            write_catalog_csv([], catalog_path, logger)
             write_assignments_csv([], assignments_path, logger)
+            write_catalog_csv([], catalog_path, logger)
             totals["days"] += 1
             continue
 
@@ -677,8 +668,8 @@ def main() -> None:
 
         if picks_df.empty:
             logger.info("No picks after filtering for %s/%s", year, jday)
-            write_catalog_csv([], catalog_path, logger)
             write_assignments_csv([], assignments_path, logger)
+            write_catalog_csv([], catalog_path, logger)
             totals["days"] += 1
             continue
 
@@ -725,8 +716,8 @@ def main() -> None:
 
         if n_events == 0:
             logger.info("No events found for %s/%s", year, jday)
-            write_catalog_csv([], catalog_path, logger)
             write_assignments_csv([], assignments_path, logger)
+            write_catalog_csv([], catalog_path, logger)
             totals["days"] += 1
             continue
 
@@ -743,8 +734,8 @@ def main() -> None:
                 logger,
             )
             assignment_rows = format_assignments(assignments_list, picks_df, logger)
-            write_catalog_csv(event_rows, catalog_path, logger)
             write_assignments_csv(assignment_rows, assignments_path, logger)
+            write_catalog_csv(event_rows, catalog_path, logger)
             totals["events"] += n_events
             totals["picks_associated"] += n_assigned
         except Exception as exc:

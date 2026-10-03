@@ -32,6 +32,7 @@ from obspy.clients.fdsn.header import FDSNException, FDSNNoDataException
 # Allow imports from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from lib.atomic_io import atomic_write_stream
 from lib.config import load_config, load_stations
 from lib.constants import CIRCUIT_BREAKER_BACKOFF_SECONDS, CIRCUIT_BREAKER_THRESHOLD
 from lib.db import DownloadDB
@@ -444,8 +445,14 @@ def save_waveforms(stream: Stream, output_dir: str, logger) -> list[str]:
             except Exception as exc:
                 logger.warning("Could not read existing %s (%s); overwriting", fpath, exc)
 
-        st.merge(method=1, fill_value=0)
-        st.write(str(fpath), format="MSEED")
+        # Store gaps AS gaps. fill_value=0 used to write zeros into the raw
+        # archive, which later stages (merge(fill_value="interpolate")) could
+        # no longer tell from data, so zeros reached PhaseNet and ML. merge()
+        # without fill_value leaves masked arrays; split() turns them back
+        # into one contiguous trace per segment, which miniSEED stores natively.
+        st.merge(method=1)
+        st = st.split()
+        atomic_write_stream(st, fpath, format="MSEED")
 
         npts = sum(tr.stats.npts for tr in st)
         filepaths.append(str(fpath))

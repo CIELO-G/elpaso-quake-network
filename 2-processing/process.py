@@ -36,6 +36,7 @@ from obspy import UTCDateTime, read, read_inventory
 # Allow imports from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from lib.atomic_io import atomic_write_stream
 from lib.config import load_config, load_stations
 from lib.logger import MetricsWriter, setup_logging
 from lib.pipeline_stage import iter_days, resolve_time_window
@@ -235,7 +236,7 @@ def process_file(
         output_path.parent.mkdir(parents=True, exist_ok=True)
         for tr in st:
             tr.data = tr.data.astype("float32")
-        st.write(str(output_path), format="MSEED", encoding="FLOAT32")
+        atomic_write_stream(st, output_path, format="MSEED", encoding="FLOAT32")
 
         npts = sum(tr.stats.npts for tr in st)
         logger.info("Processed %s -> %s (%d samples)", raw_path.name, output_path, npts)

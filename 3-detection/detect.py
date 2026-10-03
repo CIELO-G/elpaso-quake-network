@@ -15,7 +15,6 @@ Usage (run from project root):
 from __future__ import annotations
 
 import argparse
-import csv
 import gc
 import json
 import math
@@ -32,6 +31,7 @@ from obspy import Stream, read
 # Allow imports from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from lib.atomic_io import atomic_write_rows
 from lib.config import load_config, load_stations
 from lib.logger import MetricsWriter, setup_logging
 from lib.pipeline_stage import iter_days, resolve_time_window
@@ -359,12 +359,9 @@ def get_daily_picks_path(output_dir: str, year: str, jday: str) -> Path:
 
 def write_picks_csv(picks_list: list[dict], output_path: Path, logger) -> None:
     """Write picks to CSV.  Always writes header even if no picks."""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
-        writer.writeheader()
-        for pick in picks_list:
-            writer.writerow(pick)
+    # Atomic: this file is the "day done" marker for detection, so a
+    # truncated one would make a half-written day look complete.
+    atomic_write_rows(output_path, picks_list, CSV_COLUMNS)
     logger.info("Wrote %d pick(s) to %s", len(picks_list), output_path)
 
 
