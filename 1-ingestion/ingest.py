@@ -15,7 +15,9 @@ Usage (run from project root):
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import gc
+import math
 import sys
 import threading
 import time
@@ -56,6 +58,12 @@ DEFAULTS = {
     "default_location": "00",
     "station_delay_seconds": 2,
     "max_workers": 4,
+    # A "success" chunk with fewer than this fraction of the expected samples
+    # counts as short: the run exits EXIT_PARTIAL and the chunk is re-requested
+    # on later runs while it is younger than refetch_window_days (Raspberry
+    # Shakes upload late after outages). no_data chunks follow the same window.
+    "min_chunk_coverage": 0.98,
+    "refetch_window_days": 7,
 }
 
 
@@ -136,13 +144,61 @@ EXIT_PARTIAL = 2
 
 def exit_code_for(totals: dict[str, int], n_unreachable: int, n_stations: int) -> int:
     """Map the run's counters to the exit-code policy above."""
-    problems = totals["failed"] > 0 or n_unreachable > 0
+    problems = totals["failed"] > 0 or n_unreachable > 0 or totals.get("short", 0) > 0
     if not problems:
         return EXIT_OK
     obtained = totals["success"] + totals["no_data"] + totals["skipped"]
     if obtained == 0 or n_unreachable >= n_stations:
         return EXIT_TOTAL_FAILURE
     return EXIT_PARTIAL
+
+
+def expected_channels(inv, network: str, station: str, location: str, channels: str) -> dict[str, float]:
+    """Channel code -> sample rate for the inventory channels this request covers.
+
+    Derived from the StationXML we already fetch, so an RS4D ("E??" = EHZ +
+    EN?) and an RS3D ("EH?") are handled without any station-type logic.
+    """
+    out: dict[str, float] = {}
+    for net in inv:
+        if net.code != network:
+            continue
+        for sta in net:
+            if sta.code != station:
+                continue
+            for cha in sta:
+                if (cha.location_code or "") != (location or ""):
+                    continue
+                if fnmatch.fnmatch(cha.code, channels) and cha.sample_rate:
+                    out[cha.code] = float(cha.sample_rate)
+    return out
+
+
+def chunk_coverage(st: Stream, expected: dict[str, float], chunk_start, chunk_end) -> float:
+    """Fraction of the requested samples present in ``st`` (0..1).
+
+    Per expected channel: samples received / samples a full chunk holds,
+    capped at 1; averaged over the expected channels. Channels absent from
+    the inventory but present in the data are ignored; with no expectation
+    at all, every returned channel counts as expected.
+    """
+    duration = float(chunk_end - chunk_start)
+    if duration <= 0:
+        return 1.0
+    if not expected:
+        expected = {}
+        for tr in st:
+            expected.setdefault(tr.stats.channel, float(tr.stats.sampling_rate))
+    if not expected:
+        return 0.0
+    total = 0.0
+    for cha, rate in expected.items():
+        got = sum(tr.stats.npts for tr in st if tr.stats.channel == cha)
+        rates = [tr.stats.sampling_rate for tr in st if tr.stats.channel == cha]
+        rate = float(rates[0]) if rates else rate
+        want = duration * rate
+        total += min(got / want, 1.0) if want > 0 else 0.0
+    return round(total / len(expected), 4)
 
 
 def fetch_station_metadata(
@@ -460,17 +516,26 @@ def process_station(
     chunk_sec = config["chunk_hours"] * 3600
     chunk_start = UTCDateTime(start_time)
     chunk_end_limit = UTCDateTime(end_time)
-    total_chunks = int((chunk_end_limit - chunk_start) / chunk_sec) + 1
+    total_chunks = int(math.ceil((chunk_end_limit - chunk_start) / chunk_sec))
 
-    counts: dict[str, int] = {"success": 0, "no_data": 0, "failed": 0, "skipped": 0}
+    counts: dict[str, int] = {"success": 0, "no_data": 0, "failed": 0, "skipped": 0, "short": 0}
     chunk_num = 0
+    expected = expected_channels(inv, network, station, location, channels)
+    min_cov = float(config["min_chunk_coverage"])
+    refetch_cutoff = UTCDateTime() - float(config["refetch_window_days"]) * 86400.0
+    force = bool(config.get("_force_refetch", False))
 
     while chunk_start < chunk_end_limit:
         chunk_end = min(chunk_start + chunk_sec, chunk_end_limit)
         chunk_num += 1
 
-        # Already downloaded?
-        if db.is_downloaded(network, station, location, channels, chunk_start, chunk_end):
+        # Already downloaded (complete), or short/no-data but too old to retry?
+        if not db.needs_fetch(
+            network, station, location, channels, chunk_start, chunk_end,
+            min_coverage=min_cov,
+            within_refetch_window=chunk_end >= refetch_cutoff,
+            force=force,
+        ):
             logger.debug(
                 "  [%d/%d] Already downloaded %s -> %s",
                 chunk_num,
@@ -508,6 +573,7 @@ def process_station(
                 counts["no_data"] += 1
             else:
                 filepaths = save_waveforms(st, config["output_dir"], logger)
+                coverage = chunk_coverage(st, expected, chunk_start, chunk_end)
                 db.record(
                     network,
                     station,
@@ -517,8 +583,17 @@ def process_station(
                     chunk_end,
                     "success",
                     filepaths,
+                    coverage=coverage,
                 )
                 counts["success"] += 1
+                if coverage < min_cov:
+                    counts["short"] += 1
+                    logger.warning(
+                        "  short chunk %s.%s %s -> %s: coverage %.1f%% (< %.0f%%); "
+                        "will re-request while younger than %s days",
+                        network, station, chunk_start, chunk_end,
+                        coverage * 100, min_cov * 100, config["refetch_window_days"],
+                    )
 
         except FDSNException as exc:
             logger.error(
@@ -590,6 +665,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start", help="Backfill start (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
     parser.add_argument("--end", help="Backfill end (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
     parser.add_argument("--debug", action="store_true", help="Enable debug-level logging")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-request short and no-data chunks regardless of age (complete "
+        "chunks already on disk are never re-downloaded).",
+    )
     return parser.parse_args()
 
 
@@ -597,6 +678,7 @@ def main() -> None:
     args = parse_args()
 
     config = load_config(args.config, defaults=DEFAULTS)
+    config["_force_refetch"] = bool(args.force)
     stations = load_stations(config["stations_file"])
     logger = setup_logging("ingest", config, debug=args.debug)
     metrics = MetricsWriter(Path(config["log_dir"]) / "metrics.jsonl")
@@ -698,7 +780,9 @@ def main() -> None:
         max_workers = config["max_workers"]
         logger.info("Processing %d station(s) with %d worker(s)", len(stations), max_workers)
 
-        totals: dict[str, int] = {"success": 0, "no_data": 0, "failed": 0, "skipped": 0}
+        totals: dict[str, int] = {
+            "success": 0, "no_data": 0, "failed": 0, "skipped": 0, "short": 0,
+        }
         n_stations_unreachable = 0
 
         def fetch_station(station_cfg: dict) -> dict[str, int]:
@@ -740,7 +824,7 @@ def main() -> None:
                 try:
                     counts = future.result()
                     for k in totals:
-                        totals[k] += counts[k]
+                        totals[k] += counts.get(k, 0)
                 except FDSNException as exc:
                     n_stations_unreachable += 1
                     logger.error(
@@ -763,11 +847,12 @@ def main() -> None:
         # Summary
         logger.info("=" * 60)
         logger.info(
-            "Done. success=%d  no_data=%d  failed=%d  skipped=%d",
+            "Done. success=%d  no_data=%d  failed=%d  skipped=%d  short=%d",
             totals["success"],
             totals["no_data"],
             totals["failed"],
             totals["skipped"],
+            totals["short"],
         )
         logger.info("=" * 60)
         exit_code = exit_code_for(totals, n_stations_unreachable, len(stations))
@@ -779,9 +864,9 @@ def main() -> None:
             )
         elif exit_code == EXIT_PARTIAL:
             logger.warning(
-                "%d chunk(s) failed and %d station(s) unreachable; partial data written. "
-                "Exiting %d so the orchestrator records the day as incomplete.",
-                totals["failed"], n_stations_unreachable, exit_code,
+                "%d chunk(s) failed, %d short, %d station(s) unreachable; partial data "
+                "written. Exiting %d so the orchestrator records the day as incomplete.",
+                totals["failed"], totals["short"], n_stations_unreachable, exit_code,
             )
 
     except KeyboardInterrupt:

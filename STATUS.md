@@ -18,7 +18,7 @@
 - [x] A3 association leaves no outputs and exits non-zero on failure.
 - [x] A4 resume from last day with events; gap-fill checks picks/events.
 - [x] A5 skipped days persisted across restarts.
-- [ ] A6 partial-hour chunks recorded with coverage and re-fetched.
+- [x] A6 partial-hour chunks recorded with coverage and re-fetched.
 - [ ] A7 alerts: env in local.env + launcher; per-station coverage check; watchdog-exhausted alert; health shows alert config.
 - [ ] A8 prune_raw.py refuses to run when 1-raw is not local.
 - [ ] A9 pipeline stop waits for exit; no double pipeline.
@@ -47,3 +47,10 @@
   after 7 days. Resume point = last day with BOTH 2-processed dir and 4-events file. Gap scan also
   flags days with processed data but no events file. Tests: 237 pass. Behaviour note: a day with a
   dead RS server now retries 5× then is skipped and alerted (before: silently "completed" empty).
+- 2026-10-03 A6 done. Tracker gains `coverage` (schema v1, auto-migrated on open; legacy rows =
+  complete). Ingest computes coverage per chunk from the StationXML channel set, flags chunks under
+  `min_chunk_coverage` (0.98) as short → exit 2 → day partial → re-run. Short and no_data chunks are
+  re-requested while younger than `refetch_window_days` (7); `ingest.py --force` (now passed by the
+  orchestrator on partial re-runs and gap-fill) ignores the age. Complete chunks are never
+  re-downloaded. Migration rehearsed on a copy of the live DB (99,154 success / 22,685 no_data rows,
+  no failed rows). Tests: 252 pass.

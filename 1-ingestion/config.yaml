@@ -30,6 +30,16 @@ data_latency_hours: 6
 # Already-downloaded chunks are skipped automatically.
 fetch_window_hours: 24
 
+# Completeness. A chunk that returns fewer than min_chunk_coverage of its
+# expected samples (per the station's StationXML channels) is "short": the
+# run exits 2 (partial), the orchestrator records the day, and the chunk is
+# re-requested on later runs while it is younger than refetch_window_days.
+# no_data chunks are re-requested within the same window (late uploads).
+# `ingest.py --force` re-requests short/no-data chunks regardless of age;
+# complete chunks already on disk are never downloaded twice.
+min_chunk_coverage: 0.98
+refetch_window_days: 7
+
 # Polite delay between chunks (seconds) to avoid rate limiting (429s)
 station_delay_seconds: 5
 

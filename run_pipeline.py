@@ -85,7 +85,7 @@ STEPS = [
         "config": "1-ingestion/config.yaml",
         "log_file": "logs/ingest.log",
         "accepts_dates": True,
-        "accepts_force": False,
+        "accepts_force": True,
         "accepts_rebuild": False,
     },
     {
