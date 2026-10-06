@@ -327,7 +327,7 @@ async def pipeline_start(request: Request):
     if mode not in ("continuous", "backfill"):
         raise HTTPException(status_code=400, detail="mode must be 'continuous' or 'backfill'")
 
-    cmd = [sys.executable, str(PIPELINE_SCRIPT)]
+    cmd = [sys.executable, "-u", str(PIPELINE_SCRIPT)]  # -u: log reflects reality, not a buffer
 
     if mode == "continuous":
         cmd.append("--continuous")

@@ -126,3 +126,23 @@ def test_needs_fetch_policy(tmp_path):
 def test_short_chunks_make_run_partial():
     t = {"success": 300, "no_data": 0, "failed": 0, "skipped": 0, "short": 1}
     assert ingest.exit_code_for(t, 0, 14) == ingest.EXIT_PARTIAL
+
+
+def test_chunk_improved_policy():
+    ci = ingest.chunk_improved
+    assert ci(None, 0.3)                       # first fetch
+    assert ci(("failed", None), 0.3)           # recovery
+    assert ci(("no_data", None), 0.1)          # late arrival
+    assert not ci(("success", None), 0.5)      # legacy row = complete
+    assert not ci(("success", 0.3), 0.3)       # same short data again
+    assert not ci(("success", 0.3), 0.3005)    # noise
+    assert ci(("success", 0.3), 0.9)           # more data arrived
+
+
+def test_write_run_summary(tmp_path):
+    cfg = {"log_dir": str(tmp_path)}
+    totals = {"success": 1, "no_data": 0, "failed": 0, "skipped": 0, "short": 1, "improved": 1}
+    ingest.write_run_summary(cfg, "s", "e", totals, 0, ingest.EXIT_PARTIAL)
+    import json
+    d = json.loads((tmp_path / ingest.SUMMARY_FILENAME).read_text())
+    assert d["exit_code"] == 2 and d["totals"]["improved"] == 1 and d["start"] == "s"

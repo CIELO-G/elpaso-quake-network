@@ -86,7 +86,7 @@ def test_run_day_partial_ingest_continues_and_flags(out, monkeypatch):
 
     def fake_run(cmd, **kw):
         calls.append(cmd)
-        rc = rp.INGEST_EXIT_PARTIAL if "ingest.py" in cmd[1] else 0
+        rc = rp.INGEST_EXIT_PARTIAL if "ingest.py" in cmd[2] else 0
         return SimpleNamespace(returncode=rc)
 
     monkeypatch.setattr(rp.subprocess, "run", fake_run)
@@ -106,7 +106,7 @@ def test_run_day_force_override_adds_force_and_rebuild(out, monkeypatch):
 
 def test_run_day_failure_stops_and_is_not_partial(out, monkeypatch):
     def fake_run(cmd, **kw):
-        return SimpleNamespace(returncode=1 if "associate.py" in cmd[1] else 0)
+        return SimpleNamespace(returncode=1 if "associate.py" in cmd[2] else 0)
 
     monkeypatch.setattr(rp.subprocess, "run", fake_run)
     st = _status()
@@ -133,23 +133,60 @@ def test_state_roundtrip_and_dedup(tmp_path):
     assert load_state(tmp_path).days_skipped == []
 
 
-def test_retry_partial_days_clears_when_clean_and_ages_out(out, monkeypatch):
+def test_retry_partial_days_clears_when_clean_and_ages_out(out, monkeypatch, tmp_path):
     today = date(2026, 10, 2)
     monkeypatch.setattr(rp, "_target_date", lambda: today)
     notes = []
     monkeypatch.setattr(rp, "_notify", lambda s, b: notes.append(s))
-    rc_by_day = {"2026-10-01": 0, "2026-09-30": rp.INGEST_EXIT_PARTIAL}
+    summary = tmp_path / "ingest_summary.json"
+    monkeypatch.setattr(rp, "INGEST_SUMMARY", summary)
+    rc_by_day = {"2026-10-01": 0, "2026-09-30": rp.INGEST_EXIT_PARTIAL, "2026-09-29": rp.INGEST_EXIT_PARTIAL}
+    improved_by_day = {"2026-10-01": 3, "2026-09-30": 0, "2026-09-29": 2}
+    ran = []
+
+    current = {"day": None}
 
     def fake_run(cmd, **kw):
-        if "ingest.py" in cmd[1]:
-            day = cmd[cmd.index("--start") + 1]
+        script = cmd[2].split("/")[-1]
+        if "--start" in cmd:
+            current["day"] = cmd[cmd.index("--start") + 1]
+        day = current["day"]  # catalog step takes no dates
+        ran.append((day, script))
+        if script == "ingest.py":
+            summary.write_text(json.dumps({"totals": {"improved": improved_by_day[day]}}))
             return SimpleNamespace(returncode=rc_by_day[day])
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(rp.subprocess, "run", fake_run)
-    st = PipelineState(days_partial=["2026-09-01", "2026-09-30", "2026-10-01"])
+    st = PipelineState(days_partial=["2026-09-01", "2026-09-29", "2026-09-30", "2026-10-01"])
     save_state(out, st)
     rp._retry_partial_days(_args(), _status(), st)
-    assert st.days_partial == ["2026-09-30"]  # 10-01 clean, 09-01 aged out
+    # 10-01: improved + clean → complete; 09-30: nothing new → stays, no downstream;
+    # 09-29: improved but still short → re-processed, stays; 09-01: aged out
+    assert st.days_partial == ["2026-09-29", "2026-09-30"]
     assert any("remains incomplete" in n for n in notes)
-    assert json.loads((out / "pipeline_state.json").read_text())["days_partial"] == ["2026-09-30"]
+    scripts_for = lambda d: [s for dd, s in ran if dd == d]
+    assert scripts_for("2026-09-30") == ["ingest.py"]
+    assert scripts_for("2026-10-01") == ["ingest.py", "process.py", "detect.py", "associate.py", "catalog.py"]
+    assert scripts_for("2026-09-29")[0] == "ingest.py" and len(scripts_for("2026-09-29")) == 5
+    assert json.loads((out / "pipeline_state.json").read_text())["days_partial"] == ["2026-09-29", "2026-09-30"]
+
+
+def test_run_day_only_steps_marks_others_skipped(out, monkeypatch):
+    calls = []
+    monkeypatch.setattr(rp.subprocess, "run", lambda cmd, **kw: (calls.append(cmd), SimpleNamespace(returncode=0))[1])
+    st = _status()
+    res = rp._run_day("2026-09-27", _args(), st, only_steps={2, 3})
+    assert res.ok and len(calls) == 2
+    assert [s["status"] for s in st["steps"]] == ["skipped", "completed", "completed", "skipped", "skipped"]
+    assert calls[0][1] == "-u"
+
+
+def test_ingest_improved_count_reads_summary(tmp_path, monkeypatch):
+    f = tmp_path / "s.json"
+    monkeypatch.setattr(rp, "INGEST_SUMMARY", f)
+    assert rp._ingest_improved_count() == 0
+    f.write_text(json.dumps({"totals": {"improved": 4}}))
+    assert rp._ingest_improved_count() == 4
+    f.write_text("{broken")
+    assert rp._ingest_improved_count() == 0

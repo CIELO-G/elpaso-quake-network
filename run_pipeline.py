@@ -292,7 +292,9 @@ def build_command(
 ) -> list[str]:
     """Build the subprocess command list for a step."""
     force = args.force if force_override is None else force_override
-    cmd = [sys.executable, str(ROOT / step["script"]), "--config", str(ROOT / step["config"])]
+    # -u: stage stdout goes to logs/pipeline_stdout.log; unbuffered so the
+    # file reflects what has happened, not what fit in an 8 KB buffer.
+    cmd = [sys.executable, "-u", str(ROOT / step["script"]), "--config", str(ROOT / step["config"])]
     if step["accepts_dates"]:
         start = start_override or args.start
         end = end_override or args.end
@@ -472,7 +474,12 @@ class DayResult:
 
 
 def _run_day(
-    day_str: str, args: argparse.Namespace, status_data: dict, *, force: bool | None = None
+    day_str: str,
+    args: argparse.Namespace,
+    status_data: dict,
+    *,
+    force: bool | None = None,
+    only_steps: set[int] | None = None,
 ) -> DayResult:
     """Run all 5 pipeline steps for a single day.
 
@@ -487,6 +494,9 @@ def _run_day(
     partial = False
 
     for i, step in enumerate(STEPS):
+        if only_steps is not None and step["number"] not in only_steps:
+            steps[i]["status"] = "skipped"
+            continue
         steps[i]["status"] = "running"
         steps[i]["started_at"] = _now()
         steps[i]["finished_at"] = None
@@ -536,6 +546,15 @@ def _notify(subject: str, body: str) -> None:
 
 
 STATION_DARK_DAYS = 3
+INGEST_SUMMARY = ROOT / "logs" / "ingest_summary.json"
+
+
+def _ingest_improved_count() -> int:
+    """``improved`` from the last ingest run's summary (0 if unreadable)."""
+    try:
+        return int(json.loads(INGEST_SUMMARY.read_text())["totals"].get("improved", 0))
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0
 
 
 def _check_station_coverage(state: PipelineState, last_day: date) -> None:
@@ -592,15 +611,30 @@ def _retry_partial_days(args: argparse.Namespace, status_data: dict, state: Pipe
         status_data["pipeline"]["args"]["start"] = day_str
         status_data["pipeline"]["args"]["end"] = day_str
         _write_status(status_data)
-        res = _run_day(day_str, args, status_data, force=True)
-        if res.ok and not res.partial:
+        # Ingest alone first. Re-processing the day (detect, associate,
+        # catalog --rebuild) is only worth it if the re-fetch actually
+        # brought in more samples than the tracker already had.
+        res = _run_day(day_str, args, status_data, force=True, only_steps={1})
+        if not res.ok:
+            print(f"    {day_str} re-ingest failed; will try again next cycle")
+            continue
+        improved = _ingest_improved_count()
+        if improved == 0:
+            print(f"    {day_str}: nothing new arrived" + ("" if res.partial else " — now complete"))
+            if not res.partial:
+                state.remove_partial(day_str)
+                save_state(OUTPUT_DIR, state)
+            continue
+        print(f"    {day_str}: {improved} chunk(s) improved — re-processing")
+        res2 = _run_day(day_str, args, status_data, force=True, only_steps={2, 3, 4, 5})
+        if res2.ok and not res.partial:
             print(f"    {day_str} is now complete")
             state.remove_partial(day_str)
             save_state(OUTPUT_DIR, state)
-        elif res.ok:
-            print(f"    {day_str} still partial")
+        elif res2.ok:
+            print(f"    {day_str} re-processed; still partial")
         else:
-            print(f"    {day_str} re-run failed; will try again next cycle")
+            print(f"    {day_str} re-processing failed; will try again next cycle")
 
 
 def continuous_run(args: argparse.Namespace) -> None:

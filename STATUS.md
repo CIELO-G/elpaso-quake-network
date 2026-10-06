@@ -25,7 +25,7 @@
 - [x] A10 atomic writes for all stage outputs.
 - [x] A11 no zero-fill in raw storage.
 - [x] A12 NaN amplitude guard.
-- [x] Restart pipeline after a day completes (done 2026-10-03 18:45 UTC). [ ] Verify 2026-10-03 end to end after the 2026-10-04 06:00 UTC run.
+- [x] Restart pipeline after a day completes (done 2026-10-03 18:45 UTC). [x] Verified: 2026-10-03 and 2026-10-04 ran end to end on the new code (55 min each).
 
 ## Log
 
@@ -80,3 +80,12 @@
   ALERT_*), relaunched. Health OK, pipeline waiting for 2026-10-03 at 06:00 UTC Oct 4,
   `alerting: {email: false, webhook: false}` until Marc fills in local.env. Branch
   `phase1-hardening` has 7 commits on top of main; not merged or pushed.
+- 2026-10-05 verification. Days 2026-10-03/04 completed end to end; catalog 115. Findings:
+  (1) **AM.RADA1 is delivering 7–46% of each hour since 2026-10-03** (raw 33 MB/day → 7 MB/day) —
+  a station/uplink problem, flagged by the new coverage check; (2) **AM.R5912 has no raw data on
+  any day here** (24 no_data chunks every day) — dark alert fired (to log only, no channel set);
+  (3) the partial-day re-run re-processed detect/associate/catalog each cycle although the
+  re-fetch brought nothing new (~12 min per partial day per cycle). Fixed: ingest now counts
+  `improved` chunks and writes `logs/ingest_summary.json`; `_retry_partial_days` runs ingest alone
+  and only re-processes when improved > 0. Also: orchestrator and stages now run with `python -u`
+  (the stdout log was block-buffered and hid the last day's lines). Tests: 262. Restarted again.

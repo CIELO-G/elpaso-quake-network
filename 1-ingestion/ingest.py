@@ -21,6 +21,7 @@ import math
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -143,6 +144,26 @@ EXIT_TOTAL_FAILURE = 1
 EXIT_PARTIAL = 2
 
 
+SUMMARY_FILENAME = "ingest_summary.json"
+
+
+def write_run_summary(config, start_time, end_time, totals, n_unreachable, exit_code) -> None:
+    """Machine-readable result of this run for the orchestrator (logs/ingest_summary.json)."""
+    import json
+
+    from lib.atomic_io import atomic_write_text
+
+    summary = {
+        "start": str(start_time),
+        "end": str(end_time),
+        "totals": totals,
+        "stations_unreachable": n_unreachable,
+        "exit_code": exit_code,
+        "written_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    atomic_write_text(json.dumps(summary, indent=2) + "\n", Path(config["log_dir"]) / SUMMARY_FILENAME)
+
+
 def exit_code_for(totals: dict[str, int], n_unreachable: int, n_stations: int) -> int:
     """Map the run's counters to the exit-code policy above."""
     problems = totals["failed"] > 0 or n_unreachable > 0 or totals.get("short", 0) > 0
@@ -200,6 +221,23 @@ def chunk_coverage(st: Stream, expected: dict[str, float], chunk_start, chunk_en
         want = duration * rate
         total += min(got / want, 1.0) if want > 0 else 0.0
     return round(total / len(expected), 4)
+
+
+def chunk_improved(previous: tuple[str, float | None] | None, coverage: float) -> bool:
+    """True when this fetch stored more than what the tracker had before.
+
+    First-time fetches and recoveries from failed/no_data count; a re-fetch
+    that returns the same short data does not. The orchestrator uses the
+    total to decide whether a partial day is worth re-processing.
+    """
+    if previous is None:
+        return True
+    status, old_cov = previous
+    if status != "success":
+        return True
+    if old_cov is None:  # legacy row, treated as complete
+        return False
+    return coverage > old_cov + 1e-3
 
 
 def fetch_station_metadata(
@@ -525,7 +563,9 @@ def process_station(
     chunk_end_limit = UTCDateTime(end_time)
     total_chunks = int(math.ceil((chunk_end_limit - chunk_start) / chunk_sec))
 
-    counts: dict[str, int] = {"success": 0, "no_data": 0, "failed": 0, "skipped": 0, "short": 0}
+    counts: dict[str, int] = {
+        "success": 0, "no_data": 0, "failed": 0, "skipped": 0, "short": 0, "improved": 0,
+    }
     chunk_num = 0
     expected = expected_channels(inv, network, station, location, channels)
     min_cov = float(config["min_chunk_coverage"])
@@ -561,6 +601,7 @@ def process_station(
             chunk_start,
             chunk_end,
         )
+        previous = db.chunk_status(network, station, location, channels, chunk_start, chunk_end)
 
         try:
             st = fetch_waveforms(
@@ -593,6 +634,8 @@ def process_station(
                     coverage=coverage,
                 )
                 counts["success"] += 1
+                if chunk_improved(previous, coverage):
+                    counts["improved"] += 1
                 if coverage < min_cov:
                     counts["short"] += 1
                     logger.warning(
@@ -788,7 +831,7 @@ def main() -> None:
         logger.info("Processing %d station(s) with %d worker(s)", len(stations), max_workers)
 
         totals: dict[str, int] = {
-            "success": 0, "no_data": 0, "failed": 0, "skipped": 0, "short": 0,
+            "success": 0, "no_data": 0, "failed": 0, "skipped": 0, "short": 0, "improved": 0,
         }
         n_stations_unreachable = 0
 
@@ -854,15 +897,17 @@ def main() -> None:
         # Summary
         logger.info("=" * 60)
         logger.info(
-            "Done. success=%d  no_data=%d  failed=%d  skipped=%d  short=%d",
+            "Done. success=%d  no_data=%d  failed=%d  skipped=%d  short=%d  improved=%d",
             totals["success"],
             totals["no_data"],
             totals["failed"],
             totals["skipped"],
             totals["short"],
+            totals["improved"],
         )
         logger.info("=" * 60)
         exit_code = exit_code_for(totals, n_stations_unreachable, len(stations))
+        write_run_summary(config, start_time, end_time, totals, n_stations_unreachable, exit_code)
         if exit_code == EXIT_TOTAL_FAILURE:
             logger.error(
                 "No data obtained for any station (failed=%d, unreachable=%d) — "
