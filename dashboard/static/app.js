@@ -285,7 +285,7 @@ const STEP_SHORT = {
 const STATUS_ICON = {
   pending: '', running: '\u25b6', completed: '\u2713', failed: '\u2717', skipped: '\u2014'
 };
-const HEALTH_COLORS = { ok: '#10b981', warning: '#f59e0b', error: '#ef4444', unknown: '#64748b' };
+const HEALTH_COLORS = { ok: '#10b981', warning: '#f59e0b', error: '#ef4444', unknown: '#64748b', retired: '#94a3b8' };
 
 // ── State ───────────────────────────────────────────────────────
 let filterStartDate = '';
@@ -802,9 +802,10 @@ function openStationDetail(station) {
 
 // ── Update station health on map ────────────────────────────────
 function renderStationHealth(healthData) {
-  var HEALTH_LABEL = { ok: 'OK', warning: 'Intermittent', error: 'Offline', unknown: 'Unknown' };
-  var up = healthData.filter(function(h) { return h.status === 'ok'; }).length;
-  _sbSet('sb-stations', up + '/' + healthData.length + ' up');
+  var HEALTH_LABEL = { ok: 'OK', warning: 'Intermittent', error: 'Offline', unknown: 'Unknown', retired: 'Retired' };
+  var active = healthData.filter(function(h) { return h.status !== 'retired'; });
+  var up = active.filter(function(h) { return h.status === 'ok'; }).length;
+  _sbSet('sb-stations', up + '/' + active.length + ' up');
   healthData.forEach(function(h) {
     var entry = stationMarkers[h.station];
     if (!entry) return;
@@ -812,7 +813,7 @@ function renderStationHealth(healthData) {
     entry.marker.setIcon(stationIcon(color));
     var s = entry.data;
     entry.marker.setTooltipContent(
-      '<b>' + esc(s.station) + '</b><br>' + esc(s.network) + ' \u00b7 ' + esc(s.model) + '<br>' + esc(s.channels) + '<br>Health: <b>' + esc(HEALTH_LABEL[h.status] || h.status) + '</b>'
+      '<b>' + esc(s.station) + '</b><br>' + esc(s.network) + ' \u00b7 ' + esc(s.model) + '<br>' + esc(s.channels) + '<br>Health: <b>' + esc(HEALTH_LABEL[h.status] || h.status) + (h.end_date ? ' (since ' + esc(h.end_date) + ')' : '') + '</b>'
     );
   });
 }

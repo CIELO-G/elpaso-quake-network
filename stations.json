@@ -72,6 +72,7 @@
     "elevation_m": 1303.0,
     "sample_rate_hz": 100.0,
     "start_date": "2022-12-03",
+    "end_date": "2026-02-23",
     "model": "RS4D",
     "instrument": {
       "geophone": {

@@ -7,6 +7,7 @@ for runtime data structures (Pick, Event, Station).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -28,6 +29,7 @@ class Station:
     sample_rate_hz: float = 100.0
     model: str = ""
     start_date: str = ""
+    end_date: str = ""  # last day the station is expected to have data ("" = active)
     fdsnws_url: str | None = None
     instrument: dict[str, Any] = field(default_factory=dict)
 
@@ -50,6 +52,7 @@ class Station:
             sample_rate_hz=d.get("sample_rate_hz", 100.0),
             model=d.get("model", ""),
             start_date=d.get("start_date", ""),
+            end_date=d.get("end_date", ""),
             fdsnws_url=d.get("fdsnws_url"),
             instrument=d.get("instrument", {}),
         )
@@ -141,7 +144,45 @@ def validate_station(entry: dict[str, Any], index: int) -> list[str]:
             f"Station {index} ({entry.get('station', '?')}): unusual channel pattern '{channels}'"
         )
 
+    # Dates: start_date is required by the orchestrator; end_date marks retirement
+    name = entry.get("station", "?")
+    start = _parse_iso_date(entry.get("start_date"), f"Station {index} ({name}): start_date")
+    if start is None:
+        raise StationValidationError(f"Station {index} ({name}): start_date is required (YYYY-MM-DD)")
+    if "end_date" in entry and entry["end_date"] not in ("", None):
+        end = _parse_iso_date(entry["end_date"], f"Station {index} ({name}): end_date")
+        if end < start:
+            raise StationValidationError(
+                f"Station {index} ({name}): end_date {end} is before start_date {start}"
+            )
+
     return warnings
+
+
+def _parse_iso_date(value: Any, what: str) -> date | None:
+    if value in ("", None):
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError as exc:
+        raise StationValidationError(f"{what} must be YYYY-MM-DD, got {value!r}") from exc
+
+
+def station_active_on(entry: dict[str, Any], day: date) -> bool:
+    """True when ``day`` lies within the station's [start_date, end_date] window.
+
+    ``end_date`` is inclusive and optional; a missing/empty one means the
+    station is still active. A retired station keeps its history (old days
+    still re-process with its data) but is no longer expected, fetched, or
+    alerted on after ``end_date``.
+    """
+    start = _parse_iso_date(entry.get("start_date"), "start_date")
+    if start is not None and day < start:
+        return False
+    end = _parse_iso_date(entry.get("end_date"), "end_date")
+    if end is not None and day > end:
+        return False
+    return True
 
 
 def validate_stations(stations: list[dict[str, Any]]) -> list[str]:

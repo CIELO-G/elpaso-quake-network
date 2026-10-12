@@ -588,6 +588,20 @@ def process_station(
         except (ValueError, TypeError):
             pass  # malformed date — fall through and process normally
 
+    # Retired station: nothing is expected after end_date (inclusive day).
+    sta_end_raw = station_cfg.get("end_date", "")
+    if sta_end_raw:
+        try:
+            sta_end_dt = UTCDateTime(sta_end_raw) + 86400.0  # first instant after the last day
+            if UTCDateTime(start_time) >= sta_end_dt:
+                logger.info(
+                    "Skipping %s.%s -- retired on %s (window starts %s)",
+                    network, station, sta_end_raw, start_time,
+                )
+                return empty_counts
+        except (ValueError, TypeError):
+            pass
+
     logger.info(
         "--- %s.%s (channels=%s) | %s -> %s ---",
         network,

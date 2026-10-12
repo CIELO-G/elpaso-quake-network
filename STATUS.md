@@ -113,3 +113,9 @@
   (|x| > 2^23 -> gap, split, then the existing interpolate-merge bridges it) now runs in
   `process.py` and in `detect.py`'s `merge_raw_data`. Verified on the real file: peak
   drops from 5.4e8 to 4.3e4 counts. No effect on clean days (tests). 273 tests pass.
+- 2026-10-12: Marc: **AM.R5912 is retired** (last data 2026-02-23); RADA1 stays, he will
+  check the hardware. Added `end_date` to the station schema (inclusive last day;
+  `lib/models.station_active_on`). Honoured by ingest (skips later windows), the gap
+  scan, the dark-station alert and the dashboard (`retired` status, excluded from the
+  "N/N up" count). History is kept: old days still re-process with R5912 data.
+  `start_date` is now required by validation (first half of B2). 281 tests pass.

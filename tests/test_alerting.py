@@ -94,3 +94,14 @@ def test_watchdog_alerts_once_when_budget_exhausted(monkeypatch):
     wd.run()
     assert len(sent) == 2  # once for the first outage, once after recovery+second outage
     assert all("watchdog gave up" in s for s in sent)
+
+
+def test_retired_station_is_not_reported_dark(tmp_path):
+    raw = tmp_path / "1-raw"
+    last = date(2026, 10, 1)
+    stations = [("AM", "R0F2D", date(2025, 1, 1), None),
+                ("AM", "R5912", date(2022, 12, 3), date(2026, 2, 23)),
+                ("AM", "DEAD1", date(2025, 1, 1), None)]
+    for i in range(3):
+        _raw_day(raw, date(2026, 9, 29) + timedelta(days=i), "AM.R0F2D")
+    assert monitoring.stations_without_data(raw, stations, last, days=3) == ["AM.DEAD1"]

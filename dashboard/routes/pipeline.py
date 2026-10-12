@@ -465,6 +465,17 @@ async def station_health():
 
     results = []
     for s in stations_data:
+        if s.get("end_date"):
+            results.append(
+                {
+                    "station": s["station"],
+                    "network": s["network"],
+                    "status": "retired",
+                    "files_recent": 0,
+                    "end_date": s["end_date"],
+                }
+            )
+            continue
         prefix = f"{s['network']}.{s['station']}."
         found = 0
         for d in day_dirs:

@@ -414,20 +414,25 @@ def validate_environment() -> bool:
 
 def stations_without_data(
     raw_dir: Path,
-    stations: list[tuple[str, str, date]],
+    stations: list[tuple],
     last_day: date,
     days: int = 3,
 ) -> list[str]:
     """Stations expected online that have NO raw files on any of the last
     ``days`` days ending at ``last_day`` (inclusive). ``stations`` are
-    (network, station, start_date) tuples; a station only counts once it is
-    expected for the whole window.
+    (network, station, start_date[, end_date]) tuples; a station only counts
+    once it is expected for the whole window, and a retired station
+    (end_date before ``last_day``) is never reported.
     """
     dark: list[str] = []
     first_day = last_day - timedelta(days=days - 1)
-    for net, sta, start in stations:
+    for entry in stations:
+        net, sta, start = entry[0], entry[1], entry[2]
+        end = entry[3] if len(entry) > 3 else None
         if start > first_day:
             continue  # too new to judge over the full window
+        if end is not None and end < last_day:
+            continue  # retired
         seen = False
         for i in range(days):
             d = first_day + timedelta(days=i)

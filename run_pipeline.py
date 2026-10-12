@@ -182,17 +182,40 @@ def _send_alert(subject: str, body: str) -> None:
 # ── gap-fill helpers ─────────────────────────────────────────────────────────
 
 
-def _load_station_expectations() -> list[tuple[str, str, date]]:
-    """Read stations.json and return (network, station, start_date) tuples."""
+def _load_station_expectations() -> list[tuple[str, str, date, date | None]]:
+    """Read stations.json and return (network, station, start_date, end_date) tuples.
+
+    ``end_date`` is None for an active station; a retired one is only
+    expected through its end_date (inclusive).
+    """
     with open(STATIONS_FILE) as f:
         stations = json.load(f)
-    return [(s["network"], s["station"], date.fromisoformat(s["start_date"])) for s in stations]
+    out = []
+    for s in stations:
+        end = s.get("end_date") or None
+        out.append((
+            s["network"], s["station"],
+            date.fromisoformat(s["start_date"]),
+            date.fromisoformat(end) if end else None,
+        ))
+    return out
+
+
+def _expected_on(stations, day: date) -> set[str]:
+    """NET.STA ids expected to have data on ``day``; tolerates 3- or 4-tuples."""
+    ids = set()
+    for entry in stations:
+        net, sta, start = entry[0], entry[1], entry[2]
+        end = entry[3] if len(entry) > 3 else None
+        if start <= day and (end is None or day <= end):
+            ids.add(f"{net}.{sta}")
+    return ids
 
 
 def _scan_gaps(
     scan_start: date,
     scan_end: date,
-    stations: list[tuple[str, str, date]],
+    stations: list[tuple],
 ) -> list[tuple[date, list[str]]]:
     """Find days with station data missing from BOTH 1-raw/ and 2-processed/.
 
@@ -210,8 +233,8 @@ def _scan_gaps(
         doy = day.timetuple().tm_yday
         rel = f"{day.year}/{doy:03d}"
 
-        # stations expected to be online this day
-        expected = {f"{net}.{sta}" for net, sta, start in stations if start <= day}
+        # stations expected to be online this day (start_date <= day <= end_date)
+        expected = _expected_on(stations, day)
         if not expected:
             day += timedelta(days=1)
             continue

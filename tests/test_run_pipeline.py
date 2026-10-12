@@ -190,3 +190,28 @@ def test_ingest_improved_count_reads_summary(tmp_path, monkeypatch):
     assert rp._ingest_improved_count() == 4
     f.write_text("{broken")
     assert rp._ingest_improved_count() == 0
+
+
+def test_scan_gaps_ignores_retired_station_after_end_date(out):
+    d = date(2026, 9, 26)
+    stations = [("AM", "R0F2D", date(2025, 1, 1), None),
+                ("AM", "R5912", date(2022, 12, 3), date(2026, 2, 23))]
+    _mk_day(out / "2-processed", d, "AM.R0F2D.00.EHZ.2026.269.mseed")
+    _mk_day(out / "4-events", d, "{y}.{j}.events.csv")
+    assert rp._scan_gaps(d, d, stations) == []
+    # but it IS expected while it was alive
+    d2 = date(2026, 2, 1)
+    _mk_day(out / "2-processed", d2, "AM.R0F2D.00.EHZ.2026.032.mseed")
+    assert rp._scan_gaps(d2, d2, stations) == [(d2, ["AM.R5912"])]
+
+
+def test_load_station_expectations_reads_end_date(monkeypatch, tmp_path):
+    import json
+    f = tmp_path / "stations.json"
+    f.write_text(json.dumps([
+        {"network": "AM", "station": "A", "start_date": "2025-01-01"},
+        {"network": "AM", "station": "B", "start_date": "2025-01-01", "end_date": "2026-02-23"},
+    ]))
+    monkeypatch.setattr(rp, "STATIONS_FILE", f)
+    exp = rp._load_station_expectations()
+    assert exp[0][3] is None and exp[1][3] == date(2026, 2, 23)
