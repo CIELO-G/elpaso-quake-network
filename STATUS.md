@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** after 2026-10-04 06:00 UTC, check `logs/pipeline_stdout.log`, `output/pipeline_state.json`, `/api/health`, and that `1-downloads.db` now has a `coverage` column with values for day 2026-10-03. Then Phase 2 (`ENGINEERING_REVIEW.md` section B).
+- **Next step:** merge `phase1-hardening` into main and push (needs `gh auth login`), then Phase 2 (`ENGINEERING_REVIEW.md` section B), starting with the rest of B2.
 
 ## Phase 1 checklist
 
@@ -119,3 +119,10 @@
   scan, the dark-station alert and the dashboard (`retired` status, excluded from the
   "N/N up" count). History is kept: old days still re-process with R5912 data.
   `start_date` is now required by validation (first half of B2). 281 tests pass.
+- 2026-10-12: **alerts live.** Email via Gmail SMTP to Marc's personal address
+  (`ALERT_EMAIL_*` in `deploy/app/local.env`, App Password without spaces — the
+  launcher sources the file as shell). Test alert delivered through `notify()`; app
+  rebuilt and restarted; `/api/health` shows `alerting.email: true`. Before the
+  restart, `pipeline_state.json` was edited: 2026-10-06 moved skipped -> partial
+  (it completed manually), AM.R5912 removed from `dark_stations`.
+  Dashboard loader now passes `end_date` through (`/api/station_health` -> `retired`).
