@@ -11,6 +11,15 @@ the rest of the pipeline expects, so steps 2-5 run unchanged:
   output/1-metadata/NET.STA.xml                          StationXML with a velocity response
   stations.json                                          entries with start_date AND end_date
 
+Input layouts (detected from the first file's headers):
+  * hourly all-station files (one file = every station for an hour) — buffered per
+    UTC day and written once per day;
+  * per-station files (SAC or miniSEED, one station-channel per file, any span)
+    — handled one station at a time, in parallel (``--workers``).
+Rates: a near-nominal clock (999.99994 Hz) is snapped to nominal; ``--target-rate``
+decimates by an integer factor with ObsPy's anti-alias lowpass. Integer counts
+stay integer (INT32 Steim2); anything else is stored float32.
+
 Station list: CSV with columns  station,lat,lon,elv(m),unit,componet,response
 (the PhaseNet "stations.csv" shape; ``station`` is NET.STA.LOC.BAND, e.g.
 4B.101..GP; ``response`` is counts per m/s, one value per component).
@@ -39,6 +48,7 @@ from datetime import date
 from pathlib import Path
 
 import numpy as np
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from obspy import Stream, UTCDateTime, read
 from obspy.core.inventory import Channel, Inventory, Network, Site, Station
 from obspy.core.inventory.response import Response
@@ -117,20 +127,87 @@ def build_inventory(meta: dict, channels: list[str], start: UTCDateTime, end: UT
 # ── waveforms ────────────────────────────────────────────────────────────
 
 
-def normalise_trace(tr, rate_tol: float = NOMINAL_RATE_TOL) -> None:
-    """Snap a near-nominal node clock to the nominal rate; store float32."""
+def normalise_trace(tr, target_rate: float | None = None, rate_tol: float = NOMINAL_RATE_TOL) -> bool:
+    """Snap a near-nominal clock to nominal, decimate to ``target_rate`` if
+    asked, and pick the storage type. Returns True when the samples are
+    integer counts (stored INT32/Steim2), False when stored float32."""
     nominal = round(tr.stats.sampling_rate)
     if abs(tr.stats.sampling_rate - nominal) <= rate_tol:
         tr.stats.sampling_rate = float(nominal)
-    if tr.data.dtype != np.float32:
+    integral = bool(np.all(np.mod(tr.data, 1) == 0)) if tr.data.size else True
+    if target_rate and tr.stats.sampling_rate != target_rate:
+        ratio = tr.stats.sampling_rate / target_rate
+        if abs(ratio - round(ratio)) > 1e-6 or ratio < 1:
+            raise ValueError(f"{tr.id}: cannot decimate {tr.stats.sampling_rate} Hz to {target_rate} Hz by an integer factor")
+        factor = int(round(ratio))
+        # ObsPy applies a zero-phase Chebyshev II lowpass below the new Nyquist
+        # before picking every factor-th sample (no aliasing); factor > 16 is
+        # done in two passes as ObsPy requires.
+        while factor > 1:
+            step = min(factor, 16)
+            tr.decimate(step, no_filter=False, strict_length=False)
+            factor //= step
+    if integral:
+        tr.data = np.round(tr.data).astype(np.int32)
+    else:
         tr.data = tr.data.astype(np.float32)
+    return integral
+
+
+def write_day_piece(piece, year: int, jday: int, integral: bool, raw_dir: Path) -> Path:
+    """Merge one trace piece into its archive day file (read-merge-write)."""
+    day_dir = raw_dir / str(year) / f"{jday:03d}"
+    day_dir.mkdir(parents=True, exist_ok=True)
+    net, sta, loc, cha = piece.id.split(".")
+    fpath = day_dir / f"{net}.{sta}.{loc}.{cha}.{year}.{jday:03d}.mseed"
+    s = Stream([piece])
+    if fpath.exists():
+        s += read(str(fpath))
+    s.merge(method=1)  # identical overlaps (duplicated export files) collapse
+    s = s.split()
+    atomic_write_stream(s, fpath, format="MSEED", encoding="STEIM2" if integral else "FLOAT32")
+    return fpath
+
+
+def import_station_files(station_key: str, files: list[Path], target_rate: float | None, raw_dir: Path) -> dict:
+    """Per-station layout: one worker imports every file of one station.
+
+    Files of one station only ever touch that station's archive files, so
+    stations can run in parallel without write conflicts."""
+    stats = {"station": station_key, "files": 0, "pieces": 0, "duplicates": 0,
+             "channels": set(), "first": None, "last": None, "integral": None}
+    seen: dict[str, list[tuple]] = defaultdict(list)
+    for fp in sorted(files):
+        for tr in read(str(fp)):
+            if f"{tr.stats.network}.{tr.stats.station}" != station_key:
+                continue
+            t0, t1 = tr.stats.starttime, tr.stats.endtime
+            key = tr.id
+            if any(abs(t0 - a) < 1.0 and abs(t1 - b) < 1.0 for a, b in seen[key]):
+                stats["duplicates"] += 1  # same window already imported (duplicated file)
+                continue
+            seen[key].append((t0, t1))
+            integral = normalise_trace(tr, target_rate)
+            stats["integral"] = integral
+            stats["channels"].add(tr.stats.channel)
+            stats["first"] = t0 if stats["first"] is None else min(stats["first"], t0)
+            stats["last"] = t1 if stats["last"] is None else max(stats["last"], t1)
+            day = UTCDateTime(t0.year, t0.month, t0.day)
+            while day <= tr.stats.endtime:
+                piece = tr.slice(max(day, tr.stats.starttime), min(day + 86400 - tr.stats.delta, tr.stats.endtime))
+                if piece.stats.npts > 0:
+                    write_day_piece(piece, day.year, day.julday, integral, raw_dir)
+                    stats["pieces"] += 1
+                day += 86400
+        stats["files"] += 1
+    return stats
 
 
 def day_key(t: UTCDateTime) -> tuple[int, int]:
     return t.year, t.julday
 
 
-def import_waveforms(files: list[Path], wanted: set[str], dry_run: bool, log) -> dict:
+def import_waveforms(files: list[Path], wanted: set[str], dry_run: bool, log, target_rate=None, raw_dir: Path = RAW_DIR) -> dict:
     """Write per-station-channel-day files. Files are processed in time order
     and each UTC day is flushed once all of its hourly inputs have been read,
     so memory holds at most two days of one deployment."""
@@ -147,7 +224,7 @@ def import_waveforms(files: list[Path], wanted: set[str], dry_run: bool, log) ->
         for tr in st:
             by_id[tr.id].append(tr)
         year, jday = day
-        day_dir = RAW_DIR / str(year) / f"{jday:03d}"
+        day_dir = raw_dir / str(year) / f"{jday:03d}"
         day_dir.mkdir(parents=True, exist_ok=True)
         for tid, s in by_id.items():
             net, sta, loc, cha = tid.split(".")
@@ -156,7 +233,8 @@ def import_waveforms(files: list[Path], wanted: set[str], dry_run: bool, log) ->
                 s += read(str(fpath))
             s.merge(method=1)
             s = s.split()
-            atomic_write_stream(s, fpath, format="MSEED", encoding="FLOAT32")
+            enc = "STEIM2" if stats.get("integral") else "FLOAT32"
+            atomic_write_stream(s, fpath, format="MSEED", encoding=enc)
             stats["written"] += 1
         stats["days"] += 1
         log(f"  day {year}/{jday:03d}: {len(by_id)} files")
@@ -169,7 +247,7 @@ def import_waveforms(files: list[Path], wanted: set[str], dry_run: bool, log) ->
             if key not in wanted:
                 stats["skipped_ids"].add(key)
                 continue
-            normalise_trace(tr)
+            stats["integral"] = normalise_trace(tr, target_rate)
             stats["rate"] = tr.stats.sampling_rate
             stats["channels"].add(tr.stats.channel)
             stats["traces"] += 1
@@ -234,26 +312,45 @@ def main() -> None:
     p.add_argument("--sensor-kind", default="node", help="instrument block key (node|geophone|seismometer)")
     p.add_argument("--only-stations", action="store_true", help="metadata + stations.json only, no waveforms")
     p.add_argument("--only-waveforms", action="store_true")
+    p.add_argument("--target-rate", type=float, default=100.0,
+                   help="decimate to this rate (integer factor, anti-aliased); 0 = keep as is")
+    p.add_argument("--workers", type=int, default=6, help="parallel stations (per-station layout only)")
+    p.add_argument("--raw-dir", type=Path, default=RAW_DIR, help=argparse.SUPPRESS)
+    p.add_argument("--meta-dir", type=Path, default=META_DIR, help=argparse.SUPPRESS)
+    p.add_argument("--stations-file", type=Path, default=STATIONS_FILE, help=argparse.SUPPRESS)
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
+    if not args.target_rate:
+        args.target_rate = None
 
     log = lambda m: print(m, flush=True)  # noqa: E731
     meta = read_station_list(args.station_list)
-    files = sorted(fp for fp in args.data.rglob("*.mseed"))
+    files = sorted(fp for pat in ("*.mseed", "*.SAC", "*.sac") for fp in args.data.rglob(pat))
     if not files:
-        raise SystemExit(f"no .mseed files under {args.data}")
+        raise SystemExit(f"no .mseed/.SAC files under {args.data}")
     log(f"{len(meta)} stations in list, {len(files)} data files")
 
     # Which stations/channels/time span are actually in the data (headers only)?
     present: dict[str, set[str]] = defaultdict(set)
+    files_by_station: dict[str, list[Path]] = defaultdict(list)
     t_first = t_last = None
     rate = None
+    per_station_layout = True
     for fp in files:
+        keys = set()
         for tr in read(str(fp), headonly=True):
-            present[f"{tr.stats.network}.{tr.stats.station}"].add(tr.stats.channel)
+            key = f"{tr.stats.network}.{tr.stats.station}"
+            keys.add(key)
+            present[key].add(tr.stats.channel)
             t_first = tr.stats.starttime if t_first is None else min(t_first, tr.stats.starttime)
             t_last = tr.stats.endtime if t_last is None else max(t_last, tr.stats.endtime)
             rate = tr.stats.sampling_rate
+        if len(keys) > 1:
+            per_station_layout = False
+        for key in keys:
+            files_by_station[key].append(fp)
+    log(f"layout: {'per-station files' if per_station_layout else 'multi-station files (hourly)'}"
+        + (f"; decimating {rate} -> {args.target_rate} Hz" if args.target_rate and abs(rate - args.target_rate) > 0.01 else ""))
     start_day, end_day = t_first.date, t_last.date
     wanted = {k for k in present if k in meta}
     unknown = sorted(set(present) - set(meta))
@@ -264,20 +361,20 @@ def main() -> None:
 
     if not args.only_waveforms:
         # metadata
-        META_DIR.mkdir(parents=True, exist_ok=True)
+        args.meta_dir.mkdir(parents=True, exist_ok=True)
         for key in sorted(wanted):
             m = meta[key]
             chans = sorted(present[key])
             inv = build_inventory(m, chans, UTCDateTime(start_day), UTCDateTime(end_day) + 86400,
-                                  args.geophone_hz, float(round(rate)))
-            xml = META_DIR / f"{m['network']}.{m['station']}.xml"
+                                  args.geophone_hz, float(args.target_rate or round(rate)))
+            xml = args.meta_dir / f"{m['network']}.{m['station']}.xml"
             if args.dry_run:
                 continue
             inv.write(str(xml), format="STATIONXML")
-        log(f"StationXML: {len(wanted)} files in {META_DIR} ({'flat' if not args.geophone_hz else f'{args.geophone_hz} Hz geophone'} response)")
+        log(f"StationXML: {len(wanted)} files in {args.meta_dir} ({'flat' if not args.geophone_hz else f'{args.geophone_hz} Hz geophone'} response)")
 
         # stations.json
-        stations = json.loads(STATIONS_FILE.read_text())
+        stations = json.loads(args.stations_file.read_text())
         existing = {(s["network"], s["station"]) for s in stations}
         new_entries = [station_entry(meta[k], args, start_day, end_day, args.sensor_kind)
                        for k in sorted(wanted) if (meta[k]["network"], meta[k]["station"]) not in existing]
@@ -290,11 +387,23 @@ def main() -> None:
         if args.dry_run:
             log(f"[dry-run] would add {len(new_entries)} station(s) to stations.json")
         else:
-            atomic_write_text(json.dumps(stations + new_entries, indent=2) + "\n", STATIONS_FILE)
+            atomic_write_text(json.dumps(stations + new_entries, indent=2) + "\n", args.stations_file)
             log(f"stations.json: +{len(new_entries)} station(s), {len(stations) + len(new_entries)} total")
 
-    if not args.only_stations:
-        stats = import_waveforms(files, wanted, args.dry_run, log)
+    if not args.only_stations and per_station_layout and not args.dry_run:
+        todo = {k: files_by_station[k] for k in sorted(wanted)}
+        log(f"importing {len(todo)} stations with {args.workers} worker(s) ...")
+        done = 0
+        with ProcessPoolExecutor(max_workers=args.workers) as pool:
+            futs = {pool.submit(import_station_files, k, v, args.target_rate, args.raw_dir): k for k, v in todo.items()}
+            for fut in as_completed(futs):
+                st = fut.result()
+                done += 1
+                log(f"[{done}/{len(todo)}] {st['station']}: {st['files']} files, {st['pieces']} day-pieces, "
+                    f"{st['duplicates']} duplicate window(s) skipped, channels {sorted(st['channels'])}, "
+                    f"{'int32' if st['integral'] else 'float32'}")
+    elif not args.only_stations:
+        stats = import_waveforms(files, wanted, args.dry_run, log, target_rate=args.target_rate, raw_dir=args.raw_dir)
         log(f"waveforms: {stats['files']} input files, {stats['traces']} traces, "
             f"{stats['days']} day(s), {stats['written']} day-files written, "
             f"channels {sorted(stats['channels'])}, rate {stats['rate']}")
