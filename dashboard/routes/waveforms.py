@@ -23,6 +23,7 @@ from dashboard.deps import (
     PROCESSED_DIR,
     file_mtime,
     load_stations,
+    station_channels,
     read_assignments,
     read_catalog,
 )
@@ -637,15 +638,14 @@ def _build_traces_for_window(
     and ``/api/event/{id}/waveforms/all`` (cached spectrograms keyed on the
     event_id + window + filter combo).
     """
-    channels_to_load = ["EHZ", "EHN", "EHE"] if channel == "3C" else [channel]
-
     # Flatten (station, channel) into a task list so we can fan out across
     # threads. Order preservation matters (frontend expects stable trace
     # order for stacked-station plots), so we keep the list ordering and
     # use ThreadPoolExecutor.map() which yields in submission order.
+    # Channels come from each station's own layout (B7), not a fixed list.
     tasks: list[tuple[dict, str]] = []
     for s in load_stations():
-        for chan in channels_to_load:
+        for chan in station_channels(s, channel):
             tasks.append((s, chan))
 
     def _load_one(task: tuple[dict, str]) -> dict:

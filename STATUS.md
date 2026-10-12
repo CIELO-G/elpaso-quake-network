@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 2 in this order: B7, B8, B9 (B1–B6 done). Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
+- **Next step:** Phase 2: B8, B9 (B1–B7 done). Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
 
 ## Phase 1 checklist
 
@@ -176,3 +176,9 @@
   override rescues none of the 33 rejected events the core rule catches. On the live catalog
   one unreviewed event changes (ep20260915-0002, M2.1, 6 stations, 1 core: auto_reject -> ok).
   `check_core_stations` warns at catalog time if a core station is retired or unknown. 304 tests.
+- 2026-10-12: **B7 done.** Dashboard: `load_stations` reloads when `stations.json` changes
+  (mtime), so adding/retiring a station needs no restart; each station carries
+  `channel_codes` derived from `lib.models.channel_layout` and the 3C waveform fan-out
+  uses them (HH? for KIDD, Z-only for RS4D/RS1D) instead of a fixed EHZ/EHN/EHE; the
+  helicorder defaults to the first active broadband station (KIDD today, not hard-coded);
+  map markers are keyed NET.STA. 306 tests; app.js parsed with the system JS engine.

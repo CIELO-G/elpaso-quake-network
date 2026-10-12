@@ -23,6 +23,7 @@ from lib.constants import (  # noqa: E402  (path setup above)
     CONTINUOUS_LAG_HOURS,
     PIPELINE_START_DATE_ISO,
 )
+from lib.models import channel_layout  # noqa: E402
 
 # ── Filesystem layout ────────────────────────────────────────────
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -59,18 +60,23 @@ MAX_LOG_BYTES = 100 * 1024
 
 
 # ── Cached stations loader ───────────────────────────────────────
+# Cached per stations.json mtime (B7): editing the file — adding a station,
+# retiring one — shows up on the next request, no app restart needed.
 _stations_cache: list | None = None
+_stations_cache_mtime: float | None = None
 
 
 def load_stations() -> list:
-    """Return the dashboard-shaped station list (cached after first call)."""
-    global _stations_cache
-    if _stations_cache is not None:
-        return _stations_cache
+    """Return the dashboard-shaped station list, reloaded when stations.json changes."""
+    global _stations_cache, _stations_cache_mtime
     if not STATIONS_FILE.exists():
-        _stations_cache = []
+        _stations_cache, _stations_cache_mtime = [], None
+        return _stations_cache
+    mtime = STATIONS_FILE.stat().st_mtime
+    if _stations_cache is not None and mtime == _stations_cache_mtime:
         return _stations_cache
     raw = json.loads(STATIONS_FILE.read_text())
+    _stations_cache_mtime = mtime
     _stations_cache = [
         {
             "network": s["network"],
@@ -82,10 +88,36 @@ def load_stations() -> list:
             "channels": s.get("channels", ""),
             "start_date": s.get("start_date", ""),
             "end_date": s.get("end_date", ""),
+            # Channel codes this station actually records (B7): e.g. HHE/HHN/HHZ
+            # for broadband, EHZ alone for a vertical-only Shake. Replaces the
+            # hard-coded EHZ/EHN/EHE list in the 3C waveform fan-out.
+            "channel_codes": _channel_codes(s),
         }
         for s in raw
     ]
     return _stations_cache
+
+
+def _channel_codes(entry: dict) -> list[str]:
+    try:
+        band, comps = channel_layout(entry)
+    except Exception:  # noqa: BLE001 - never let a bad entry break the dashboard
+        return ["EHZ"]
+    return [f"{band}{c}" for c in comps]
+
+
+def station_channels(station: dict, requested: str) -> list[str]:
+    """Channels to load for ``station`` given a request of '3C' or one code.
+
+    '3C' expands to the station's own codes (Z first, as the plots expect
+    Z/N/E order). A single code is kept as is; the file lookup already
+    falls back across bands (EHZ -> HHZ).
+    """
+    if requested == "3C":
+        codes = list(station.get("channel_codes") or ["EHZ"])
+        order = {"Z": 0, "N": 1, "E": 2, "1": 1, "2": 2}
+        return sorted(codes, key=lambda c: order.get(c[-1], 9))
+    return [requested]
 
 
 # ── CSV readers ──────────────────────────────────────────────────

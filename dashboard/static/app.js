@@ -754,7 +754,7 @@ function renderStations(stations) {
       .bindTooltip('<b>' + esc(s.station) + '</b><br>' + esc(s.network) + ' \u00b7 ' + esc(s.model) + '<br>' + esc(s.channels), { className: '' })
       .addTo(stationLayer);
     m.on('click', function() { openStationDetail(s.station); });
-    stationMarkers[s.station] = { marker: m, data: s };
+    stationMarkers[s.network + '.' + s.station] = { marker: m, data: s };
   });
 }
 
@@ -809,7 +809,7 @@ function renderStationHealth(healthData) {
   var up = active.filter(function(h) { return h.status === 'ok'; }).length;
   _sbSet('sb-stations', up + '/' + active.length + ' up');
   healthData.forEach(function(h) {
-    var entry = stationMarkers[h.station];
+    var entry = stationMarkers[h.network + '.' + h.station];
     if (!entry) return;
     var color = HEALTH_COLORS[h.status] || HEALTH_COLORS.unknown;
     entry.marker.setIcon(stationIcon(color));
@@ -1672,9 +1672,11 @@ function initHelicorderTab() {
       return '<option value="' + esc(s.station) + '">' + esc(s.station) +
         ' (' + esc(s.network) + ')</option>';
     }).join('');
-    for (var i = 0; i < sel.options.length; i++) {
-      if (sel.options[i].value === 'KIDD') { sel.value = 'KIDD'; break; }
-    }
+    // Default to the first active broadband station (quietest helicorder),
+    // else the first active station — nothing hard-coded (B7).
+    var active = sts.filter(function(s) { return !s.end_date; });
+    var pref = active.filter(function(s) { return s.channels === 'HH?'; })[0] || active[0];
+    if (pref) sel.value = pref.station;
   }).catch(function() {});
   // Latest complete day: a day is processed 26 h after it starts + 2 h buffer.
   var d = new Date(Date.now() - 26 * 3600000);
