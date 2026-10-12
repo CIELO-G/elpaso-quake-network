@@ -5,11 +5,11 @@
 - **Where:** Mac Studio, `~/Research/Elpaso/elpaso-quake-network`. Phase 1 merged to `main` and pushed 2026-10-12; Phase 2 work on branch `phase2-stations`.
   Pipeline is LIVE (El Paso Monitor.app, continuous mode, runs each day at 02:00 UTC since 2026-10-12).
   Waveforms on `/Volumes/VelascoRAID1`; see `../MACSTUDIO_INSTALL.md` for the install.
-- **What:** Phase 2 of `ENGINEERING_REVIEW.md` (station readiness, section B). Phase 1 (A1–A14) done.
+- **What:** Phase 2 (station readiness, B1–B9) done 2026-10-12 on `phase2-stations`. Phase 1 (A1–A14) done. Next: merge to main, then Phase 3 (hourly rolling pass + time-based event IDs).
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 2: B9 (runbook + add_station script), then restart the app and merge `phase2-stations` to main. Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
+- **Next step:** restart the app (dashboard Python changed: B7/B8), merge `phase2-stations` to main and push. Then Phase 3 design. Waiting on Marc: RADA1 site check (re-run Sep 26–Oct 2 after), the 10 new stations' details. Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
 
 ## Phase 1 checklist
 
@@ -186,3 +186,10 @@
   (the file is in day order, so a capped page used to return the oldest rows) and accepts
   `per_page=0` for all rows; the map/notification fetch and the helicorder overlay use it
   (helicorder now asks for its one day server-side). 308 tests.
+- 2026-10-12: **B9 done — Phase 2 complete.** `RUNBOOK.md` (where things are, daily rhythm,
+  add/retire a station, study area, restart, failure table, tests);
+  `scripts/add_station.py add|retire` (entry from model template, validation incl. study
+  area, one FDSN metadata request, atomic write, NLLoc grid rebuild, next steps printed);
+  `run_pipeline.py --gap-fill --archive-only` runs ingest+process only for a new station's
+  history so reviewed days are never re-associated (event IDs are day-indexed until Phase 3).
+  312 tests.

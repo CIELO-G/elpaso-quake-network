@@ -298,6 +298,12 @@ def parse_args() -> argparse.Namespace:
         help="Scan for days with missing station data and re-run the pipeline to fill gaps",
     )
     p.add_argument(
+        "--archive-only",
+        action="store_true",
+        help="With --gap-fill: only ingest + process the gap days (new-station backfill); "
+             "never re-detect or re-associate days that already have events",
+    )
+    p.add_argument(
         "--dry-run",
         action="store_true",
         help="Print commands that would be run, without executing them",
@@ -961,7 +967,18 @@ def gap_fill_run(args: argparse.Namespace) -> None:
         return
 
     # ── fill gaps ────────────────────────────────────────────────────────
-    args.force = True  # reprocess downstream steps with new data
+    archive_only = bool(getattr(args, "archive_only", False))
+    if archive_only:
+        # New-station backfill (RUNBOOK): fetch and process the history, but
+        # do not re-detect/re-associate days that already have events —
+        # re-association renumbers event IDs (ep{date}-{NNNN}) and would
+        # orphan reviews. Nothing needs --force: only missing files are made.
+        args.force = False
+        only_steps: set[int] | None = {1, 2}
+        print("Archive-only: running ingest + processing for the gap days (no re-detection).")
+    else:
+        args.force = True  # reprocess downstream steps with new data
+        only_steps = None
 
     pipeline_started = _now()
     days_filled = 0
@@ -1001,7 +1018,7 @@ def gap_fill_run(args: argparse.Namespace) -> None:
         status_data["pipeline"]["status"] = "running"
         _write_status(status_data)
 
-        res = _run_day(day_str, args, status_data)
+        res = _run_day(day_str, args, status_data, only_steps=only_steps)
         success, timing = res.ok, res.timing
 
         if not success:
@@ -1011,7 +1028,7 @@ def gap_fill_run(args: argparse.Namespace) -> None:
                 status_data["steps"] = _make_step_statuses()
                 status_data["pipeline"]["status"] = "running"
                 _write_status(status_data)
-                res = _run_day(day_str, args, status_data)
+                res = _run_day(day_str, args, status_data, only_steps=only_steps)
                 success, timing = res.ok, res.timing
                 if success:
                     break

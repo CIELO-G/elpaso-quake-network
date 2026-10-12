@@ -68,7 +68,7 @@ Dependencies: `obspy`, `pyyaml`, `pytorch`, `pyproj` (conda-forge), `xdas`, `GaM
 
 ## Stations
 
-Edit `stations.json` at the project root. This file is shared across all pipeline steps. The network includes three station types:
+Use `python scripts/add_station.py add ...` (or `retire`) — it validates the entry, checks the FDSN server and rebuilds the NLLoc grids; see `RUNBOOK.md`. The file is `stations.json` at the project root. This file is shared across all pipeline steps. The network includes three station types:
 
 | Type | Model | Channels | Detection mode |
 |------|-------|----------|----------------|
