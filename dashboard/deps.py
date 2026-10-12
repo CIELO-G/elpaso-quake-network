@@ -80,6 +80,8 @@ def load_stations() -> list:
             "elevation_m": s["elevation_m"],
             "model": s.get("model", ""),
             "channels": s.get("channels", ""),
+            "start_date": s.get("start_date", ""),
+            "end_date": s.get("end_date", ""),
         }
         for s in raw
     ]
