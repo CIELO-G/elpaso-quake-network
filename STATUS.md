@@ -157,3 +157,8 @@
   IRIS real time. Event latency 3-27 h (was 7-31). Stage 2 (hourly rolling pass,
   time-based event IDs, ~1-2 h latency) is planned as Phase 3 after the station work;
   stage 3 (SeedLink streaming) only if minutes are ever needed.
+- 2026-10-12: RADA1 check for Marc (`../station_checks/RADA1_2026-10-12/`): data loss
+  since ~Sep 20, 50–85 % missing since Oct 3, identical on all 3 channels, arriving
+  samples normal; points at Pi/power/SD/uplink, not the sensor. Pre-Phase-1 zero-fill
+  hid it and produced ~1,000 false picks/day Sep 26–Oct 2 (days may deserve a re-run
+  once the station is fixed).
