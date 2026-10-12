@@ -6,7 +6,11 @@ Rules were measured against the reviewed catalog on 2026-09-30
 (42 confirmed vs 47 rejected):
 
   auto_reject  fewer than `min_core_stations` picked core stations
-               (kept 100 % of confirmed, removed 67 % of rejected), or
+               (kept 100 % of confirmed, removed 67 % of rejected) — unless
+               at least `wide_event_min_stations` distinct stations picked
+               it (B4, 2026-10-12: with 10 more stations a real event may be
+               built on stations that are not in the legacy core list; at 5
+               the override rescued 0 of 33 reviewer-rejected events), or
                magnitude >= `inflated_mag_min` from <= `inflated_mag_max_picks`
                picks (kept 98 %, removed 54 %). Together: 98 % / 80 %.
   flag         <= `unconstrained_max_picks` picks: real events exist here
@@ -35,6 +39,9 @@ class TriageConfig:
     core_stations: list[str] = field(
         default_factory=lambda: ["KIDD", "R0F2D", "R4B41", "RE2E7"])
     min_core_stations: int = 2
+    # The core-station rule does not apply to an event picked by at least
+    # this many distinct stations (0 disables the override).
+    wide_event_min_stations: int = 5
     inflated_mag_min: float = 2.2
     inflated_mag_max_picks: int = 4
     unconstrained_max_picks: int = 4
@@ -57,7 +64,8 @@ def triage_event(magnitude, pick_stations, cfg: TriageConfig) -> tuple[str, str]
     reasons: list[str] = []
     label = OK
 
-    if n_core < cfg.min_core_stations:
+    wide = cfg.wide_event_min_stations > 0 and len(stations) >= cfg.wide_event_min_stations
+    if n_core < cfg.min_core_stations and not wide:
         reasons.append(f"{n_core} core station(s) < {cfg.min_core_stations}")
         label = AUTO_REJECT
     try:
@@ -96,4 +104,23 @@ def apply_triage(catalog: pd.DataFrame, assignments: pd.DataFrame,
         labels.append(lab); reasons.append(why)
     out["triage"] = labels
     out["triage_reason"] = reasons
+    return out
+
+
+def check_core_stations(cfg: TriageConfig, stations: list[dict]) -> list[str]:
+    """Warnings for core stations that are unknown or retired in stations.json.
+
+    A retired core station silently raises the bar for every event (it can
+    never contribute a core pick), so the catalog step logs this on every run.
+    """
+    from lib.models import station_active_on
+    from datetime import date
+
+    known = {s["station"]: s for s in stations}
+    out: list[str] = []
+    for code in cfg.core_stations:
+        if code not in known:
+            out.append(f"triage core station {code} is not in stations.json")
+        elif not station_active_on(known[code], date.today()):
+            out.append(f"triage core station {code} is retired (end_date {known[code].get('end_date')})")
     return out

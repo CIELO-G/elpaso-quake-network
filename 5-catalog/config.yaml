@@ -43,6 +43,11 @@ triage:
   # picked by fewer than min_core_stations of them is auto_reject.
   core_stations: ["KIDD", "R0F2D", "R4B41", "RE2E7"]
   min_core_stations: 2
+  # An event picked by at least this many distinct stations is never
+  # auto-rejected by the core rule (new stations can carry an event the
+  # legacy core does not see). 0 disables. Measured 2026-10-12: at 5 this
+  # rescued none of the 33 reviewer-rejected events the core rule catches.
+  wide_event_min_stations: 5
   # A large magnitude from very few picks is an amplitude artefact of a
   # noisy station, not an event (a real M2.2 lights up the whole network).
   inflated_mag_min: 2.2

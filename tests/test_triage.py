@@ -6,9 +6,10 @@ CFG = TriageConfig()
 
 
 def test_core_station_rule():
-    lab, why = triage_event(1.0, ["S50BE", "RDB14", "RC9B8", "R8DE2", "R9070"], CFG)
+    # 4 distinct stations: below the wide-event override, so the core rule applies
+    lab, why = triage_event(1.0, ["S50BE", "RDB14", "RC9B8", "R8DE2", "R8DE2"], CFG)
     assert lab == AUTO_REJECT and "0 core" in why
-    lab, _ = triage_event(1.0, ["KIDD", "S50BE", "RDB14", "RC9B8", "R9070"], CFG)
+    lab, _ = triage_event(1.0, ["KIDD", "S50BE", "RDB14", "RC9B8", "RC9B8"], CFG)
     assert lab == AUTO_REJECT                       # 1 core < 2
     lab, why = triage_event(1.0, ["KIDD", "R0F2D", "S50BE", "RDB14", "RC9B8"], CFG)
     assert lab == OK and why == ""
@@ -58,3 +59,30 @@ def test_apply_triage_labels_all_rows_and_preserves_review():
     assert out.loc["nopicks", "triage"] == AUTO_REJECT          # 0 core stations
     assert out.review_status.tolist() == ["confirmed", "", "", ""]
     assert out.event_type.tolist() == ["quarry_blast", "", "", ""]
+
+
+# ── B4: wide events bypass the core-station rule; core list sanity ─────────
+
+def test_wide_event_bypasses_core_rule():
+    from lib.triage import AUTO_REJECT, OK, TriageConfig, triage_event
+    cfg = TriageConfig(core_stations=["KIDD", "R0F2D"], min_core_stations=2, wide_event_min_stations=5)
+    new_only = ["N01", "N02", "N03", "N04", "N05", "N05"]  # 5 distinct, 6 picks, no core
+    label, reason = triage_event(1.0, new_only, cfg)
+    assert label == OK and "core" not in reason
+    label, _ = triage_event(1.0, ["N01", "N02", "N03", "N04"], cfg)
+    assert label == AUTO_REJECT
+    cfg0 = TriageConfig(core_stations=["KIDD", "R0F2D"], min_core_stations=2, wide_event_min_stations=0)
+    assert triage_event(1.0, new_only, cfg0)[0] == AUTO_REJECT
+
+
+def test_check_core_stations_warns_on_retired_and_unknown():
+    from lib.triage import TriageConfig, check_core_stations
+    stations = [
+        {"station": "KIDD", "start_date": "2020-01-01"},
+        {"station": "R5912", "start_date": "2022-12-03", "end_date": "2026-02-23"},
+    ]
+    cfg = TriageConfig(core_stations=["KIDD", "R5912", "NOPE1"])
+    w = check_core_stations(cfg, stations)
+    assert any("R5912" in x and "retired" in x for x in w)
+    assert any("NOPE1" in x and "not in stations.json" in x for x in w)
+    assert not any("KIDD" in x for x in w)

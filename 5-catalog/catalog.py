@@ -28,7 +28,7 @@ from lib.atomic_io import atomic_write_df
 from lib.catalog_lock import CatalogLockTimeout, catalog_lock
 from lib.config import load_config, load_stations
 from lib.reviews import SIDECAR_FILENAME, append_review_records, jsonable
-from lib.triage import TriageConfig, apply_triage
+from lib.triage import TriageConfig, apply_triage, check_core_stations
 from lib.logger import setup_logging
 
 # Max seconds to wait for another catalog writer (dashboard save, dedup script).
@@ -349,6 +349,8 @@ def main():
     catalog_path = output_dir / config["catalog_file"]
     assignments_path = output_dir / config["assignments_file"]
     triage_cfg = TriageConfig.from_config(config.get("triage"))
+    for warning in check_core_stations(triage_cfg, stations):
+        logger.warning(warning)
 
     if getattr(args, "retriage", False):
         # Relabel the existing catalog in place (atomic write). Used for
