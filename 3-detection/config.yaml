@@ -38,6 +38,12 @@ highpass_freq: 3.0
 # Minimum peak distance in samples (0.5s at 100Hz)
 min_peak_distance: 50
 
+# Stations per PhaseNet input file (B6). PhaseNet loads one input file
+# (its stations x full day x 3 components) plus U-Net activations at once,
+# so this bounds memory as stations are added. Picks are independent of
+# the grouping. 0 = one file for the whole network (old behaviour).
+phasenet_station_group_size: 6
+
 # Default time window when --start/--end are not provided
 detect_window_hours: 24
 detect_latency_hours: 6

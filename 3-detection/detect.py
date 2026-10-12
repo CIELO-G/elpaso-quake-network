@@ -51,6 +51,13 @@ DEFAULTS = {
     "s_threshold": 0.4,
     "highpass_freq": 3.0,
     "min_peak_distance": 50,
+    # B6: stations per PhaseNet input file. PhaseNet holds one whole input
+    # file (all its stations x the full day x 3 components, float32, plus
+    # the U-Net activations) in memory at once, so memory grows with the
+    # number of stations per file, not with the network. 6 stations/day is
+    # ~15 GB peak RSS (measured: 13 stations in one file 25.6 GB, groups of 4
+    # 12.4 GB, of 8 17.7 GB); picks identical to a single file (STATUS 2026-10-12).
+    "phasenet_station_group_size": 6,
     "detect_window_hours": 24,
     "detect_latency_hours": 6,
 }
@@ -141,8 +148,50 @@ def find_raw_files(input_dir: str, year: str, jday: str) -> list[Path]:
     return sorted(raw_dir.glob("*.mseed"))
 
 
-def merge_raw_data(raw_files: list[Path], output_path: Path, logger) -> bool:
-    """Read all raw mseed files and write a single merged file."""
+def group_raw_files(raw_files: list[Path], group_size: int) -> list[list[Path]]:
+    """Split a day's raw files into station groups of at most ``group_size``.
+
+    Files are grouped by NET.STA (sorted), so one station's channels always
+    land in the same PhaseNet input file. PhaseNet reads each input file as
+    one array and drops stations with no traces in that file, so grouping
+    bounds peak memory without changing the picks.
+    """
+    by_station: dict[str, list[Path]] = {}
+    for f in raw_files:
+        parts = f.name.split(".")
+        key = ".".join(parts[:2]) if len(parts) >= 2 else f.name
+        by_station.setdefault(key, []).append(f)
+    stations = sorted(by_station)
+    size = max(1, int(group_size)) if group_size else len(stations) or 1
+    return [
+        [f for sta in stations[i:i + size] for f in by_station[sta]]
+        for i in range(0, len(stations), size)
+    ]
+
+
+def day_time_span(raw_files: list[Path], logger) -> tuple | None:
+    """(earliest start, latest end) over all of a day's raw files, from headers."""
+    t0 = t1 = None
+    for fp in raw_files:
+        try:
+            for tr in read(str(fp), headonly=True):
+                t0 = tr.stats.starttime if t0 is None else min(t0, tr.stats.starttime)
+                t1 = tr.stats.endtime if t1 is None else max(t1, tr.stats.endtime)
+        except Exception as exc:
+            logger.warning("Cannot read header of %s: %s: %s", fp, type(exc).__name__, exc)
+    return None if t0 is None else (t0, t1)
+
+
+def merge_raw_data(raw_files: list[Path], output_path: Path, logger, span=None) -> bool:
+    """Read raw mseed files and write one merged file for PhaseNet.
+
+    ``span`` = (start, end) pads/trims every trace to the same window. With
+    station groups (B6) each group file must cover the whole day's span:
+    PhaseNet starts its 30 s windows at a file's earliest sample, so files
+    with different starts would cut the windows at different places and
+    shift picks at window edges. Padding is zeros, as PhaseNet's own reader
+    does for a station that starts late.
+    """
     st = Stream()
     for fp in raw_files:
         try:
@@ -157,6 +206,8 @@ def merge_raw_data(raw_files: list[Path], output_path: Path, logger) -> bool:
         st.merge(method=1, fill_value="interpolate")
     except Exception as exc:
         logger.warning("Merge warning: %s", exc)
+    if span is not None:
+        st.trim(span[0], span[1], pad=True, fill_value=0)
     st.write(str(output_path), format="MSEED")
     return True
 
@@ -407,21 +458,31 @@ def main() -> None:
             continue
 
         with tempfile.TemporaryDirectory(prefix="phasenet_") as tmp_dir:
-            # --- Step 2: Merge raw data into single mseed ---
-            merged_mseed = os.path.join(tmp_dir, f"{year}.{jday}.mseed")
-            if not merge_raw_data(raw_files, merged_mseed, logger):
+            # --- Step 2: Merge raw data, one mseed per station group (B6) ---
+            groups = group_raw_files(raw_files, config.get("phasenet_station_group_size", 0))
+            span = day_time_span(raw_files, logger) if len(groups) > 1 else None
+            merged_files: list[str] = []
+            for k, group in enumerate(groups):
+                merged_mseed = os.path.join(tmp_dir, f"{year}.{jday}.g{k:02d}.mseed")
+                if merge_raw_data(group, merged_mseed, logger, span=span):
+                    merged_files.append(merged_mseed)
+            if not merged_files:
                 logger.warning("No valid data for %s/%s after merge", year, jday)
                 write_picks_csv([], daily_csv, logger)
                 totals["days"] += 1
                 continue
 
-            logger.info("Merged %d raw file(s) -> %s", len(raw_files), merged_mseed)
+            logger.info(
+                "Merged %d raw file(s) into %d station group(s) of <= %s stations",
+                len(raw_files), len(merged_files), config.get("phasenet_station_group_size", "all"),
+            )
 
             # --- Step 3: Generate PhaseNet input files ---
             fnames_csv = os.path.join(tmp_dir, "fnames.csv")
             with open(fnames_csv, "w") as f:
                 f.write("fname\n")
-                f.write(os.path.basename(merged_mseed) + "\n")
+                for merged_mseed in merged_files:
+                    f.write(os.path.basename(merged_mseed) + "\n")
 
             stations_json = os.path.join(tmp_dir, "phasenet_stations.json")
             with open(stations_json, "w") as f:

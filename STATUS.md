@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 2 in this order: B6, B4, B7, B8, B9 (B1, B2, B3, B5 done). Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
+- **Next step:** Phase 2 in this order: B4, B7, B8, B9 (B1, B2, B3, B5, B6 done). Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
 
 ## Phase 1 checklist
 
@@ -162,3 +162,11 @@
   samples normal; points at Pi/power/SD/uplink, not the sensor. Pre-Phase-1 zero-fill
   hid it and produced ~1,000 false picks/day Sep 26–Oct 2 (days may deserve a re-run
   once the station is fixed).
+- 2026-10-12: **B6 done.** Detection writes one merged mseed per group of
+  `phasenet_station_group_size` stations (default 6) and lists them all for one PhaseNet
+  call; PhaseNet holds one file at a time. Groups are padded to the day's common time span,
+  otherwise PhaseNet's 30 s windows cut at different offsets and ~9 % of picks moved.
+  Verified on 2026-10-11 (13 stations): single file vs groups of 4 -> 1,939 picks both,
+  probabilities and amplitudes exact, pick times within 4 ms (sub-sample). Peak RSS
+  (`/usr/bin/time -l`): one file 25.6 GB, groups of 4 12.4 GB, of 8 17.7 GB. At 24 stations
+  the single file would have been ~47 GB. Runtime unchanged (42-65 s/day). 304 tests.
