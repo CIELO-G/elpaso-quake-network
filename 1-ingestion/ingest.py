@@ -632,6 +632,45 @@ def process_station(
     refetch_cutoff = UTCDateTime() - float(config["refetch_window_days"]) * 86400.0
     force = bool(config.get("_force_refetch", False))
 
+    # Fetched chunks are buffered per UTC day and written once (B1): the
+    # old code re-read and rewrote the growing day-file after every hourly
+    # chunk. The tracker row for a chunk is only written after its day-file
+    # is safely on disk, so a crash between fetch and flush re-fetches.
+    pending: list[dict] = []
+    buffer = Stream()
+    pending_day: tuple[int, int] | None = None
+
+    def flush() -> None:
+        nonlocal pending, buffer, pending_day
+        if not pending:
+            return
+        try:
+            filepaths = save_waveforms(buffer, config["output_dir"], logger)
+        except Exception as exc:  # noqa: BLE001 - one bad day-file must not kill the run
+            logger.error(
+                "  Could not write %s.%s day %s: %s: %s\n%s",
+                network, station, pending_day, type(exc).__name__, exc, traceback.format_exc(),
+            )
+            for item in pending:
+                db.record(
+                    network, station, location, channels, item["start"], item["end"],
+                    "failed", error=f"{type(exc).__name__}: {exc}",
+                )
+                counts["failed"] += 1
+        else:
+            for item in pending:
+                db.record(
+                    network, station, location, channels, item["start"], item["end"],
+                    "success", filepaths, coverage=item["coverage"],
+                )
+                counts["success"] += 1
+                if chunk_improved(item["previous"], item["coverage"]):
+                    counts["improved"] += 1
+                if item["coverage"] < min_cov:
+                    counts["short"] += 1
+        pending, buffer, pending_day = [], Stream(), None
+
+    last_outcome = ""
     while chunk_start < chunk_end_limit:
         chunk_end = min(chunk_start + chunk_sec, chunk_end_limit)
         chunk_num += 1
@@ -652,7 +691,12 @@ def process_station(
             )
             counts["skipped"] += 1
             chunk_start = chunk_end
+            last_outcome = "skipped"
             continue
+
+        chunk_day = (chunk_start.year, chunk_start.julday)
+        if pending_day is not None and chunk_day != pending_day:
+            flush()
 
         logger.info(
             "  [%d/%d] Fetching %s -> %s",
@@ -679,25 +723,17 @@ def process_station(
             if len(st) == 0:
                 db.record(network, station, location, channels, chunk_start, chunk_end, "no_data")
                 counts["no_data"] += 1
+                last_outcome = "no_data"
             else:
-                filepaths = save_waveforms(st, config["output_dir"], logger)
                 coverage = chunk_coverage(st, expected, chunk_start, chunk_end)
-                db.record(
-                    network,
-                    station,
-                    location,
-                    channels,
-                    chunk_start,
-                    chunk_end,
-                    "success",
-                    filepaths,
-                    coverage=coverage,
-                )
-                counts["success"] += 1
-                if chunk_improved(previous, coverage):
-                    counts["improved"] += 1
+                buffer += st
+                pending.append({
+                    "start": chunk_start, "end": chunk_end,
+                    "coverage": coverage, "previous": previous,
+                })
+                pending_day = chunk_day
+                last_outcome = "success"
                 if coverage < min_cov:
-                    counts["short"] += 1
                     logger.warning(
                         "  short chunk %s.%s %s -> %s: coverage %.1f%% (< %.0f%%); "
                         "will re-request while younger than %s days",
@@ -726,6 +762,7 @@ def process_station(
                 error=str(exc),
             )
             counts["failed"] += 1
+            last_outcome = "failed"
 
         except (ConnectionError, OSError) as exc:
             logger.error(
@@ -748,12 +785,13 @@ def process_station(
                 error=str(exc),
             )
             counts["failed"] += 1
+            last_outcome = "failed"
 
         except Exception as exc:  # noqa: BLE001 - one bad chunk must not kill the run
-            # Anything else (corrupt miniSEED, encoder failure, library bug)
-            # used to propagate out of the worker thread and abort ingest for
-            # every station. Record it as a failed chunk so the orchestrator
-            # sees a partial day and retries just this chunk later.
+            # Anything else (corrupt miniSEED, library bug) used to propagate
+            # out of the worker thread and abort ingest for every station.
+            # Record it as a failed chunk so the orchestrator sees a partial
+            # day and retries just this chunk later.
             logger.error(
                 "  Unexpected error %s.%s %s -> %s: %s: %s\n%s",
                 network,
@@ -775,13 +813,17 @@ def process_station(
                 error=f"{type(exc).__name__}: {exc}",
             )
             counts["failed"] += 1
+            last_outcome = "failed"
 
         chunk_start = chunk_end
 
-        # Throttle requests to avoid rate limiting
+        # Polite pause between requests that actually moved data. An empty
+        # reply ("no data") cost the server nothing, so no pause after it.
         delay = config["station_delay_seconds"]
-        if delay > 0 and chunk_start < chunk_end_limit:
+        if delay > 0 and chunk_start < chunk_end_limit and last_outcome != "no_data":
             time.sleep(delay)
+
+    flush()
 
     # Explicit cleanup after processing a station
     gc.collect()

@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 2 in this order: B1, B6, B4, B7, B8, B9 (B2, B3, B5 done). B1 touches Raspberry Shake request pacing — confirm with Marc before changing the 5 s delay.
+- **Next step:** Phase 2 in this order: B6, B4, B7, B8, B9 (B1, B2, B3, B5 done). Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
 
 ## Phase 1 checklist
 
@@ -145,3 +145,10 @@
   grid header), `/api/study_area` feeds the map rectangle, `4-association/config.yaml`
   no longer carries geometry and is refused if it does, and a station outside the box is
   rejected at load with its coordinates. GaMMA box verified identical. 297 tests.
+- 2026-10-12: **B1 done** (Marc: do 1 and 2, try 3 at 3 s). Chunks are buffered per
+  station-day and written once; tracker rows are recorded only after the write (a crash
+  in between re-fetches, never a phantom "success"); no sleep after a "no data" reply;
+  `station_delay_seconds` 5 -> 3. Requests remain strictly serial. Live check on
+  AM.RDB14 2026-10-11 in a scratch dir: 24/24 chunks, output byte-identical to the
+  archive, 202 s for the station-day (was ~240), no 429s. Pre-existing quirk kept: the
+  sample at exactly 00:00:00 spills into a 1-sample file for the next day. 300 tests.

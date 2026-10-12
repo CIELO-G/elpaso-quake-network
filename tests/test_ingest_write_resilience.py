@@ -113,10 +113,34 @@ class _FakeClient:
     pass
 
 
-def test_unexpected_chunk_error_is_recorded_not_raised(tmp_path, monkeypatch):
-    """A write failure in one chunk records 'failed' and the station carries on."""
-    db = DownloadDB(str(tmp_path / "t.db"))
+def _station_run(tmp_path, monkeypatch, *, fake_fetch, fake_save, t0, t1, delay=0, db=None):
+    db = db or DownloadDB(str(tmp_path / "t.db"))
     logger = logging.getLogger("test-chunk-guard")
+    sleeps: list[float] = []
+    monkeypatch.setattr(ingest, "fetch_waveforms", fake_fetch)
+    monkeypatch.setattr(ingest, "save_waveforms", fake_save)
+    monkeypatch.setattr(ingest, "fetch_station_metadata", lambda *a, **k: _inv())
+    monkeypatch.setattr(ingest, "expected_channels", lambda *a, **k: {"EHN"})
+    monkeypatch.setattr(ingest, "chunk_coverage", lambda *a, **k: 1.0)
+    monkeypatch.setattr(ingest.time, "sleep", lambda s: sleeps.append(s))
+    config = {
+        "default_location": "00", "default_channels": "EH?", "chunk_hours": 1,
+        "min_chunk_coverage": 0.98, "refetch_window_days": 7,
+        "station_delay_seconds": delay, "output_dir": str(tmp_path),
+    }
+    counts = ingest.process_station(
+        _FakeClient(), db, {"network": "AM", "station": "R0F2D"},
+        UTCDateTime(t0), UTCDateTime(t1), config, logger,
+    )
+    return counts, db, sleeps
+
+
+def _status(db, t0, t1):
+    return db.chunk_status("AM", "R0F2D", "00", "EH?", UTCDateTime(t0), UTCDateTime(t1))[0]
+
+
+def test_write_failure_marks_only_that_day_failed_and_run_continues(tmp_path, monkeypatch):
+    """One bad day-file write records its chunks failed; the next day still succeeds."""
     calls = {"n": 0}
 
     def fake_fetch(client, net, sta, loc, cha, t0, t1, config, log):
@@ -128,33 +152,53 @@ def test_unexpected_chunk_error_is_recorded_not_raised(tmp_path, monkeypatch):
             raise RuntimeError("msr_pack(AM_R0F2D_00_EHN_D): Error packing data samples")
         return ["ok.mseed"]
 
-    monkeypatch.setattr(ingest, "fetch_waveforms", fake_fetch)
-    monkeypatch.setattr(ingest, "save_waveforms", fake_save)
-    monkeypatch.setattr(ingest, "fetch_station_metadata", lambda *a, **k: None or _inv())
-    monkeypatch.setattr(ingest, "expected_channels", lambda *a, **k: {"EHN"})
-    monkeypatch.setattr(ingest, "chunk_coverage", lambda *a, **k: 1.0)
-    monkeypatch.setattr(ingest.time, "sleep", lambda s: None)
-
-    config = {
-        "default_location": "00",
-        "default_channels": "EH?",
-        "chunk_hours": 1,
-        "min_chunk_coverage": 0.98,
-        "refetch_window_days": 7,
-        "station_delay_seconds": 0,
-        "output_dir": str(tmp_path),
-    }
-    counts = ingest.process_station(
-        _FakeClient(), db, {"network": "AM", "station": "R0F2D"},
-        UTCDateTime("2026-10-06T00:00:00"), UTCDateTime("2026-10-06T03:00:00"),
-        config, logger,
+    counts, db, _ = _station_run(
+        tmp_path, monkeypatch, fake_fetch=fake_fetch, fake_save=fake_save,
+        t0="2026-10-06T22:00:00", t1="2026-10-07T02:00:00",
     )
+    assert calls["n"] == 2  # one write per station-day, not per chunk
+    assert counts["failed"] == 2 and counts["success"] == 2
+    assert _status(db, "2026-10-06T22:00:00", "2026-10-06T23:00:00") == "failed"
+    assert _status(db, "2026-10-07T00:00:00", "2026-10-07T01:00:00") == "success"
 
-    assert counts["failed"] == 1
-    assert counts["success"] == 2
-    status = db.chunk_status("AM", "R0F2D", "00", "EH?",
-                             UTCDateTime("2026-10-06T00:00:00"), UTCDateTime("2026-10-06T01:00:00"))
-    assert status[0] == "failed"
+
+def test_tracker_rows_written_only_after_day_file(tmp_path, monkeypatch):
+    """Chunks are 'success' in the tracker only once their day-file write returned."""
+    db = DownloadDB(str(tmp_path / "t.db"))
+    seen_at_write: list = []
+
+    def fake_fetch(client, net, sta, loc, cha, t0, t1, config, log):
+        return Stream([_trace(np.arange(100, dtype=np.int32), start=str(t0))])
+
+    def fake_save(st, output_dir, log):
+        seen_at_write.append(db.chunk_status("AM", "R0F2D", "00", "EH?",
+                                             UTCDateTime("2026-10-06T00:00:00"),
+                                             UTCDateTime("2026-10-06T01:00:00")))
+        assert len(st) == 3  # all three hourly chunks arrive in one write
+        return ["ok.mseed"]
+
+    counts, _, _ = _station_run(
+        tmp_path, monkeypatch, fake_fetch=fake_fetch, fake_save=fake_save,
+        t0="2026-10-06T00:00:00", t1="2026-10-06T03:00:00", db=db,
+    )
+    assert counts["success"] == 3
+    assert seen_at_write == [None]  # nothing recorded before the write
+    assert _status(db, "2026-10-06T00:00:00", "2026-10-06T01:00:00") == "success"
+
+
+def test_no_sleep_after_empty_reply(tmp_path, monkeypatch):
+    def fake_fetch(client, net, sta, loc, cha, t0, t1, config, log):
+        if t0.hour == 1:
+            return Stream()
+        return Stream([_trace(np.arange(100, dtype=np.int32), start=str(t0))])
+
+    counts, _, sleeps = _station_run(
+        tmp_path, monkeypatch, fake_fetch=fake_fetch, fake_save=lambda *a: ["ok"],
+        t0="2026-10-06T00:00:00", t1="2026-10-06T04:00:00", delay=3,
+    )
+    # chunks 0,1,2,3: sleep after 0 (data), none after 1 (empty), after 2 (data), none after 3 (last)
+    assert counts["success"] == 3 and counts["no_data"] == 1
+    assert sleeps == [3, 3]
 
 
 def _inv():

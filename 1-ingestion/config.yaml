@@ -40,8 +40,12 @@ fetch_window_hours: 24
 min_chunk_coverage: 0.98
 refetch_window_days: 7
 
-# Polite delay between chunks (seconds) to avoid rate limiting (429s)
-station_delay_seconds: 5
+# Polite delay between chunks (seconds). The server's own "too many
+# requests" answers are handled by retry/back-off; this is only a courtesy
+# pause between successful requests, and it is skipped after an empty reply.
+# 5 s cost 28 min/day at 14 stations. 3 s since 2026-10-12 (Marc); if the
+# Raspberry Shake server starts refusing, put it back to 5.
+station_delay_seconds: 3
 
 # Maximum concurrent station fetches — use 1 to serialize all requests
 # and avoid 429 rate limits from Raspberry Shake
