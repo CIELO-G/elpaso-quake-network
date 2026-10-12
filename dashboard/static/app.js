@@ -759,8 +759,8 @@ function renderStations(stations) {
 }
 
 // ── Station state-of-health panel (marker click) ────────────────
-// Latency thresholds account for the ~30 h day-batch ingest lag:
-// data ending "yesterday" is the healthy steady state.
+// Latency thresholds account for the day-batch ingest lag (a day is fetched
+// 2 h after it ends, so data ending "yesterday" is the healthy steady state).
 function _latencyClass(h) {
   if (h == null) return { cls: 'sd-gray', label: 'no data' };
   if (h <= 36) return { cls: 'sd-ok', label: 'nominal' };
@@ -1676,8 +1676,8 @@ function initHelicorderTab() {
       if (sel.options[i].value === 'KIDD') { sel.value = 'KIDD'; break; }
     }
   }).catch(function() {});
-  // Latest complete day under the ~30 h ingest lag is two days back.
-  var d = new Date(Date.now() - 2 * 86400000);
+  // Latest complete day: a day is processed 26 h after it starts + 2 h buffer.
+  var d = new Date(Date.now() - 26 * 3600000);
   document.getElementById('heli-date').value = d.toISOString().slice(0, 10);
 }
 

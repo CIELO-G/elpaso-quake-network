@@ -63,7 +63,7 @@ DEFAULTS = {
     "filter_order": 4,
     "filter_zerophase": True,
     "process_window_hours": 24,
-    "process_latency_hours": 6,
+    "process_latency_hours": 2,
     "default_channels": "EHZ",
     "default_location": "00",
     # Per-station parallelism. None = auto (min(cpu_count, n_stations)).

@@ -3,7 +3,7 @@
 ## RESUME HERE
 
 - **Where:** Mac Studio, `~/Research/Elpaso/elpaso-quake-network`. Phase 1 merged to `main` and pushed 2026-10-12; Phase 2 work on branch `phase2-stations`.
-  Pipeline is LIVE (El Paso Monitor.app, continuous mode, runs each day at 06:00 UTC).
+  Pipeline is LIVE (El Paso Monitor.app, continuous mode, runs each day at 02:00 UTC since 2026-10-12).
   Waveforms on `/Volumes/VelascoRAID1`; see `../MACSTUDIO_INSTALL.md` for the install.
 - **What:** Phase 2 of `ENGINEERING_REVIEW.md` (station readiness, section B). Phase 1 (A1–A14) done.
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
@@ -152,3 +152,8 @@
   AM.RDB14 2026-10-11 in a scratch dir: 24/24 chunks, output byte-identical to the
   archive, 202 s for the station-day (was ~240), no 429s. Pre-existing quirk kept: the
   sample at exactly 00:00:00 spills into a 1-sample file for the next day. 300 tests.
+- 2026-10-12: **latency stage 1** (Marc). `DATA_LATENCY_HOURS` 6 -> 2: the day now runs at
+  02:00 UTC (20:00 local) instead of 06:00. Measured server lag: Raspberry Shake ~30 min,
+  IRIS real time. Event latency 3-27 h (was 7-31). Stage 2 (hourly rolling pass,
+  time-based event IDs, ~1-2 h latency) is planned as Phase 3 after the station work;
+  stage 3 (SeedLink streaming) only if minutes are ever needed.

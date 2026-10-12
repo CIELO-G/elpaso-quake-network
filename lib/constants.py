@@ -44,7 +44,12 @@ DEGREES_TO_KM = 111.19
 # Pipeline operational defaults
 # ---------------------------------------------------------------------------
 
-DATA_LATENCY_HOURS = 6
+# Buffer after a UTC day ends before that day is fetched and processed.
+# Measured 2026-10-12: Raspberry Shake FDSN serves data ~30 min behind real
+# time, IRIS (EP.KIDD) in real time; and since Phase 1 any short hour is
+# re-requested for 7 days, so late uploads are caught regardless. 2 h keeps
+# margin for a slow evening at the server. (Was 6 h: day ran at 06:00 UTC.)
+DATA_LATENCY_HOURS = 2
 
 # Total lag for "is today's data eligible to process?" in continuous mode:
 # 24 h for the day to complete + DATA_LATENCY_HOURS FDSNWS finalisation buffer.

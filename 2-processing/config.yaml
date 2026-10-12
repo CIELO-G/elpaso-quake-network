@@ -47,7 +47,7 @@ filter_zerophase: true
 
 # Default time window when --start/--end are not provided
 process_window_hours: 24
-process_latency_hours: 6
+process_latency_hours: 2  # matches lib/constants.DATA_LATENCY_HOURS
 
 # -----------------------------------------------------------------------------
 # Logging
