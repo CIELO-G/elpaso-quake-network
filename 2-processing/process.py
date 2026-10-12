@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.atomic_io import atomic_write_stream
 from lib.config import load_config, load_stations
+from lib.models import station_active_between
 from lib.logger import MetricsWriter, setup_logging
 from lib.pipeline_stage import iter_days, resolve_time_window
 from lib.waveform_qc import mask_impossible_samples
@@ -290,6 +291,13 @@ def process_station(
     )
 
     counts: dict[str, int] = {"processed": 0, "skipped": 0, "failed": 0}
+
+    # Not deployed in this window (before start_date / after end_date): nothing
+    # to do, and no "missing metadata" noise for retired or future stations.
+    last_day = (UTCDateTime(end_time) - 1.0).date  # end is exclusive
+    if not station_active_between(station_cfg, UTCDateTime(start_time).date, last_day):
+        logger.info("Skipping %s.%s -- not active in this window", network, station)
+        return counts
 
     # Load StationXML metadata
     metadata_dir = Path(config["input_dir"]) / "1-metadata"

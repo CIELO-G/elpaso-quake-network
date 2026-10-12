@@ -129,3 +129,18 @@ def test_real_stations_build_phasenet_dict_unchanged():
             assert comp == ["E", "N", "Z"] and pn[key]["response"] == [s["instrument"]["seismometer"]["sensitivity"]] * 3
         else:
             assert comp == ["E", "N", "Z"] and pn[key]["response"] == [s["instrument"]["geophone"]["sensitivity"]] * 3
+
+
+def test_node_channel_layout():
+    e = _entry(channels="GP?", model="node", instrument={"node": {"sensitivity": 1.5e9}})
+    assert channel_layout(e) == ("GP", ["1", "2", "Z"])
+    assert velocity_sensor(e)[0] == "node"
+
+
+def test_station_active_between():
+    from lib.models import station_active_between
+    e = _entry(end_date="2026-02-23")  # start 2025-01-01
+    assert station_active_between(e, date(2026, 2, 1), date(2026, 3, 1))
+    assert not station_active_between(e, date(2026, 3, 1), date(2026, 3, 2))
+    assert not station_active_between(e, date(2024, 1, 1), date(2024, 12, 31))
+    assert station_active_between(_entry(), date(2030, 1, 1), date(2030, 1, 2))

@@ -310,7 +310,7 @@ def load_existing_assignments(assignments_path, logger):
     if not assignments_path.exists():
         return pd.DataFrame()
 
-    df = pd.read_csv(assignments_path, dtype={"event_id": str})
+    df = pd.read_csv(assignments_path, dtype={"event_id": str, "network": str, "station": str, "location": str, "channel": str}, keep_default_na=False)
     logger.debug("Existing assignments: %d rows", len(df))
     return df
 
@@ -420,7 +420,7 @@ def _merge_under_lock(args, daily_files, catalog_path, assignments_path, triage_
                 if eid:
                     preserved_events[eid] = row
             if preserved_events and assignments_path.exists():
-                snap_assign = pd.read_csv(assignments_path, dtype={"event_id": str})
+                snap_assign = pd.read_csv(assignments_path, dtype={"event_id": str, "network": str, "station": str, "location": str, "channel": str}, keep_default_na=False)
                 keep_mask = snap_assign["event_id"].isin(preserved_events)
                 for row in snap_assign[keep_mask].to_dict("records"):
                     eid = row.get("event_id")
@@ -477,7 +477,7 @@ def _merge_under_lock(args, daily_files, catalog_path, assignments_path, triage_
         # Read events
         events_path = day["events_path"]
         try:
-            events = pd.read_csv(events_path)
+            events = pd.read_csv(events_path, dtype={"event_id": str})
         except Exception as e:
             logger.warning("Failed to read %s: %s", events_path, e)
             continue
@@ -502,7 +502,7 @@ def _merge_under_lock(args, daily_files, catalog_path, assignments_path, triage_
         assign_path = day["assignments_path"]
         if assign_path.exists():
             try:
-                assigns = pd.read_csv(assign_path)
+                assigns = pd.read_csv(assign_path, dtype={"network": str, "station": str, "location": str, "channel": str}, keep_default_na=False)
             except Exception as e:
                 logger.warning("Failed to read %s: %s", assign_path, e)
                 assigns = pd.DataFrame()

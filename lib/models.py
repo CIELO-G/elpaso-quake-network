@@ -97,7 +97,7 @@ class Event:
 # ---------------------------------------------------------------------------
 
 REQUIRED_STATION_FIELDS = {"network", "station", "latitude", "longitude", "elevation_m"}
-VALID_CHANNEL_PATTERNS = {"EHZ", "EH?", "E??", "HH?", "HHZ", "EN?", "SHZ", "BHZ", "BH?"}
+VALID_CHANNEL_PATTERNS = {"EHZ", "EH?", "E??", "HH?", "HHZ", "EN?", "SHZ", "BHZ", "BH?", "GP?", "DP?"}
 
 
 class StationValidationError(ValueError):
@@ -189,7 +189,7 @@ def _parse_iso_date(value: Any, what: str) -> date | None:
 
 # Sensor kinds that record ground velocity, in preference order. PhaseNet
 # and ML both want velocity, so an RS4D's accelerometer is never chosen.
-VELOCITY_SENSOR_KINDS = ("geophone", "seismometer", "broadband")
+VELOCITY_SENSOR_KINDS = ("geophone", "seismometer", "broadband", "node")
 
 
 def velocity_sensor(entry: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -230,10 +230,15 @@ def channel_layout(entry: dict[str, Any]) -> tuple[str, list[str]]:
     * ``EH?``            -> ("EH", [E, N, Z])   RS3D
     * ``EHZ`` / RS1D     -> ("EH", [Z])
     * ``E??`` / RS4D     -> ("EH", [Z])         geophone only; EN? accelerometer ignored
+    * ``GP?`` / ``DP?``  -> ("GP", [1, 2, Z])   temporary nodes (numbered horizontals;
+                                                a node recording only 1 and Z still
+                                                declares 2 so PhaseNet keeps its 1/Z slots)
     """
     name = entry.get("station", "?")
     chans = str(entry.get("channels", "") or "EHZ")  # Station dataclass default
     model = str(entry.get("model", "") or "").upper()
+    if chans in ("GP?", "DP?"):
+        return chans[:2], ["1", "2", "Z"]
     if chans == "HH?":
         return "HH", ["E", "N", "Z"]
     if chans == "EH?":
@@ -247,6 +252,17 @@ def channel_layout(entry: dict[str, Any]) -> tuple[str, list[str]]:
     raise StationValidationError(
         f"({name}): cannot derive channel layout from channels={chans!r} model={model!r}"
     )
+
+
+def station_active_between(entry: dict[str, Any], first_day: date, last_day: date) -> bool:
+    """True when the station's window overlaps [first_day, last_day] (inclusive)."""
+    start = _parse_iso_date(entry.get("start_date"), "start_date")
+    end = _parse_iso_date(entry.get("end_date"), "end_date")
+    if start is not None and start > last_day:
+        return False
+    if end is not None and end < first_day:
+        return False
+    return True
 
 
 def station_active_on(entry: dict[str, Any], day: date) -> bool:

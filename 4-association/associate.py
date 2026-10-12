@@ -211,7 +211,13 @@ def load_daily_picks(picks_path: Path, config: dict, logger):
     """Read Step 3 picks CSV into GaMMA-format DataFrame."""
     import pandas as pd
 
-    df = pd.read_csv(picks_path)
+    # Codes are text: a numeric station code ("101", temporary nodes) or an
+    # empty location must not be parsed as int/NaN.
+    df = pd.read_csv(
+        picks_path,
+        dtype={"network": str, "station": str, "location": str, "channel": str},
+        keep_default_na=False,
+    )
     if df.empty:
         logger.debug("No picks in %s", picks_path)
         return df
