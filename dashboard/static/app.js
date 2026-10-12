@@ -746,16 +746,39 @@ function renderStatus(data) {
 let stationsLoaded = false;
 const stationMarkers = {};
 
+// Retired stations (end_date set: temporary deployments, dead Shakes) live
+// in their own layer, hidden by default, behind the "Retired" map button —
+// 49 nodes from a 2021 deployment would otherwise bury the live network.
+const retiredLayer = L.layerGroup();
+var retiredVisible = false;
+
 function renderStations(stations) {
   if (stationsLoaded) return;
   stationsLoaded = true;
+  var nRetired = 0;
   stations.forEach(function(s) {
-    var m = L.marker([s.latitude, s.longitude], { icon: stationIcon() })
-      .bindTooltip('<b>' + esc(s.station) + '</b><br>' + esc(s.network) + ' \u00b7 ' + esc(s.model) + '<br>' + esc(s.channels), { className: '' })
-      .addTo(stationLayer);
+    var retired = !!s.end_date;
+    var tip = '<b>' + esc(s.station) + '</b><br>' + esc(s.network) + ' \u00b7 ' + esc(s.model) +
+      '<br>' + esc(s.channels) +
+      (retired ? '<br><i>' + esc(s.start_date || '?') + ' \u2192 ' + esc(s.end_date) +
+        (s.deployment ? ' \u00b7 ' + esc(s.deployment) : '') + '</i>' : '');
+    var m = L.marker([s.latitude, s.longitude], { icon: stationIcon(retired ? HEALTH_COLORS.retired : undefined) })
+      .bindTooltip(tip, { className: '' })
+      .addTo(retired ? retiredLayer : stationLayer);
     m.on('click', function() { openStationDetail(s.station); });
     stationMarkers[s.network + '.' + s.station] = { marker: m, data: s };
+    if (retired) nRetired++;
   });
+  var btn = document.getElementById('toggle-retired');
+  if (btn) {
+    btn.hidden = nRetired === 0;
+    btn.textContent = 'Retired (' + nRetired + ')';
+    btn.addEventListener('click', function() {
+      if (retiredVisible) { map.removeLayer(retiredLayer); btn.style.background = ''; }
+      else { retiredLayer.addTo(map); btn.style.background = 'var(--blue)'; }
+      retiredVisible = !retiredVisible;
+    });
+  }
 }
 
 // ── Station state-of-health panel (marker click) ────────────────
@@ -810,7 +833,7 @@ function renderStationHealth(healthData) {
   _sbSet('sb-stations', up + '/' + active.length + ' up');
   healthData.forEach(function(h) {
     var entry = stationMarkers[h.network + '.' + h.station];
-    if (!entry) return;
+    if (!entry || h.status === 'retired') return;
     var color = HEALTH_COLORS[h.status] || HEALTH_COLORS.unknown;
     entry.marker.setIcon(stationIcon(color));
     var s = entry.data;
@@ -1670,10 +1693,14 @@ var _heliEvents = [];
 function initHelicorderTab() {
   fetchJSON('/api/stations').then(function(sts) {
     var sel = document.getElementById('heli-station');
-    sel.innerHTML = sts.map(function(s) {
+    var opt = function(s) {
       return '<option value="' + esc(s.station) + '">' + esc(s.station) +
         ' (' + esc(s.network) + ')</option>';
-    }).join('');
+    };
+    var live = sts.filter(function(s) { return !s.end_date; });
+    var retired = sts.filter(function(s) { return !!s.end_date; });
+    sel.innerHTML = live.map(opt).join('') +
+      (retired.length ? '<optgroup label="Retired">' + retired.map(opt).join('') + '</optgroup>' : '');
     // Default to the first active broadband station (quietest helicorder),
     // else the first active station — nothing hard-coded (B7).
     var active = sts.filter(function(s) { return !s.end_date; });

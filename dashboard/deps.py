@@ -88,6 +88,7 @@ def load_stations() -> list:
             "channels": s.get("channels", ""),
             "start_date": s.get("start_date", ""),
             "end_date": s.get("end_date", ""),
+            "deployment": s.get("deployment", ""),
             # Channel codes this station actually records (B7): e.g. HHE/HHN/HHZ
             # for broadband, EHZ alone for a vertical-only Shake. Replaces the
             # hard-coded EHZ/EHN/EHE list in the 3C waveform fan-out.
