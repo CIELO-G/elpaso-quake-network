@@ -1456,7 +1456,9 @@ function dateParams() {
 }
 
 function catalogParams() {
-  var params = ['per_page=500'];
+  // per_page=0 = every event in the date range (B8): the map and the
+  // notification list must never drop events once the catalog passes 500.
+  var params = ['per_page=0'];
   if (filterStartDate) params.push('start_date=' + encodeURIComponent(filterStartDate));
   if (filterEndDate) params.push('end_date=' + encodeURIComponent(filterEndDate));
   return '?' + params.join('&');
@@ -1695,7 +1697,8 @@ function loadHelicorder() {
   Promise.all([
     fetchJSON('/api/helicorder?station=' + encodeURIComponent(sta) +
       '&date=' + encodeURIComponent(date) + '&fmin=' + fmin + '&fmax=' + fmax),
-    fetchJSON('/api/catalog?per_page=500').catch(function() { return { events: [] }; }),
+    fetchJSON('/api/catalog?per_page=0&start_date=' + encodeURIComponent(date) +
+      '&end_date=' + encodeURIComponent(date)).catch(function() { return { events: [] }; }),
   ]).then(function(res) {
     _heliData = res[0];
     _heliEvents = ((res[1] && res[1].events) || []).filter(function(e) {

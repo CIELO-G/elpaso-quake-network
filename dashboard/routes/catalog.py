@@ -33,7 +33,7 @@ router = APIRouter()
 async def catalog(
     request: Request,
     page: int = Query(default=1, ge=1),
-    per_page: int = Query(default=50, ge=1, le=500),
+    per_page: int = Query(default=50, ge=0, le=5000),  # 0 = all rows (map, exports)
     start_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end_date: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     sort_by: str | None = Query(default=None, pattern=r"^(time|magnitude|depth_km|num_picks)$"),
@@ -94,8 +94,16 @@ async def catalog(
             key=lambda e: (e[sort_by] is None, e[sort_by] if e[sort_by] is not None else 0),
             reverse=reverse,
         )
+    else:
+        # Newest first by default (B8): the catalog file is in day order, so
+        # a capped page used to return the OLDEST events and the map and
+        # notifications silently lost everything after row 500.
+        all_events = sorted(all_events, key=lambda e: e.get("time") or "", reverse=True)
 
     total = len(all_events)
+    if per_page == 0:
+        return {"events": all_events, "total": total, "page": 1, "per_page": total,
+                "total_pages": 1}
     total_pages = max(1, (total + per_page - 1) // per_page)
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page

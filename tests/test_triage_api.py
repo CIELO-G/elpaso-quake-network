@@ -45,3 +45,22 @@ def test_parse_row_carries_triage_fields():
     p = parse_catalog_row(ROWS[2])
     assert p["triage"] == "auto_reject" and "core" in p["triage_reason"]
     assert parse_catalog_row({"event_id": "x"})["triage"] == ""
+
+
+# ── B8: newest first by default; per_page=0 returns every row ──────────────
+
+def _order(resp):
+    return [e["event_id"] for e in resp.json()["events"]]
+
+
+def test_default_order_is_newest_first_and_cap_keeps_newest(monkeypatch):
+    c = _client(monkeypatch)
+    assert _order(c.get("/api/catalog")) == ["e", "d", "c", "b", "a"]
+    assert _order(c.get("/api/catalog?per_page=2")) == ["e", "d"]   # newest, not oldest
+    assert _order(c.get("/api/catalog?sort_by=time&sort_order=asc&per_page=2")) == ["a", "b"]
+
+
+def test_per_page_zero_returns_all(monkeypatch):
+    c = _client(monkeypatch)
+    r = c.get("/api/catalog?per_page=0").json()
+    assert len(r["events"]) == 5 and r["total"] == 5 and r["total_pages"] == 1

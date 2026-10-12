@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 2: B8, B9 (B1–B7 done). Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
+- **Next step:** Phase 2: B9 (runbook + add_station script), then restart the app and merge `phase2-stations` to main. Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
 
 ## Phase 1 checklist
 
@@ -182,3 +182,7 @@
   uses them (HH? for KIDD, Z-only for RS4D/RS1D) instead of a fixed EHZ/EHN/EHE; the
   helicorder defaults to the first active broadband station (KIDD today, not hard-coded);
   map markers are keyed NET.STA. 306 tests; app.js parsed with the system JS engine.
+- 2026-10-12: **B8 done.** `/api/catalog` returns newest-first when no sort is given
+  (the file is in day order, so a capped page used to return the oldest rows) and accepts
+  `per_page=0` for all rows; the map/notification fetch and the helicorder overlay use it
+  (helicorder now asks for its one day server-side). 308 tests.
