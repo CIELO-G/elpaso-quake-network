@@ -422,6 +422,52 @@ def fetch_waveforms(
 # ---------------------------------------------------------------------------
 
 
+def _is_encoding_error(exc: BaseException) -> bool:
+    """True when libmseed refused to pack the samples (surfaces as a bare Exception)."""
+    msg = str(exc).lower()
+    return "steim" in msg or "packing data samples" in msg or "encode" in msg
+
+
+def write_day_file(st: Stream, fpath: Path, logger) -> None:
+    """Write a merged day-file, falling back to a lossless encoding if Steim2 cannot.
+
+    Raspberry Shake occasionally serves a record that fails its Steim2
+    integrity check. After merging, consecutive samples can then differ by
+    more than Steim2's 30-bit limit and libmseed raises "Unable to represent
+    difference in <= 30 bits". Before this fallback that exception escaped the
+    worker thread and killed the whole ingest run (every station, every
+    retry). INT32/FLOAT64 can represent any sample, so the data is kept and
+    the failure is confined to a log warning.
+    """
+    try:
+        atomic_write_stream(st, fpath, format="MSEED")
+        return
+    except Exception as exc:
+        if not _is_encoding_error(exc):
+            raise
+        logger.warning(
+            "Steim2 encoding failed for %s (%s); rewriting with a lossless integer/float encoding",
+            fpath, str(exc).strip().splitlines()[-1] if str(exc).strip() else type(exc).__name__,
+        )
+
+    fallback = Stream()
+    for tr in st:
+        tr = tr.copy()
+        kind, size = tr.data.dtype.kind, tr.data.dtype.itemsize
+        if kind == "i" and size <= 2:
+            enc = "INT16"
+        elif kind == "i" and size == 4:
+            enc = "INT32"
+        else:
+            tr.data = tr.data.astype("float64")
+            enc = "FLOAT64"
+        if "mseed" not in tr.stats:
+            tr.stats.mseed = {}
+        tr.stats.mseed["encoding"] = enc
+        fallback.append(tr)
+    atomic_write_stream(fallback, fpath, format="MSEED")
+
+
 def save_waveforms(stream: Stream, output_dir: str, logger) -> list[str]:
     """Write a Stream to miniSEED files organised by julian day.
 
@@ -490,7 +536,7 @@ def save_waveforms(stream: Stream, output_dir: str, logger) -> list[str]:
         # into one contiguous trace per segment, which miniSEED stores natively.
         st.merge(method=1)
         st = st.split()
-        atomic_write_stream(st, fpath, format="MSEED")
+        write_day_file(st, fpath, logger)
 
         npts = sum(tr.stats.npts for tr in st)
         filepaths.append(str(fpath))
@@ -686,6 +732,33 @@ def process_station(
                 chunk_end,
                 "failed",
                 error=str(exc),
+            )
+            counts["failed"] += 1
+
+        except Exception as exc:  # noqa: BLE001 - one bad chunk must not kill the run
+            # Anything else (corrupt miniSEED, encoder failure, library bug)
+            # used to propagate out of the worker thread and abort ingest for
+            # every station. Record it as a failed chunk so the orchestrator
+            # sees a partial day and retries just this chunk later.
+            logger.error(
+                "  Unexpected error %s.%s %s -> %s: %s: %s\n%s",
+                network,
+                station,
+                chunk_start,
+                chunk_end,
+                type(exc).__name__,
+                exc,
+                traceback.format_exc(),
+            )
+            db.record(
+                network,
+                station,
+                location,
+                channels,
+                chunk_start,
+                chunk_end,
+                "failed",
+                error=f"{type(exc).__name__}: {exc}",
             )
             counts["failed"] += 1
 

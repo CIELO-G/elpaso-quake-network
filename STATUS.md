@@ -25,6 +25,7 @@
 - [x] A10 atomic writes for all stage outputs.
 - [x] A11 no zero-fill in raw storage.
 - [x] A12 NaN amplitude guard.
+- [x] A13 (added 2026-10-12) one corrupt chunk cannot kill an ingest run: Steim2 encode failure falls back to INT32/FLOAT64; any other per-chunk exception is recorded as a failed chunk.
 - [x] Restart pipeline after a day completes (done 2026-10-03 18:45 UTC). [x] Verified: 2026-10-03 and 2026-10-04 ran end to end on the new code (55 min each).
 
 ## Log
@@ -89,3 +90,19 @@
   `improved` chunks and writes `logs/ingest_summary.json`; `_retry_partial_days` runs ingest alone
   and only re-processes when improved > 0. Also: orchestrator and stages now run with `python -u`
   (the stdout log was block-buffered and hid the last day's lines). Tests: 262. Restarted again.
+- 2026-10-12: old raw archive imported from Marc's second drive onto the RAID
+  (10,591 files, 169 GB, `rsync --ignore-existing`; log `../raw_import_2026-10-12.log`).
+  `1-raw/` is now continuous 2025/250 -> today. RAID copies kept where they were newer
+  (EP.KIDD days 115/116/123/124). Processed/events for those days were already present.
+- 2026-10-12: **incident, 2026-10-06 never processed.** Raspberry Shake served an hour of
+  AM.R0F2D (02-03 UTC) that failed its Steim2 integrity check; re-encoding the merged
+  day-file raised `msr_encode_steim2: Unable to represent difference in <= 30 bits`,
+  a bare `Exception` from libmseed that escaped the worker thread and aborted ingest
+  (exit 1) for all 14 stations on every retry for six days. Fix (A13): `write_day_file`
+  falls back to INT32/FLOAT64 when Steim2 cannot encode, and `process_station` now
+  catches *any* exception per chunk and records it as `failed`. Tests in
+  `tests/test_ingest_write_resilience.py` (268 passing). The affected hour may contain
+  a garbage spike from the bad record; detection output for 2026-10-06 02-03 UTC on
+  R0F2D should be viewed with that in mind. Day re-run manually
+  (`../rerun_2026-10-06.log`); orchestrator picks up the new ingest code on its next
+  spawn, no restart needed.
