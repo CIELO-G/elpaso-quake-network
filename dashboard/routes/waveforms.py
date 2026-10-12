@@ -17,6 +17,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 
+from lib.models import station_active_on
 from dashboard.deps import (
     OUTPUT_DIR,
     PICKS_DIR,
@@ -242,18 +243,35 @@ def _compute_spectrogram_png(
 
 
 # ── Helpers for picking the right mseed file ─────────────────────
+def _active_on(entry: dict, day) -> bool:
+    """station_active_on, but never let a malformed entry hide the station."""
+    try:
+        return station_active_on(entry, day)
+    except Exception:  # noqa: BLE001
+        return True
+
+
+# Orientation aliases: a node records 1/2 where a seismometer records N/E.
+_ORIENTATION_ALIAS = {"N": "1", "E": "2", "1": "N", "2": "E"}
+
+
 def _find_mseed(day_dir: Path, network: str, station: str, channel: str) -> list[Path]:
     """Return mseed candidates matching ``net.sta.*.chan.*.mseed``.
 
-    Falls back to ``net.sta.*.?<chan[1:]>.*.mseed`` so a request for EHZ
-    will also find HHZ (broadband stations) when the exact code is absent.
+    Falls back on the same orientation with any band/instrument code
+    (``EHZ`` finds ``HHZ`` on a broadband, ``GPZ`` on a node) and then on
+    the aliased orientation (``EHN`` finds ``GP1``), so the default channel
+    of a request works for every station type the archive holds.
     """
     if not day_dir.exists():
         return []
     candidates = list(day_dir.glob(f"{network}.{station}.*.{channel}.*.mseed"))
     if not candidates and len(channel) == 3:
-        candidates = list(day_dir.glob(f"{network}.{station}.*.?{channel[1:]}.*.mseed"))
-    return candidates
+        candidates = list(day_dir.glob(f"{network}.{station}.*.??{channel[2]}.*.mseed"))
+    if not candidates and len(channel) == 3 and channel[2] in _ORIENTATION_ALIAS:
+        alias = _ORIENTATION_ALIAS[channel[2]]
+        candidates = list(day_dir.glob(f"{network}.{station}.*.??{alias}.*.mseed"))
+    return sorted(candidates)
 
 
 # ── Single-trace endpoint ────────────────────────────────────────
@@ -510,7 +528,7 @@ async def event_waveforms(
             trace_dict = {
                 "station": sta,
                 "network": net,
-                "channel": channel,
+                "channel": tr.stats.channel or channel,
                 "data": data,
                 "sampling_rate": tr.stats.sampling_rate,
                 "starttime": str(tr.stats.starttime),
@@ -643,8 +661,15 @@ def _build_traces_for_window(
     # order for stacked-station plots), so we keep the list ordering and
     # use ThreadPoolExecutor.map() which yields in submission order.
     # Channels come from each station's own layout (B7), not a fixed list.
+    # Only stations active on that day: a 2021 campaign event must not show
+    # empty rows for stations installed in 2025, and vice versa.
+    from obspy import UTCDateTime
+
+    day = UTCDateTime(t_start).date
     tasks: list[tuple[dict, str]] = []
     for s in load_stations():
+        if not _active_on(s, day):
+            continue
         for chan in station_channels(s, channel):
             tasks.append((s, chan))
 

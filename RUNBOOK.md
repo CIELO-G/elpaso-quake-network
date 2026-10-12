@@ -110,9 +110,9 @@ there:
 
 ```
 python scripts/import_deployment.py \
-    --data /Volumes/VelascoRAID1/Data/ElPaso/deployments/ElPaso2021_nodal/data \
+    --data /Volumes/VelascoRAID1/Data/ElPaso/deployments/ElPaso2021_nodal/sac \
     --station-list /Volumes/VelascoRAID1/Data/ElPaso/deployments/ElPaso2021_nodal/Station_list.csv \
-    --deployment ElPaso2021 --model "nodal geophone"        # add --geophone-hz 5 if the corner is known
+    --deployment ElPaso2021 --model "Fairfield ZLand 3C node" --geophone-hz 5 --workers 6
 python scripts/nlloc_build_grids.py
 ```
 
@@ -126,7 +126,7 @@ step is not involved):
 
 ```
 for s in 2-processing/process.py 3-detection/detect.py 4-association/associate.py; do
-  python -u $s --config ${s%/*}/config.yaml --start 2021-06-05 --end 2021-06-15 || break
+  python -u $s --config ${s%/*}/config.yaml --start 2021-06-05 --end 2021-06-16 || break   # --end is exclusive
 done
 python -u 5-catalog/catalog.py --config 5-catalog/config.yaml
 ```

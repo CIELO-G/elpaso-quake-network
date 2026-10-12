@@ -119,11 +119,14 @@ def test_real_stations_build_phasenet_dict_unchanged():
     spec.loader.exec_module(mod)
     stations = json.loads((ROOT / "stations.json").read_text())
     pn = mod.build_phasenet_stations(stations)
-    assert len(pn) == 14
+    assert len(pn) == len(stations)
     for s in stations:
-        key = f"{s['network']}.{s['station']}.{s.get('location','00')}." + ("HH" if s["channels"] == "HH?" else "EH")
+        band, _ = channel_layout(s)
+        key = f"{s['network']}.{s['station']}.{s.get('location','00')}.{band}"
         comp = pn[key]["component"]
-        if s["model"] == "RS4D":
+        if s["channels"] == "GP?":
+            assert comp == ["1", "2", "Z"] and pn[key]["response"] == [s["instrument"]["node"]["sensitivity"]] * 3
+        elif s["model"] == "RS4D":
             assert comp == ["Z"] and pn[key]["response"] == [s["instrument"]["geophone"]["sensitivity"]]
         elif s["channels"] == "HH?":
             assert comp == ["E", "N", "Z"] and pn[key]["response"] == [s["instrument"]["seismometer"]["sensitivity"]] * 3

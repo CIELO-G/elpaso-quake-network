@@ -56,14 +56,14 @@ def test_add_rejects_outside_study_area_and_duplicates(stations_file):
     with pytest.raises(SystemExit, match="already in stations.json"):
         m.cmd_add(_args(station="RDB14", lat=31.9, lon=-106.45, elev=1200.0, model="RS3D",
                         start_date="2026-11-01"))
-    assert len(json.loads(stations_file.read_text())) == 14  # untouched
+    assert stations_file.read_text() == (ROOT / "stations.json").read_text()  # untouched
 
 
 def test_rs4d_and_dry_run(stations_file):
     m = _load(stations_file)
     m.cmd_add(_args(station="R9997", lat=31.9, lon=-106.45, elev=1200.0, model="RS4D",
                     start_date="2026-11-01", dry_run=True))
-    assert len(json.loads(stations_file.read_text())) == 14
+    assert stations_file.read_text() == (ROOT / "stations.json").read_text()  # dry run: untouched
     m.cmd_add(_args(station="R9997", lat=31.9, lon=-106.45, elev=1200.0, model="RS4D",
                     start_date="2026-11-01"))
     new = json.loads(stations_file.read_text())[-1]
