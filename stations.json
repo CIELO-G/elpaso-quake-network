@@ -125,7 +125,7 @@
     "location": "00",
     "channels": "EH?",
     "latitude": 31.918919,
-    "longitude": -106.578900,
+    "longitude": -106.5789,
     "elevation_m": 1183.0,
     "sample_rate_hz": 100.0,
     "start_date": "2025-12-27",
@@ -250,8 +250,8 @@
     "station": "R8DE2",
     "location": "00",
     "channels": "EH?",
-    "latitude": 31.757000,
-    "longitude": -106.297000,
+    "latitude": 31.757,
+    "longitude": -106.297,
     "elevation_m": 1216.9,
     "sample_rate_hz": 100.0,
     "start_date": "2026-03-28",
@@ -314,6 +314,1133 @@
         "input_units": "M/S",
         "output_units": "COUNTS",
         "frequency_hz": 0.05
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "101",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.78592,
+    "longitude": -106.22352,
+    "elevation_m": 1226.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "102",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.7036,
+    "longitude": -106.33703,
+    "elevation_m": 1118.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "103",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.85575,
+    "longitude": -106.52372,
+    "elevation_m": 1345.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "104",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.7987,
+    "longitude": -106.54338,
+    "elevation_m": 1159.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "105",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.62117,
+    "longitude": -106.27982,
+    "elevation_m": 1113.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "106",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.86317,
+    "longitude": -106.54792,
+    "elevation_m": 1261.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "107",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.75968,
+    "longitude": -106.48373,
+    "elevation_m": 1146.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "108",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.7719,
+    "longitude": -106.50648,
+    "elevation_m": 1160.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "109",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.75345,
+    "longitude": -106.48653,
+    "elevation_m": 1138.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "110",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.78133,
+    "longitude": -106.49904,
+    "elevation_m": 1215.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "111",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.7748,
+    "longitude": -106.45907,
+    "elevation_m": 1138.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "112",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.79598,
+    "longitude": -106.54527,
+    "elevation_m": 1166.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "113",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.7979,
+    "longitude": -106.54528,
+    "elevation_m": 1162.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "114",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.7792,
+    "longitude": -106.3186,
+    "elevation_m": 1209.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "115",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.739,
+    "longitude": -106.27523,
+    "elevation_m": 1215.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "116",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.67412,
+    "longitude": -106.28442,
+    "elevation_m": 1107.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "117",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.69102,
+    "longitude": -106.32775,
+    "elevation_m": 1116.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "118",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.67592,
+    "longitude": -106.24282,
+    "elevation_m": 1176.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "119",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.5915,
+    "longitude": -106.22598,
+    "elevation_m": 1109.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "120",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.58477,
+    "longitude": -106.27273,
+    "elevation_m": 1110.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "121",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.79828,
+    "longitude": -106.54173,
+    "elevation_m": 1166.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "122",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.68172,
+    "longitude": -106.17081,
+    "elevation_m": 1222.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "123",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.77455,
+    "longitude": -106.42145,
+    "elevation_m": 1136.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "124",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.50367,
+    "longitude": -106.15928,
+    "elevation_m": 1100.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "126",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.7971,
+    "longitude": -106.53987,
+    "elevation_m": 1176.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "127",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.76893,
+    "longitude": -106.44842,
+    "elevation_m": 1130.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "128",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.78193,
+    "longitude": -106.28285,
+    "elevation_m": 1210.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "129",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.73618,
+    "longitude": -106.37883,
+    "elevation_m": 1127.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "130",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.79482,
+    "longitude": -106.54077,
+    "elevation_m": 1211.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "131",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.75802,
+    "longitude": -106.47565,
+    "elevation_m": 1133.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "132",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.77968,
+    "longitude": -106.40772,
+    "elevation_m": 1173.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "133",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.78713,
+    "longitude": -106.44847,
+    "elevation_m": 1145.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "134",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.79393,
+    "longitude": -106.53873,
+    "elevation_m": 1204.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "135",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.8312,
+    "longitude": -106.58278,
+    "elevation_m": 1139.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "136",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.77404,
+    "longitude": -106.3444,
+    "elevation_m": 1205.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "137",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.81772,
+    "longitude": -106.17635,
+    "elevation_m": 1232.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "138",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.76629,
+    "longitude": -106.49337,
+    "elevation_m": 1156.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "139",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.73677,
+    "longitude": -106.3515,
+    "elevation_m": 1123.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "140",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.79507,
+    "longitude": -106.54402,
+    "elevation_m": 1175.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "141",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.81888,
+    "longitude": -106.56,
+    "elevation_m": 1142.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "142",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.78857,
+    "longitude": -106.46942,
+    "elevation_m": 1190.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "143",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.80067,
+    "longitude": -106.54055,
+    "elevation_m": 1137.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "144",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.75512,
+    "longitude": -106.28517,
+    "elevation_m": 1218.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "145",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.92143,
+    "longitude": -106.41803,
+    "elevation_m": 1210.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "146",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.81952,
+    "longitude": -106.4526,
+    "elevation_m": 1232.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "147",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.857,
+    "longitude": -106.545,
+    "elevation_m": 1256.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "148",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.7505,
+    "longitude": -106.28951,
+    "elevation_m": 1220.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "149",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.80118,
+    "longitude": -106.46692,
+    "elevation_m": 1229.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
+      }
+    }
+  },
+  {
+    "network": "4B",
+    "station": "150",
+    "location": "",
+    "channels": "GP?",
+    "latitude": 31.779,
+    "longitude": -106.24025,
+    "elevation_m": 1216.0,
+    "sample_rate_hz": 100.0,
+    "start_date": "2021-06-05",
+    "end_date": "2021-06-15",
+    "model": "Fairfield ZLand 3C node",
+    "deployment": "ElPaso2021",
+    "instrument": {
+      "node": {
+        "channels": "GP?",
+        "sensitivity": 1507118400.0,
+        "input_units": "M/S",
+        "output_units": "COUNTS",
+        "frequency_hz": 5.0
       }
     }
   }
