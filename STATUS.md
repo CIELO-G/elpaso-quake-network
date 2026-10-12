@@ -2,14 +2,14 @@
 
 ## RESUME HERE
 
-- **Where:** Mac Studio, `~/Research/Elpaso/elpaso-quake-network`, branch `phase1-hardening`.
+- **Where:** Mac Studio, `~/Research/Elpaso/elpaso-quake-network`. Phase 1 merged to `main` and pushed 2026-10-12; Phase 2 work on branch `phase2-stations`.
   Pipeline is LIVE (El Paso Monitor.app, continuous mode, runs each day at 06:00 UTC).
   Waveforms on `/Volumes/VelascoRAID1`; see `../MACSTUDIO_INSTALL.md` for the install.
-- **What:** Phase 1 of `ENGINEERING_REVIEW.md` (hardening, items A1–A12). Plan agreed 2026-10-03.
+- **What:** Phase 2 of `ENGINEERING_REVIEW.md` (station readiness, section B). Phase 1 (A1–A14) done.
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** merge `phase1-hardening` into main and push (needs `gh auth login`), then Phase 2 (`ENGINEERING_REVIEW.md` section B), starting with the rest of B2.
+- **Next step:** Phase 2 in this order: B2 (rest), B5, B3, B1, B6, B4, B7, B8, B9.
 
 ## Phase 1 checklist
 
@@ -126,3 +126,7 @@
   restart, `pipeline_state.json` was edited: 2026-10-06 moved skipped -> partial
   (it completed manually), AM.R5912 removed from `dark_stations`.
   Dashboard loader now passes `end_date` through (`/api/station_health` -> `retired`).
+- 2026-10-12: `gh auth login` done (GarciaMarc41). origin/main had six old-Mac commits from
+  2026-10-02 whose content was already inside the baseline snapshot; joined with
+  `merge -s ours`, rebased the 13 Phase 1 commits on top, 282 tests, pushed `main`.
+  PhaseNO checkpoint stays gitignored (on disk + RAID backup).
