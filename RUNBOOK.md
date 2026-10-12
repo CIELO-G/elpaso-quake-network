@@ -101,6 +101,46 @@ shows it as Retired, and its history is still used when an old day is
 re-run. If it is in `triage.core_stations`, remove it there (the catalog
 step warns every run until you do).
 
+## Importing a temporary deployment
+
+A campaign (nodes, a few weeks) arrives as local miniSEED with a station
+list, not from FDSN. Keep the original files on the RAID
+(`/Volumes/VelascoRAID1/Data/ElPaso/deployments/<name>/`) and import from
+there:
+
+```
+python scripts/import_deployment.py \
+    --data /Volumes/VelascoRAID1/Data/ElPaso/deployments/ElPaso2021_nodal/data \
+    --station-list /Volumes/VelascoRAID1/Data/ElPaso/deployments/ElPaso2021_nodal/Station_list.csv \
+    --deployment ElPaso2021 --model "nodal geophone"        # add --geophone-hz 5 if the corner is known
+python scripts/nlloc_build_grids.py
+```
+
+The tool writes per-station day files to the raw archive (float32, clock
+snapped to 100 Hz), StationXML with the list's sensitivity (flat velocity
+response unless `--geophone-hz`), and `stations.json` entries with both
+`start_date` and `end_date` — the stations are born retired, so the daily
+pipeline never requests them and the map hides them behind the
+**Retired** button. Then run steps 2–5 for the campaign dates (the ingest
+step is not involved):
+
+```
+for s in 2-processing/process.py 3-detection/detect.py 4-association/associate.py; do
+  python -u $s --config ${s%/*}/config.yaml --start 2021-06-05 --end 2021-06-15 || break
+done
+python -u 5-catalog/catalog.py --config 5-catalog/config.yaml
+```
+
+Do this while the orchestrator is idle (between 03:00 and 02:00 UTC) or
+with the pipeline stopped: the catalog step takes the same lock the daily
+run does, so they cannot corrupt each other, but PhaseNet on 49 stations
+and the daily run would compete for CPU.
+
+Expect the campaign's events to show up with the pipeline's own
+thresholds and GaMMA settings, which were tuned for the sparse Shake
+network; a dense array may deserve its own `4-association/config.yaml`
+values. Review before trusting.
+
 ## Changing the study area
 
 One place: `lib/constants.py` (`NETWORK_CENTER_LAT/LON`,
