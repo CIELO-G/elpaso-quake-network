@@ -40,6 +40,7 @@ from lib.atomic_io import atomic_write_stream
 from lib.config import load_config, load_stations
 from lib.logger import MetricsWriter, setup_logging
 from lib.pipeline_stage import iter_days, resolve_time_window
+from lib.waveform_qc import mask_impossible_samples
 
 # ---------------------------------------------------------------------------
 # Configuration defaults (processing-specific)
@@ -135,6 +136,9 @@ def process_file(
         return False
 
     try:
+        # 0. Corrupt-record guard: impossible counts become gaps (lib/waveform_qc.py)
+        mask_impossible_samples(st, logger=logger)
+
         # 1. Merge overlapping/adjacent traces from chunked ingestion
         st.merge(method=1, fill_value="interpolate")
 

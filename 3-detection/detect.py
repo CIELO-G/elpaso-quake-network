@@ -35,6 +35,7 @@ from lib.atomic_io import atomic_write_rows
 from lib.config import load_config, load_stations
 from lib.logger import MetricsWriter, setup_logging
 from lib.pipeline_stage import iter_days, resolve_time_window
+from lib.waveform_qc import mask_impossible_samples
 
 DEFAULTS = {
     "stations_file": "stations.json",
@@ -168,6 +169,8 @@ def merge_raw_data(raw_files: list[Path], output_path: Path, logger) -> bool:
             logger.warning("Cannot read %s: %s: %s", fp, type(exc).__name__, exc)
     if len(st) == 0:
         return False
+    # Corrupt-record guard: impossible counts become gaps before interpolation
+    mask_impossible_samples(st, logger=logger)
     try:
         st.merge(method=1, fill_value="interpolate")
     except Exception as exc:

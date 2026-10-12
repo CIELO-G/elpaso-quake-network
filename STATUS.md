@@ -26,6 +26,7 @@
 - [x] A11 no zero-fill in raw storage.
 - [x] A12 NaN amplitude guard.
 - [x] A13 (added 2026-10-12) one corrupt chunk cannot kill an ingest run: Steim2 encode failure falls back to INT32/FLOAT64; any other per-chunk exception is recorded as a failed chunk.
+- [x] A14 (added 2026-10-12) corrupt samples (|counts| > 2^23, impossible on a 24-bit ADC) are masked as gaps in `lib/waveform_qc.py` before processing and before PhaseNet; raw storage untouched.
 - [x] Restart pipeline after a day completes (done 2026-10-03 18:45 UTC). [x] Verified: 2026-10-03 and 2026-10-04 ran end to end on the new code (55 min each).
 
 ## Log
@@ -106,3 +107,9 @@
   R0F2D should be viewed with that in mind. Day re-run manually
   (`../rerun_2026-10-06.log`); orchestrator picks up the new ingest code on its next
   spawn, no restart needed.
+- 2026-10-12: follow-up (A14): the corrupt R0F2D record decodes to three samples near
+  5.4e8 counts. Processing and detection both read raw counts, so a bandpass would turn
+  each into a ringing wavelet PhaseNet could pick. `lib/waveform_qc.mask_impossible_samples`
+  (|x| > 2^23 -> gap, split, then the existing interpolate-merge bridges it) now runs in
+  `process.py` and in `detect.py`'s `merge_raw_data`. Verified on the real file: peak
+  drops from 5.4e8 to 4.3e4 counts. No effect on clean days (tests). 273 tests pass.
