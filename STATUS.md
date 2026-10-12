@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 2 in this order: B5, B3, B1, B6, B4, B7, B8, B9 (B2 done).
+- **Next step:** Phase 2 in this order: B5, B1, B6, B4, B7, B8, B9 (B2, B3 done). B5 needs Marc's answer on the study-area box (see log 2026-10-12).
 
 ## Phase 1 checklist
 
@@ -135,3 +135,7 @@
   channel layout, each error naming the station. `build_phasenet_stations` and the
   orchestrator use the shared helpers instead of hard-coded `instrument["geophone"]`
   lookups; output for the 14 real stations is unchanged (test). 286 tests.
+- 2026-10-12: **B3 done.** `NLLocLocator` checks P and S grids for every station; a station
+  without grids is excluded from relocation and listed in `missing_grids` (shown in
+  `/api/health` as `nlloc_missing_grids` after the next app restart). All 14 current
+  stations have grids. 290 tests.

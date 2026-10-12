@@ -80,6 +80,15 @@ async def quarries():
 
 
 # ── Health ───────────────────────────────────────────────────────
+def _nlloc_missing_grids() -> list[str] | None:
+    """Stations without NLLoc travel-time grids, or None when NLLoc is unavailable."""
+    try:
+        from dashboard.locators import init_nlloc_locator
+        return list(init_nlloc_locator().missing_grids)
+    except Exception:  # noqa: BLE001 - binary/grids absent: not a health failure
+        return None
+
+
 @router.get("/api/health")
 async def health():
     """Structured health check (status, last run, catalog size, disk, uptime)."""
@@ -110,6 +119,7 @@ async def health():
         "last_run_time": last_run_time,
         "catalog_size": catalog_size,
         "disk_usage_percent": round((usage.used / usage.total) * 100, 1) if usage.total else 0,
+        "nlloc_missing_grids": _nlloc_missing_grids(),
         "uptime_seconds": uptime_sec,
         "alerting": alerting_status(),
     }

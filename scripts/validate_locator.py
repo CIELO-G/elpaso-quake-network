@@ -160,7 +160,7 @@ def main() -> int:
     try:
         from lib.location.nlloc import NLLocLocator  # noqa: E402
 
-        nl = NLLocLocator(stations)
+        nl = NLLocLocator(stations, require_all_grids=True)
         nl_result = nl.locate(picks, ref_epoch_unix=ref_epoch.timestamp(), min_picks=4)
     except FileNotFoundError as exc:
         nl_skip_reason = f"NLLoc unavailable: {exc}"

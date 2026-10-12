@@ -241,3 +241,30 @@ class TestCrossCheckAgainstGridSearch:
             "exceeds wrapper-correctness tolerance (2.5 km)"
         )
         assert abs(r_nl.depth_km - r_gs.depth_km) < 3.0
+
+
+# ---------------------------------------------------------------------------
+# B3 — every station's grids are checked, not just the first
+# ---------------------------------------------------------------------------
+
+
+class TestGridCoverage:
+    def test_all_real_stations_have_grids(self, stations):
+        loc = NLLocLocator(stations, require_all_grids=True)
+        assert loc.missing_grids == []
+        assert set(loc.stations) == {s.station_id for s in stations}
+
+    def test_station_without_grids_is_listed_and_excluded(self, stations):
+        extra = stations + [Station("AM.NEW01", 31.9, -106.3, 1250.0)]
+        loc = NLLocLocator(extra)
+        assert loc.missing_grids == ["AM.NEW01"]
+        assert "AM.NEW01" not in loc.stations and "AM.R0F2D" in loc.stations
+
+    def test_require_all_grids_raises_naming_station(self, stations):
+        extra = stations + [Station("AM.NEW01", 31.9, -106.3, 1250.0)]
+        with pytest.raises(FileNotFoundError, match="AM.NEW01.*nlloc_build_grids"):
+            NLLocLocator(extra, require_all_grids=True)
+
+    def test_no_usable_station_raises(self):
+        with pytest.raises(FileNotFoundError, match="AM.NEW01"):
+            NLLocLocator([Station("AM.NEW01", 31.9, -106.3, 1250.0)])

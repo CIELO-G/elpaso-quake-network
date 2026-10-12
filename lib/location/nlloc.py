@@ -87,6 +87,7 @@ class NLLocLocator:
         bin_dir: Path | str | None = None,
         grid_dir: Path | str | None = None,
         grid_basename: str = _DEFAULT_GRID_BASENAME,
+        require_all_grids: bool = False,
     ) -> None:
         if not stations:
             raise ValueError("at least one station required")
@@ -103,18 +104,31 @@ class NLLocLocator:
 
         self._grid_dir = Path(grid_dir or _DEFAULT_GRID_DIR).resolve()
         self._grid_basename = grid_basename
-        # Sanity-check at least one travel-time grid exists; surface the
-        # build step rather than a cryptic NLLoc error on first call.
-        sample_grid = (
-            self._grid_dir / f"{grid_basename}.P.{stations[0].station_id.split('.')[-1]}.time.hdr"
+
+        # Every station needs a P and an S travel-time grid. Checking only
+        # the first station let a newly added station contribute nothing to
+        # relocation until someone remembered scripts/nlloc_build_grids.py
+        # (review item B3). Stations without grids are excluded here and
+        # listed in ``missing_grids`` so the dashboard can show it; with
+        # ``require_all_grids=True`` (scripts, tests) it is an error instead.
+        self.missing_grids: list[str] = sorted(
+            s.station_id for s in stations if not self._has_grids(s.station_id)
         )
-        if not sample_grid.exists():
+        usable = [s for s in stations if s.station_id not in self.missing_grids]
+        if self.missing_grids and (require_all_grids or not usable):
             raise FileNotFoundError(
-                f"No NLLoc travel-time grid for the first station at "
-                f"{sample_grid}. Run scripts/nlloc_build_grids.py first."
+                f"No NLLoc travel-time grids (P and S) under {self._grid_dir} for "
+                f"{', '.join(self.missing_grids)}. Run scripts/nlloc_build_grids.py."
             )
 
-        self.stations: dict[str, Station] = {s.station_id: s for s in stations}
+        self.stations: dict[str, Station] = {s.station_id: s for s in usable}
+
+    def _has_grids(self, station_id: str) -> bool:
+        code = station_id.split(".")[-1]
+        return all(
+            (self._grid_dir / f"{self._grid_basename}.{phase}.{code}.time.hdr").exists()
+            for phase in ("P", "S")
+        )
 
     # ------------------------------------------------------------------
     # Primary API
