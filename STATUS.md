@@ -9,8 +9,12 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 3 design (hourly rolling pass, time-based event IDs; see log 2026-10-12 "latency"). Waiting on Marc: RADA1 site check (re-run Sep 26–Oct 2 after), the 10 new stations' details (then `scripts/add_station.py`). Tonight: confirm the first 02:00 UTC run. Watch `logs/ingest.log` for "too many requests" after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
-
+- **Next step:** Marc reviews the 31 ElPaso2021 campaign events in the dashboard (2021-06-05..14; 15 passed triage
+  on the >=5-station rule, 16 auto-rejected; none is in USGS/TexNet — most sit at depth 0 and may be quarry blasts;
+  magnitudes come from the Shake-tuned ML and are unverified for nodes). Then Phase 3 design (hourly rolling pass,
+  time-based event IDs; see log 2026-10-12 "latency"). Waiting on Marc: RADA1 site check (re-run Sep 26–Oct 2 after),
+  the 10 new stations' details (then `scripts/add_station.py`). Watch `logs/ingest.log` for "too many requests"
+  after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
 ## Phase 1 checklist
 
 - [x] A1 review record: cross-process lock shared by catalog step and dashboard; every dashboard save appended to `reviews.jsonl`; backfill sidecar from current catalog.
@@ -195,3 +199,21 @@
   312 tests.
 - 2026-10-12: app restarted (B7/B8 live: `channel_codes`, newest-first catalog, `/api/study_area`,
   `nlloc_missing_grids: []`); `phase2-stations` fast-forwarded into `main`, 312 tests, pushed.
+- 2026-10-12: **ElPaso2021 nodal campaign imported** (Marc's request). Originals: SAC, 1000 Hz
+  integer counts, 49 Fairfield ZLand 3C nodes (4B.101–150, no 125), 2021-06-05 07:00 → 06-15
+  07:00 UTC, on the RAID at `Data/ElPaso/deployments/ElPaso2021_nodal/sac` (481 GB; the earlier
+  100 Hz miniSEED derivative is kept beside it). Corner frequency confirmed at ~5 Hz from the
+  microseism-band noise ratio against EP.KIDD (`../station_checks/nodes_2021_response/`), so the
+  StationXML carries a 5 Hz / 0.7-damped geophone response with the list's 1.507e9 counts/(m/s)
+  (checked against theory at 0.2–40 Hz). One E-component day (06-06 07:00 → 06-07 07:00) is lost
+  on every node: the export duplicated the previous file. Import (6 workers) 19 min → 24 GB of 100 Hz
+  int32 day files; NLLoc grids rebuilt for 63 stations; steps 2–5 for 06-05..06-15 took 26 min
+  (PhaseNet 18 min for 11 days × 49 stations in groups of 6). Result: 3–4k picks/day, 31 events,
+  15 `ok` (>= 5 stations) and 16 auto-rejected (no 2021 core stations exist, so only the wide-event
+  rule applies). USGS (incl. TexNet) has nothing in the box for the window; 24 of 31 locate at depth
+  0 and 16 are in local daytime — review before trusting; ML values are from the Shake-tuned scale.
+  Five samples on 4B.129/134 tripped the 2^23 guard (true spikes; masked). Three evalresp
+  "sensitivities differ by more than 5 percent" lines in `process.log` could not be reproduced on
+  any trace and every XML's reported vs computed sensitivity agrees — noted, harmless. Dashboard:
+  waveform lookup now finds GPZ/GP1/GP2 for an EHZ/EHN/EHE request and the all-station view only
+  lists stations active that day. App restarted (dashboard code). 320 tests.
