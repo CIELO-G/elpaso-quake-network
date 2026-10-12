@@ -12,6 +12,13 @@ import yaml
 from lib.models import validate_stations
 
 
+def yaml_keys(path: str | Path) -> set[str]:
+    """Top-level keys actually present in a YAML file (no defaults applied)."""
+    with open(path) as f:
+        data = yaml.safe_load(f) or {}
+    return set(data) if isinstance(data, dict) else set()
+
+
 def load_config(path: str | Path, defaults: dict[str, Any] | None = None) -> dict[str, Any]:
     """Load YAML configuration and apply defaults.
 

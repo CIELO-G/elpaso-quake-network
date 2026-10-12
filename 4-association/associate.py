@@ -40,7 +40,7 @@ if not hasattr(sklearn.base.BaseEstimator, "_check_n_features"):
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.atomic_io import atomic_write_rows
-from lib.config import load_config, load_stations
+from lib.config import load_config, load_stations, yaml_keys
 from lib.constants import (
     DEGREES_TO_KM,
     NETWORK_CENTER_LAT,
@@ -596,6 +596,14 @@ def main() -> None:
     args = parse_args()
 
     config = load_config(args.config, defaults=DEFAULTS)
+    # B5: the study area has exactly one definition (lib/constants.py).
+    _geometry_keys = ("center_lat", "center_lon", "xlim_degree", "ylim_degree")
+    _overridden = [k for k in _geometry_keys if k in yaml_keys(args.config)]
+    if _overridden:
+        sys.exit(
+            f"{args.config} sets {', '.join(_overridden)}: the study area is defined once in "
+            "lib/constants.py (NETWORK_CENTER_*, NETWORK_HALF_WIDTH_DEG). Remove them."
+        )
     stations = load_stations(config["stations_file"])
     logger = setup_logging("associate", config, debug=args.debug)
     metrics = MetricsWriter(Path(config["log_dir"]) / "metrics.jsonl")

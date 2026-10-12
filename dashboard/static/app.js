@@ -368,14 +368,16 @@ document.querySelectorAll('.map-style-btn').forEach(function(btn) {
   });
 });
 
-// Study area bounds (center ±1.0° ≈ ±110 km) — togglable, hidden by default.
-// Matches the NLLoc travel-time grid extent (GRID_X_HALF_KM / GRID_Y_HALF_KM
-// in lib/location/nlloc_config.py), so the rectangle visually represents
-// the boundary beyond which NLLoc cannot precisely locate events.
+// Study area — togglable, hidden by default. Bounds come from /api/study_area
+// (lib/constants.py), the same definition GaMMA and the NLLoc grid use, so
+// the rectangle is a 1:1 visual of where events can be associated and located.
 var studyAreaRect = L.rectangle(
-  [[31.85 - 1.0, -106.40 - 1.0], [31.85 + 1.0, -106.40 + 1.0]],
+  [[MAP_INIT_VIEW[0] - 1.0, MAP_INIT_VIEW[1] - 1.0], [MAP_INIT_VIEW[0] + 1.0, MAP_INIT_VIEW[1] + 1.0]],
   { color: '#ef4444', weight: 1.5, dashArray: '6 4', fill: false, interactive: false }
 );
+fetch('/api/study_area').then(function(r) { return r.ok ? r.json() : null; }).then(function(a) {
+  if (a) studyAreaRect.setBounds([[a.lat_min, a.lon_min], [a.lat_max, a.lon_max]]);
+}).catch(function() {});
 var studyAreaVisible = false;
 document.getElementById('toggle-study-area').addEventListener('click', function() {
   var btn = this;

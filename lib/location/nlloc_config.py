@@ -17,6 +17,8 @@ lives in ``scripts/nlloc_build_grids.py``.
 
 from __future__ import annotations
 
+from lib.geometry import grid_half_extent_km
+
 from collections.abc import Iterable
 
 from lib.constants import NETWORK_CENTER_LAT, NETWORK_CENTER_LON
@@ -31,8 +33,7 @@ from lib.location.velocity_model import LayeredModel
 # 1:1 visual of "where events can be associated AND located."
 # Spacing 0.5 km matches the location-precision floor set by pick timing
 # (~10 ms PhaseNet → ~50 m equivalent) and the 1D velocity model.
-GRID_X_HALF_KM = 94.0
-GRID_Y_HALF_KM = 111.0
+GRID_X_HALF_KM, GRID_Y_HALF_KM = grid_half_extent_km()  # 94.0, 111.0 at ±1.0°
 GRID_Z_TOP_KM = -2.0  # negative = above sea level (elevated stations sit here)
 GRID_Z_BOTTOM_KM = 38.0
 GRID_SPACING_KM = 0.5

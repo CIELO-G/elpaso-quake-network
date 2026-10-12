@@ -26,10 +26,15 @@ CATALOG_SUBDIR = "5-catalog"
 NETWORK_CENTER_LAT = 31.85
 NETWORK_CENTER_LON = -106.40
 
-# Half-width (in degrees) of the GaMMA association search region, centred on
-# the network. ±0.7° ≈ ±78 km — comfortably contains all stations + locatable
-# events out to ~100 km.
-NETWORK_HALF_WIDTH_DEG = 0.7
+# Half-width (in degrees) of the study area, centred on the network. THE
+# single definition of the box: GaMMA's search region (4-association),
+# the NLLoc travel-time grid extent (lib/location/nlloc_config.py), the
+# dashboard's study-area rectangle (/api/study_area) and the station
+# validation (a station must lie inside) all derive from it.
+# ±1.0° ≈ ±111 km N-S, ±94 km E-W at this latitude: network footprint +
+# Vado/Anthony quarry belt + Las Cruces. Changing it means rebuilding the
+# NLLoc grids (scripts/nlloc_build_grids.py).
+NETWORK_HALF_WIDTH_DEG = 1.0
 
 # Average degrees-to-km conversion at mid-latitude. Used to translate the
 # degree-based search region into km for GaMMA's projected frame.

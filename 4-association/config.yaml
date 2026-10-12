@@ -16,21 +16,11 @@ input_dir: "output"
 output_dir: "output"
 
 # -----------------------------------------------------------------------------
-# Network center (approximate centroid of 11 stations)
+# Study area — NOT set here. center_lat/center_lon/xlim_degree/ylim_degree
+# come from lib/constants.py (NETWORK_CENTER_*, NETWORK_HALF_WIDTH_DEG) so
+# association, the NLLoc grid, the map and station validation always agree.
+# Setting any of them in this file is rejected at load time.
 # -----------------------------------------------------------------------------
-center_lat: 31.85
-center_lon: -106.40
-
-# -----------------------------------------------------------------------------
-# Search region (degrees from center)
-# Narrowed 1.5 → 1.0 (~110 km half-extent) to focus on local seismicity:
-# El Paso network footprint + Vado/Anthony quarry belt + Las Cruces.
-# Regional events (>110 km) had bad azimuthal geometry anyway and only
-# contributed to noisy boundary locations. Pairs with the NLLoc grid in
-# lib/location/nlloc_config.py.
-# -----------------------------------------------------------------------------
-xlim_degree: 1.0
-ylim_degree: 1.0
 zlim_km: [0, 30]
 
 # Degrees-to-km conversion at this latitude

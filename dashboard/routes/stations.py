@@ -19,6 +19,14 @@ async def stations():
     return load_stations()
 
 
+@router.get("/api/study_area")
+async def study_area_endpoint():
+    """The one study-area definition (lib/constants.py), for the map rectangle."""
+    from lib.geometry import study_area
+
+    return study_area()
+
+
 @router.get("/api/station/{station}/detail")
 async def station_detail(station: str):
     """State-of-health for one station: recent per-day file coverage

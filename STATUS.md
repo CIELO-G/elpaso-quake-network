@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 2 in this order: B5, B1, B6, B4, B7, B8, B9 (B2, B3 done). B5 needs Marc's answer on the study-area box (see log 2026-10-12).
+- **Next step:** Phase 2 in this order: B1, B6, B4, B7, B8, B9 (B2, B3, B5 done). B1 touches Raspberry Shake request pacing — confirm with Marc before changing the 5 s delay.
 
 ## Phase 1 checklist
 
@@ -139,3 +139,9 @@
   without grids is excluded from relocation and listed in `missing_grids` (shown in
   `/api/health` as `nlloc_missing_grids` after the next app restart). All 14 current
   stations have grids. 290 tests.
+- 2026-10-12: **B5 done.** The study area is defined once (`lib/constants.py`, ±1.0°, the
+  value that was already in effect everywhere; the 0.7° default was stale). `lib/geometry.py`
+  derives the NLLoc extents (94/111 km, identical to the built grids — test checks the
+  grid header), `/api/study_area` feeds the map rectangle, `4-association/config.yaml`
+  no longer carries geometry and is refused if it does, and a station outside the box is
+  rejected at load with its coordinates. GaMMA box verified identical. 297 tests.

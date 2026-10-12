@@ -144,6 +144,18 @@ def validate_station(entry: dict[str, Any], index: int) -> list[str]:
             f"Station {index} ({entry.get('station', '?')}): unusual channel pattern '{channels}'"
         )
 
+    # Inside the study area (B5): a station outside the box breaks NLLoc
+    # Grid2Time and is invisible on the dashboard map.
+    from lib.geometry import inside_study_area, study_area  # local: avoid import cycle
+
+    if not inside_study_area(lat, lon):
+        box = study_area()
+        raise StationValidationError(
+            f"Station {index} ({entry.get('station', '?')}): ({lat}, {lon}) is outside the "
+            f"study area lat {box['lat_min']:.2f}..{box['lat_max']:.2f}, "
+            f"lon {box['lon_min']:.2f}..{box['lon_max']:.2f} (lib/constants.py)"
+        )
+
     # Instrument block: detection needs a velocity sensor with a sensitivity
     try:
         velocity_sensor(entry)
