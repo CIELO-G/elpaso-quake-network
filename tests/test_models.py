@@ -30,6 +30,7 @@ class TestStation:
             "longitude": -106.46,
             "elevation_m": 1196.0,
             "start_date": "2025-01-01",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
         }
         s = Station.from_dict(d)
         assert s.network == "AM"
@@ -45,6 +46,7 @@ class TestStation:
             "longitude": -106.51,
             "elevation_m": 1162.5,
             "start_date": "2025-01-01",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
             "location": "",
             "channels": "HH?",
             "model": "broadband",
@@ -99,6 +101,7 @@ class TestValidateStation:
             "longitude": -106.46,
             "elevation_m": 1196.0,
             "start_date": "2025-01-01",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
             "channels": "EH?",
         }
         warnings = validate_station(entry, 0)
@@ -116,6 +119,7 @@ class TestValidateStation:
             "longitude": -106.0,
             "elevation_m": 1000.0,
             "start_date": "2025-01-01",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
         }
         with pytest.raises(StationValidationError, match="latitude"):
             validate_station(entry, 0)
@@ -128,6 +132,7 @@ class TestValidateStation:
             "longitude": -200.0,
             "elevation_m": 1000.0,
             "start_date": "2025-01-01",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
         }
         with pytest.raises(StationValidationError, match="longitude"):
             validate_station(entry, 0)
@@ -140,6 +145,7 @@ class TestValidateStation:
             "longitude": -106.0,
             "elevation_m": -600.0,
             "start_date": "2025-01-01",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
         }
         warnings = validate_station(entry, 0)
         assert any("elevation" in w for w in warnings)
@@ -152,10 +158,11 @@ class TestValidateStation:
             "longitude": -106.0,
             "elevation_m": 1000.0,
             "start_date": "2025-01-01",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
             "channels": "XYZ",
         }
-        warnings = validate_station(entry, 0)
-        assert any("channel" in w for w in warnings)
+        with pytest.raises(StationValidationError, match="channel layout"):
+            validate_station(entry, 0)
 
 
 class TestValidateStations:
@@ -178,6 +185,7 @@ class TestValidateStations:
                 "longitude": -106.46,
                 "elevation_m": 1196.0,
                 "start_date": "2025-01-01",
+                "instrument": {"geophone": {"sensitivity": 3.9965e8}},
             },
         ]
         warnings = validate_stations(stations)

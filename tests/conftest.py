@@ -34,6 +34,7 @@ def sample_stations_json(tmp_path) -> Path:
             "elevation_m": 1196.0,
             "sample_rate_hz": 100.0,
             "start_date": "2025-10-26",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
             "model": "RS3D",
         },
         {
@@ -46,6 +47,7 @@ def sample_stations_json(tmp_path) -> Path:
             "elevation_m": 1258.0,
             "sample_rate_hz": 100.0,
             "start_date": "2025-05-01",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
             "model": "RS3D",
         },
         {
@@ -59,6 +61,7 @@ def sample_stations_json(tmp_path) -> Path:
             "elevation_m": 1162.5,
             "sample_rate_hz": 100.0,
             "start_date": "2009-10-08",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}},
             "model": "broadband",
         },
     ]

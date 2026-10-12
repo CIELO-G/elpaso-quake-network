@@ -9,7 +9,7 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Phase 2 in this order: B2 (rest), B5, B3, B1, B6, B4, B7, B8, B9.
+- **Next step:** Phase 2 in this order: B5, B3, B1, B6, B4, B7, B8, B9 (B2 done).
 
 ## Phase 1 checklist
 
@@ -130,3 +130,8 @@
   2026-10-02 whose content was already inside the baseline snapshot; joined with
   `merge -s ours`, rebased the 13 Phase 1 commits on top, 282 tests, pushed `main`.
   PhaseNO checkpoint stays gitignored (on disk + RAID backup).
+- 2026-10-12: **B2 done** on `phase2-stations`. A station entry is now validated when loaded:
+  dates, `instrument` (a geophone/seismometer with positive sensitivity) and a derivable
+  channel layout, each error naming the station. `build_phasenet_stations` and the
+  orchestrator use the shared helpers instead of hard-coded `instrument["geophone"]`
+  lookups; output for the 14 real stations is unchanged (test). 286 tests.

@@ -208,9 +208,11 @@ def test_scan_gaps_ignores_retired_station_after_end_date(out):
 def test_load_station_expectations_reads_end_date(monkeypatch, tmp_path):
     import json
     f = tmp_path / "stations.json"
+    base = {"latitude": 31.8, "longitude": -106.4, "elevation_m": 1200.0, "channels": "EH?",
+            "instrument": {"geophone": {"sensitivity": 3.9965e8}}}
     f.write_text(json.dumps([
-        {"network": "AM", "station": "A", "start_date": "2025-01-01"},
-        {"network": "AM", "station": "B", "start_date": "2025-01-01", "end_date": "2026-02-23"},
+        {"network": "AM", "station": "A", "start_date": "2025-01-01", **base},
+        {"network": "AM", "station": "B", "start_date": "2025-01-01", "end_date": "2026-02-23", **base},
     ]))
     monkeypatch.setattr(rp, "STATIONS_FILE", f)
     exp = rp._load_station_expectations()

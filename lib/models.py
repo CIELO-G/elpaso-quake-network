@@ -144,6 +144,13 @@ def validate_station(entry: dict[str, Any], index: int) -> list[str]:
             f"Station {index} ({entry.get('station', '?')}): unusual channel pattern '{channels}'"
         )
 
+    # Instrument block: detection needs a velocity sensor with a sensitivity
+    try:
+        velocity_sensor(entry)
+        channel_layout(entry)
+    except StationValidationError as exc:
+        raise StationValidationError(f"Station {index}: {exc}") from None
+
     # Dates: start_date is required by the orchestrator; end_date marks retirement
     name = entry.get("station", "?")
     start = _parse_iso_date(entry.get("start_date"), f"Station {index} ({name}): start_date")
@@ -166,6 +173,68 @@ def _parse_iso_date(value: Any, what: str) -> date | None:
         return date.fromisoformat(str(value))
     except ValueError as exc:
         raise StationValidationError(f"{what} must be YYYY-MM-DD, got {value!r}") from exc
+
+
+# Sensor kinds that record ground velocity, in preference order. PhaseNet
+# and ML both want velocity, so an RS4D's accelerometer is never chosen.
+VELOCITY_SENSOR_KINDS = ("geophone", "seismometer", "broadband")
+
+
+def velocity_sensor(entry: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Return ``(kind, spec)`` for the station's velocity sensor.
+
+    ``spec`` always has a positive numeric ``sensitivity`` (counts per m/s).
+    Raises StationValidationError with the station name when the entry has no
+    usable instrument block, so a mistyped new station fails at load time
+    instead of as a KeyError in the middle of detection (review item B2).
+    """
+    name = entry.get("station", "?")
+    inst = entry.get("instrument")
+    if not isinstance(inst, dict) or not inst:
+        raise StationValidationError(f"({name}): 'instrument' must be a non-empty object")
+    kind = next((k for k in VELOCITY_SENSOR_KINDS if k in inst), None)
+    if kind is None:
+        raise StationValidationError(
+            f"({name}): instrument has no velocity sensor; expected one of "
+            f"{', '.join(VELOCITY_SENSOR_KINDS)}, got {', '.join(inst)}"
+        )
+    spec = inst[kind]
+    sens = spec.get("sensitivity") if isinstance(spec, dict) else None
+    if not isinstance(sens, (int, float)) or isinstance(sens, bool) or sens <= 0:
+        raise StationValidationError(
+            f"({name}): instrument.{kind}.sensitivity must be a positive number, got {sens!r}"
+        )
+    return kind, spec
+
+
+def channel_layout(entry: dict[str, Any]) -> tuple[str, list[str]]:
+    """Return ``(band_prefix, components)`` for the channels detection reads.
+
+    Derived from the station's ``channels`` pattern and model so a new
+    station type (e.g. RS1D, vertical only) cannot silently be treated as
+    three-component:
+
+    * ``HH?``            -> ("HH", [E, N, Z])   broadband
+    * ``EH?``            -> ("EH", [E, N, Z])   RS3D
+    * ``EHZ`` / RS1D     -> ("EH", [Z])
+    * ``E??`` / RS4D     -> ("EH", [Z])         geophone only; EN? accelerometer ignored
+    """
+    name = entry.get("station", "?")
+    chans = str(entry.get("channels", "") or "EHZ")  # Station dataclass default
+    model = str(entry.get("model", "") or "").upper()
+    if chans == "HH?":
+        return "HH", ["E", "N", "Z"]
+    if chans == "EH?":
+        return "EH", ["E", "N", "Z"]
+    if chans == "EHZ" or model == "RS1D":
+        return "EH", ["Z"]
+    if chans == "E??" or model == "RS4D":
+        return "EH", ["Z"]
+    if chans.startswith("EH"):
+        return "EH", ["E", "N", "Z"]
+    raise StationValidationError(
+        f"({name}): cannot derive channel layout from channels={chans!r} model={model!r}"
+    )
 
 
 def station_active_on(entry: dict[str, Any], day: date) -> bool:

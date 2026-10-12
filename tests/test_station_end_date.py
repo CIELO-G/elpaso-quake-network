@@ -18,7 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _entry(**kw):
     base = {"network": "AM", "station": "X", "latitude": 31.8, "longitude": -106.4,
-            "elevation_m": 1200.0, "start_date": "2025-01-01"}
+            "elevation_m": 1200.0, "start_date": "2025-01-01",
+            "channels": "EH?", "instrument": {"geophone": {"sensitivity": 3.9965e8}}}
     base.update(kw)
     return base
 
@@ -76,3 +77,55 @@ def test_ingest_skips_retired_station_window(monkeypatch):
         UTCDateTime("2026-10-06"), UTCDateTime("2026-10-07"), cfg, logging.getLogger("t"),
     )
     assert counts["success"] == 0 and called["meta"] == 0
+
+
+# ── B2: instrument / channel layout validated at load time ─────────────────
+
+from lib.models import channel_layout, velocity_sensor  # noqa: E402
+
+
+def test_velocity_sensor_prefers_geophone_over_accelerometer():
+    e = _entry(model="RS4D", channels="E??", instrument={
+        "accelerometer": {"sensitivity": 384500.0},
+        "geophone": {"sensitivity": 399650000.0},
+    })
+    kind, spec = velocity_sensor(e)
+    assert kind == "geophone" and spec["sensitivity"] == 399650000.0
+    assert channel_layout(e) == ("EH", ["Z"])
+
+
+def test_missing_instrument_fails_at_load_with_station_name():
+    with pytest.raises(StationValidationError, match=r"\(X\).*instrument"):
+        validate_stations([_entry(instrument={})])
+    with pytest.raises(StationValidationError, match="no velocity sensor"):
+        validate_stations([_entry(instrument={"accelerometer": {"sensitivity": 1.0}})])
+    with pytest.raises(StationValidationError, match="sensitivity must be a positive number"):
+        validate_stations([_entry(instrument={"geophone": {"sensitivity": "big"}})])
+
+
+def test_channel_layouts():
+    assert channel_layout(_entry(channels="HH?", instrument={"seismometer": {"sensitivity": 1.0}})) == ("HH", ["E", "N", "Z"])
+    assert channel_layout(_entry(channels="EH?")) == ("EH", ["E", "N", "Z"])
+    assert channel_layout(_entry(channels="EHZ", model="RS1D")) == ("EH", ["Z"])
+    with pytest.raises(StationValidationError, match="channel layout"):
+        channel_layout(_entry(channels="XYZ"))
+
+
+def test_real_stations_build_phasenet_dict_unchanged():
+    """Same PhaseNet station dict the old hard-coded branches produced."""
+    import json
+    spec = importlib.util.spec_from_file_location("detect_stage_b2", ROOT / "3-detection/detect.py")
+    mod = importlib.util.module_from_spec(spec); sys.modules["detect_stage_b2"] = mod
+    spec.loader.exec_module(mod)
+    stations = json.loads((ROOT / "stations.json").read_text())
+    pn = mod.build_phasenet_stations(stations)
+    assert len(pn) == 14
+    for s in stations:
+        key = f"{s['network']}.{s['station']}.{s.get('location','00')}." + ("HH" if s["channels"] == "HH?" else "EH")
+        comp = pn[key]["component"]
+        if s["model"] == "RS4D":
+            assert comp == ["Z"] and pn[key]["response"] == [s["instrument"]["geophone"]["sensitivity"]]
+        elif s["channels"] == "HH?":
+            assert comp == ["E", "N", "Z"] and pn[key]["response"] == [s["instrument"]["seismometer"]["sensitivity"]] * 3
+        else:
+            assert comp == ["E", "N", "Z"] and pn[key]["response"] == [s["instrument"]["geophone"]["sensitivity"]] * 3

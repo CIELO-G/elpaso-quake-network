@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))  # allow `from lib.constants import ...`
 
 from lib.monitoring import notify, send_email, stations_without_data  # noqa: E402
+from lib.config import load_stations
 from lib.pipeline_state import PipelineState, load_state, save_state  # noqa: E402
 from lib.constants import (  # noqa: E402  (path setup above)
     CONTINUOUS_LAG_HOURS,
@@ -188,8 +189,7 @@ def _load_station_expectations() -> list[tuple[str, str, date, date | None]]:
     ``end_date`` is None for an active station; a retired one is only
     expected through its end_date (inclusive).
     """
-    with open(STATIONS_FILE) as f:
-        stations = json.load(f)
+    stations = load_stations(STATIONS_FILE)  # validated: dates, instrument, channels
     out = []
     for s in stations:
         end = s.get("end_date") or None

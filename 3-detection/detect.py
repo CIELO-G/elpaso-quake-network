@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.atomic_io import atomic_write_rows
 from lib.config import load_config, load_stations
 from lib.logger import MetricsWriter, setup_logging
+from lib.models import channel_layout, velocity_sensor
 from lib.pipeline_stage import iter_days, resolve_time_window
 from lib.waveform_qc import mask_impossible_samples
 
@@ -108,30 +109,11 @@ def build_phasenet_stations(stations: list[dict]) -> dict:
         net = s["network"]
         sta = s["station"]
         loc = s.get("location", "00")
-        model = s.get("model", "")
-
-        if model == "RS4D":
-            # RS4D: geophone EHZ only (1 component)
-            chan_prefix = "EH"
-            components = ["Z"]
-            geo = s["instrument"]["geophone"]
-            sensitivity = geo["sensitivity"]
-            response = [sensitivity]
-        elif s.get("channels") == "HH?":
-            # Broadband (e.g. EP.KIDD)
-            chan_prefix = "HH"
-            components = ["E", "N", "Z"]
-            inst = s["instrument"]
-            key = next(iter(inst))
-            sensitivity = inst[key]["sensitivity"]
-            response = [sensitivity] * 3
-        else:
-            # RS3D: 3-component geophone
-            chan_prefix = "EH"
-            components = ["E", "N", "Z"]
-            geo = s["instrument"]["geophone"]
-            sensitivity = geo["sensitivity"]
-            response = [sensitivity] * 3
+        # Both helpers raise StationValidationError naming the station; the
+        # same checks run at load time, so this only trips on a stale list.
+        _kind, sensor = velocity_sensor(s)
+        chan_prefix, components = channel_layout(s)
+        response = [sensor["sensitivity"]] * len(components)
 
         station_id = f"{net}.{sta}.{loc}.{chan_prefix}"
         pn_stations[station_id] = {
