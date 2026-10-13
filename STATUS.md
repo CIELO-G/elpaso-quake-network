@@ -9,12 +9,17 @@
 - **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
   only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step:** Marc reviews the 31 ElPaso2021 campaign events in the dashboard (2021-06-05..14; 15 passed triage
-  on the >=5-station rule, 16 auto-rejected; none is in USGS/TexNet — most sit at depth 0 and may be quarry blasts;
-  magnitudes come from the Shake-tuned ML and are unverified for nodes). Then Phase 3 design (hourly rolling pass,
-  time-based event IDs; see log 2026-10-12 "latency"). Waiting on Marc: RADA1 site check (re-run Sep 26–Oct 2 after),
-  the 10 new stations' details (then `scripts/add_station.py`). Watch `logs/ingest.log` for "too many requests"
-  after the 3 s delay change; revert `station_delay_seconds` to 5 if it appears.
+- **Next step (paused 2026-10-13, Marc on other work):** nothing is pending on the machine; the
+  daily run is healthy (2026-10-12 completed with the 49 retired nodes skipped). Open items, in order:
+  1. ElPaso2021 campaign is a *first pass* (Shake-tuned PhaseNet/GaMMA on 49 urban nodes: 3–4k picks/day,
+     ~3 events/day). Option offered: a dedicated `4-association` config for the dense array (min picks,
+     clustering radius, velocity model) + re-run of 2021-06-05..06-16 — do it before anyone reviews the
+     2021 events (day-indexed IDs renumber on re-run). Magnitudes unverified for nodes; E component
+     missing 06-06 07:00 → 06-07 07:00 UTC.
+  2. RADA1 site fix (~2 weeks out): then re-run Sep 26–Oct 2 2026.
+  3. The 10 new stations (~2 weeks out): `scripts/add_station.py add ...`, then `--gap-fill --archive-only`.
+  4. Phase 3: hourly rolling pass + time-based event IDs (see log 2026-10-12 "latency").
+  Keep watching `logs/ingest.log` for "too many requests" (revert `station_delay_seconds` to 5 if seen).
 ## Phase 1 checklist
 
 - [x] A1 review record: cross-process lock shared by catalog step and dashboard; every dashboard save appended to `reviews.jsonl`; backfill sidecar from current catalog.
