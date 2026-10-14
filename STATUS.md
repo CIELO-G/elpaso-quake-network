@@ -222,3 +222,11 @@
   any trace and every XML's reported vs computed sensitivity agrees — noted, harmless. Dashboard:
   waveform lookup now finds GPZ/GP1/GP2 for an EHZ/EHN/EHE request and the all-station view only
   lists stations active that day. App restarted (dashboard code). 320 tests.
+- 2026-10-14: **Dashboard front end.** Auto-rejected events (triage verdict, not yet human-reviewed)
+  are hidden on the monitor map by default; an "Auto-rejected" layer toggle shows them as hollow dashed
+  rings, and they no longer raise a "New event" toast (catalog unchanged: Status filter still lists
+  them). Button cleanup: one `.seg` segmented-control style shared by the date presets, basemap
+  picker, map layer toggles, pick mode and undo/redo; map toggles use the `.active` class instead of
+  inline styles; Export CSV / QuakeML collapsed into one Export dropdown (same IDs, File menu still
+  works); catalog pagination uses `.btn-sm`; review header has coloured Confirm/Reject outlines and
+  a × close at the far right. Static files only — no app restart needed (served from disk).

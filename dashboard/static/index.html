@@ -119,8 +119,13 @@
 
   <div class="filter-spacer"></div>
 
-  <button class="btn-sm" id="export-csv">Export CSV</button>
-  <button class="btn-sm" id="export-quakeml">Export QuakeML</button>
+  <div class="pipeline-dropdown" id="export-dropdown">
+    <button class="btn-sm" id="btn-export" aria-haspopup="menu">Export &#9662;</button>
+    <div class="dropdown-menu" id="export-menu" role="menu">
+      <button class="dropdown-item" id="export-csv">Catalog as CSV&hellip;</button>
+      <button class="dropdown-item" id="export-quakeml">Catalog as QuakeML&hellip;</button>
+    </div>
+  </div>
 </div>
 
 <div class="tab-bar">
@@ -145,17 +150,23 @@
       <div class="mz-divider"></div>
       <button class="mz-btn mz-fit" id="mz-fit" title="Reset view">&#x29BE;</button>
     </div>
-    <div class="map-style-control" id="map-style-control">
-      <button class="map-style-btn active" data-style="dark">Dark</button>
-      <button class="map-style-btn" data-style="light">Light</button>
-      <button class="map-style-btn" data-style="satellite">Satellite</button>
-      <button class="map-style-btn" data-style="osm">Roads</button>
-    </div>
-    <div style="position:absolute;bottom:10px;left:280px;z-index:1000">
-      <button class="map-toggle-btn" id="toggle-faults" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4)">Faults</button>
-      <button class="map-toggle-btn" id="toggle-quarries" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4);margin-left:.35rem">Quarries</button>
-      <button class="map-toggle-btn" id="toggle-study-area" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4);margin-left:.35rem">Study Area</button>
-      <button class="map-toggle-btn" id="toggle-retired" hidden title="Show stations that are no longer deployed (temporary deployments, retired Shakes)" style="border-radius:.35rem;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.4);margin-left:.35rem">Retired</button>
+    <!-- Bottom-left map controls: basemap picker + layer toggles. Both are
+         segmented groups (.seg) so they read as one control strip. Toggle
+         state is the .active class; app.js never writes inline styles here. -->
+    <div class="map-bottom-controls">
+      <div class="seg map-style-control" id="map-style-control" role="group" aria-label="Basemap">
+        <button class="seg-btn map-style-btn active" data-style="dark">Dark</button>
+        <button class="seg-btn map-style-btn" data-style="light">Light</button>
+        <button class="seg-btn map-style-btn" data-style="satellite">Satellite</button>
+        <button class="seg-btn map-style-btn" data-style="osm">Roads</button>
+      </div>
+      <div class="seg map-layer-control" id="map-layer-control" role="group" aria-label="Layers">
+        <button class="seg-btn map-toggle-btn" id="toggle-faults" title="USGS Quaternary faults">Faults</button>
+        <button class="seg-btn map-toggle-btn" id="toggle-quarries" title="MSHA + OSM quarries">Quarries</button>
+        <button class="seg-btn map-toggle-btn" id="toggle-study-area" title="Association / location grid bounds">Study area</button>
+        <button class="seg-btn map-toggle-btn" id="toggle-auto-rejected" title="Show events the triage step auto-rejected (hidden by default)">Auto-rejected</button>
+        <button class="seg-btn map-toggle-btn" id="toggle-retired" hidden title="Show stations that are no longer deployed (temporary deployments, retired Shakes)">Retired</button>
+      </div>
     </div>
     <div class="map-legend" id="map-legend">
       <div class="ml-title">Events</div>
@@ -168,13 +179,14 @@
         Quarry blast
       </div>
       <div class="ml-row"><span class="ml-dot" style="background:#94a3b8;border-color:#334155"></span>Unreviewed</div>
+      <div class="ml-row" id="ml-auto-rejected" hidden><span class="ml-dot ml-dot-hollow"></span>Auto-rejected</div>
       <div class="ml-row ml-size-row">
         <span class="ml-size-dot" style="width:6px;height:6px"></span>
         <span class="ml-size-dot" style="width:10px;height:10px"></span>
         <span class="ml-size-dot" style="width:14px;height:14px"></span>
         <span class="ml-size-label">M0 · M2 · M4</span>
       </div>
-      <div class="ml-note">Noise &amp; rejected events hidden</div>
+      <div class="ml-note" id="ml-hidden-note">Noise, rejected &amp; auto-rejected hidden</div>
 
       <div class="ml-title ml-title-stations">Stations</div>
       <div class="ml-row"><span class="ml-tri" style="--tri-fill:#10b981"></span>Online</div>
@@ -325,10 +337,10 @@
     <input type="number" id="cat-min-picks" step="1" placeholder="0" />
     <button class="btn-sm btn-primary" id="cat-filter-apply">Filter</button>
     <button class="btn-sm" id="cat-filter-clear">Clear</button>
-    <button class="btn-sm btn-primary" id="cat-review-next" style="margin-left:.75rem" hidden>
+    <button class="btn-sm btn-primary cat-review-next" id="cat-review-next" hidden>
       Review next <span id="cat-queue-count"></span> &#9656;
     </button>
-    <span style="margin-left:auto;font-size:.65rem;color:var(--muted)" id="cat-summary"></span>
+    <span class="cat-summary" id="cat-summary"></span>
   </div>
   <div class="catalog-table-wrap">
     <table class="catalog-table">
@@ -337,9 +349,9 @@
     </table>
   </div>
   <div class="catalog-pagination">
-    <button id="cat-prev">Previous</button>
+    <button class="btn-sm" id="cat-prev">&#8249; Previous</button>
     <span id="cat-page-info">Page 1 of 1</span>
-    <button id="cat-next">Next</button>
+    <button class="btn-sm" id="cat-next">Next &#8250;</button>
   </div>
 </div>
 
@@ -456,15 +468,15 @@
       <option value="quarry_blast">Quarry Blast</option>
       <option value="noise">Noise</option>
     </select>
-    <button class="btn-sm icon-btn" id="rv-confirm" style="color:var(--green)" title="Confirm (c)">
+    <button class="btn-sm icon-btn btn-confirm" id="rv-confirm" title="Confirm (c)">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       Confirm
     </button>
-    <button class="btn-sm icon-btn" id="rv-reject" style="color:var(--red)" title="Reject (x)">
+    <button class="btn-sm icon-btn btn-reject" id="rv-reject" title="Reject (x)">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       Reject
     </button>
-    <button class="btn-sm" id="rv-close">&times; Close</button>
+    <button class="btn-sm btn-icon rv-close" id="rv-close" title="Close (Esc)" aria-label="Close review">&times;</button>
   </div>
   <div class="review-controls">
     <label>Channel</label>
@@ -484,14 +496,18 @@
     <input type="number" id="rv-fmax" placeholder="Hz" min="1" max="50" step="1" />
     <button class="btn-sm btn-primary" id="rv-reload">Reload</button>
     <label style="margin-left:.5rem;font-size:.7rem;cursor:pointer"><input type="checkbox" id="rv-spectrogram"> Spectrogram</label>
-    <span style="margin-left:.5rem;color:var(--muted);font-size:.62rem">PICK MODE:</span>
-    <button class="pick-mode-btn active" data-mode="addP">Add P</button>
-    <button class="pick-mode-btn" data-mode="addS">Add S</button>
-    <button class="pick-mode-btn" data-mode="delete">Delete</button>
-    <button class="pick-mode-btn" data-mode="drag">Drag</button>
-    <button class="btn-sm" id="rv-undo" disabled title="Undo (Ctrl+Z)">Undo</button>
-    <button class="btn-sm" id="rv-redo" disabled title="Redo (Ctrl+Y)">Redo</button>
-    <span style="margin-left:.3rem;color:var(--muted);font-size:.55rem;opacity:.7">P S D G R ^Z ^Y c x n Esc</span>
+    <label class="rv-group-label">Pick mode</label>
+    <div class="seg" role="group" aria-label="Pick mode">
+      <button class="seg-btn pick-mode-btn active" data-mode="addP" title="Add P pick (P)">Add P</button>
+      <button class="seg-btn pick-mode-btn" data-mode="addS" title="Add S pick (S)">Add S</button>
+      <button class="seg-btn pick-mode-btn" data-mode="delete" title="Delete pick (D)">Delete</button>
+      <button class="seg-btn pick-mode-btn" data-mode="drag" title="Drag pick (G)">Drag</button>
+    </div>
+    <div class="seg" role="group" aria-label="History">
+      <button class="seg-btn" id="rv-undo" disabled title="Undo (Ctrl+Z)">&#8630; Undo</button>
+      <button class="seg-btn" id="rv-redo" disabled title="Redo (Ctrl+Y)">&#8631; Redo</button>
+    </div>
+    <span class="rv-key-hint" title="Keyboard shortcuts (see Help)">P S D G R &middot; ^Z ^Y &middot; c x n Esc</span>
   </div>
   <div class="review-body-wrapper">
     <div class="review-body" id="rv-body">

@@ -384,12 +384,11 @@ document.getElementById('toggle-study-area').addEventListener('click', function(
   if (studyAreaVisible) {
     map.removeLayer(studyAreaRect);
     studyAreaVisible = false;
-    btn.style.background = '';
   } else {
     studyAreaRect.addTo(map);
     studyAreaVisible = true;
-    btn.style.background = 'var(--blue)';
   }
+  btn.classList.toggle('active', studyAreaVisible);
 });
 
 // ── Fault layer (USGS Quaternary Faults, served locally) ────────
@@ -774,9 +773,10 @@ function renderStations(stations) {
     btn.hidden = nRetired === 0;
     btn.textContent = 'Retired (' + nRetired + ')';
     btn.addEventListener('click', function() {
-      if (retiredVisible) { map.removeLayer(retiredLayer); btn.style.background = ''; }
-      else { retiredLayer.addTo(map); btn.style.background = 'var(--blue)'; }
+      if (retiredVisible) map.removeLayer(retiredLayer);
+      else retiredLayer.addTo(map);
       retiredVisible = !retiredVisible;
+      btn.classList.toggle('active', retiredVisible);
     });
   }
 }
@@ -908,6 +908,12 @@ function _eventIconSVG(type, sizePx, fill, stroke) {
       '</g>' +
       '<circle cx="10" cy="10" r="3.6" fill="' + fill +
         '" stroke="' + stroke + '" stroke-width="1"/>';
+  } else if (type === 'auto_reject') {
+    // Auto-rejected (only when that layer is on) — hollow dashed ring so it
+    // can't be mistaken for an unreviewed candidate
+    inner =
+      '<circle cx="10" cy="10" r="6" fill="none" stroke="' + stroke +
+        '" stroke-width="1.4" stroke-dasharray="2.2 1.6"/>';
   } else {
     // Unreviewed / default — simple disc
     inner =
@@ -920,12 +926,19 @@ function _eventIconSVG(type, sizePx, fill, stroke) {
     inner + '</svg>';
 }
 
+function _isAutoRejected(e) {
+  // Triage verdict that no human has overridden yet.
+  return !e.review_status && e.triage === 'auto_reject';
+}
+
 function _eventIcon(e) {
   var style = eventMapStyle(e);
-  // Pick shape: confirmed earthquake / quarry_blast / everything else = unreviewed
+  // Pick shape: confirmed earthquake / quarry_blast / auto-rejected / unreviewed
   var type;
   if (e.review_status === 'confirmed') {
     type = (e.event_type === 'quarry_blast') ? 'quarry_blast' : 'earthquake';
+  } else if (_isAutoRejected(e)) {
+    type = 'auto_reject';
   } else {
     type = 'unreviewed';
   }
@@ -941,13 +954,28 @@ function _eventIcon(e) {
   });
 }
 
+// Auto-rejected events (triage verdict, not yet human-reviewed) clutter the
+// map, so they stay off unless the "Auto-rejected" layer toggle is on.
+var showAutoRejected = false;
+
 function shouldRenderEventOnMap(e) {
   // Hide rejected events entirely. Hide confirmed noise (not an arrival
   // worth showing on a geographic map).
   if (e.review_status === 'rejected') return false;
   if (e.review_status === 'confirmed' && e.event_type === 'noise') return false;
+  if (_isAutoRejected(e) && !showAutoRejected) return false;
   return true;
 }
+
+document.getElementById('toggle-auto-rejected').addEventListener('click', function() {
+  showAutoRejected = !showAutoRejected;
+  this.classList.toggle('active', showAutoRejected);
+  document.getElementById('ml-auto-rejected').hidden = !showAutoRejected;
+  document.getElementById('ml-hidden-note').textContent = showAutoRejected
+    ? 'Noise & rejected events hidden'
+    : 'Noise, rejected & auto-rejected hidden';
+  renderEvents(allEvents || []);
+});
 
 // ── New-event notifications ─────────────────────────────────────
 // Toast when the catalog grows while the app is open. The known-ID set
@@ -963,6 +991,7 @@ function _notifyNewEvents(events) {
   events.forEach(function(e) {
     if (_knownEventIds.has(e.event_id)) return;
     _knownEventIds.add(e.event_id);
+    if (_isAutoRejected(e)) return;   // triage already dismissed it; catalog still lists it
     _showToast(e);
   });
 }
@@ -4058,6 +4087,15 @@ document.getElementById('btn-start-pipeline').addEventListener('click', function
 });
 document.addEventListener('click', function() {
   document.getElementById('start-menu').classList.remove('open');
+  document.getElementById('export-menu').classList.remove('open');
+});
+
+// Export dropdown (filter bar). The CSV / QuakeML items keep their IDs, so
+// the File menu actions and the existing click handlers are unchanged.
+document.getElementById('btn-export').addEventListener('click', function(e) {
+  e.stopPropagation();
+  document.getElementById('start-menu').classList.remove('open');
+  document.getElementById('export-menu').classList.toggle('open');
 });
 
 // Start continuous

@@ -499,14 +499,20 @@
     font-size: var(--text-sm);
   }
 
-  /* Segmented-button preset row */
+  /* ============================================================
+     Segmented controls — one look for every button group:
+     date presets, basemap picker, map layer toggles, pick mode,
+     undo/redo. Active = accent fill; hover = border tint.
+     ============================================================ */
+  .seg,
   .filter-presets {
     display: inline-flex;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     overflow: hidden;
-    background: var(--bg);
+    background: var(--surface);
   }
+  .seg-btn,
   .filter-preset {
     background: transparent;
     border: none;
@@ -514,17 +520,26 @@
     color: var(--muted);
     font: inherit;
     font-size: var(--text-xs);
+    line-height: 1.2;
     padding: var(--space-1) var(--space-3);
     cursor: pointer;
     transition: background .1s ease, color .1s ease;
     white-space: nowrap;
   }
+  .seg-btn:last-child,
   .filter-preset:last-child { border-right: none; }
+  .seg-btn[hidden] { display: none; }
+  .seg-btn:hover:not(:disabled),
   .filter-preset:hover { background: var(--border); color: var(--text); }
+  .seg-btn.active,
   .filter-preset.active {
     background: var(--accent);
+    border-color: var(--accent);
     color: #fff;
   }
+  .seg-btn:disabled { opacity: .4; cursor: default; }
+  .seg-btn:focus-visible,
+  .filter-preset:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   /* Custom-range inline editor */
   .filter-custom {
@@ -585,9 +600,17 @@
     cursor: pointer;
     transition: background .15s;
   }
-  .btn-sm:hover { background: var(--border); }
+  .btn-sm:hover:not(:disabled) { background: var(--border); }
+  .btn-sm:disabled { opacity: .4; cursor: default; }
   .btn-sm.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn-sm.btn-primary:hover { background: var(--accent-hover); }
+  .btn-sm.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  /* Review verdicts: colour carries the meaning, the icon repeats it. */
+  .btn-sm.btn-confirm { color: var(--green); border-color: var(--green); }
+  .btn-sm.btn-confirm:hover:not(:disabled) { background: var(--green); color: #fff; }
+  .btn-sm.btn-reject { color: var(--red); border-color: var(--red); }
+  .btn-sm.btn-reject:hover:not(:disabled) { background: var(--red); color: #fff; }
+  /* Icon-only (close ×): square, no text padding */
+  .btn-sm.btn-icon { padding: .1rem .45rem; font-size: .95rem; line-height: 1; }
 
   /* main layout */
   .main {
@@ -936,6 +959,7 @@
     margin-bottom: .25rem;
     font-size: .58rem;
   }
+  .map-legend .ml-row[hidden] { display: none; }
   .map-legend .ml-row {
     display: flex;
     align-items: center;
@@ -951,6 +975,10 @@
     flex-shrink: 0;
   }
   /* Magnitude size scale (matches _eventRadius() in app.js) */
+  .map-legend .ml-dot-hollow {
+    background: transparent !important;
+    border: 1.5px dashed #64748b !important;
+  }
   .map-legend .ml-size-row {
     margin-top: .35rem;
     padding-top: .25rem;
@@ -1100,38 +1128,20 @@
     accent-color: var(--blue);
   }
 
-  /* map style switcher */
-  .map-style-control {
+  /* Bottom-left map strip: basemap picker + layer toggles, two .seg groups */
+  .map-bottom-controls {
     position: absolute;
     bottom: 10px;
     left: 10px;
     z-index: 1000;
     display: flex;
-    gap: 0;
-    border-radius: .35rem;
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
+    gap: var(--space-2);
+    align-items: center;
+    max-width: calc(100% - 20px);
+    flex-wrap: wrap;
   }
-  .map-style-btn {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-right: none;
-    color: var(--muted);
-    padding: .2rem .5rem;
-    font-size: .6rem;
-    font-family: inherit;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .map-style-btn:last-child { border-right: 1px solid var(--border); }
-  .map-style-btn:hover { color: var(--text); background: var(--border); }
-  .map-style-btn.active { color: var(--text); background: var(--blue); border-color: var(--blue); }
-  .map-toggle-btn {
-    background: var(--surface); border: 1px solid var(--border); color: var(--muted);
-    padding: .2rem .5rem; font-size: .6rem; font-family: inherit; cursor: pointer; white-space: nowrap;
-  }
-  .map-toggle-btn:hover { color: var(--text); background: var(--border); }
-  .map-toggle-btn.active { color: var(--text); background: var(--blue); border-color: var(--blue); }
+  .map-bottom-controls .seg { box-shadow: var(--shadow-md); }
+  .map-bottom-controls .seg-btn { font-size: var(--text-2xs); padding: .22rem .5rem; }
 
   /* tab bar */
   .tab-bar {
@@ -1310,6 +1320,8 @@
     text-transform: uppercase;
     letter-spacing: .04em;
   }
+  .catalog-toolbar .cat-review-next { margin-left: var(--space-2); }
+  .catalog-toolbar .cat-summary { margin-left: auto; font-size: .65rem; color: var(--muted); }
   .catalog-toolbar input, .catalog-toolbar select {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1368,18 +1380,6 @@
     font-size: .7rem;
     color: var(--muted);
   }
-  .catalog-pagination button {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: .35rem;
-    padding: .2rem .6rem;
-    font-size: .68rem;
-    font-family: inherit;
-    cursor: pointer;
-  }
-  .catalog-pagination button:disabled { opacity: .4; cursor: default; }
-  .catalog-pagination button:hover:not(:disabled) { background: var(--border); }
 
   /* review overlay */
   .review-overlay {
@@ -1402,6 +1402,7 @@
     flex-wrap: wrap;
   }
   .review-header h3 { font-size: .85rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .review-header .rv-close { margin-left: var(--space-2); }
   .review-header .review-pick-status { font-size: .68rem; color: var(--muted); }
   .review-header .unsaved-dot {
     width: 8px; height: 8px;
@@ -1426,6 +1427,12 @@
     flex-wrap: wrap;
   }
   .review-controls label { color: var(--muted); font-size: .62rem; text-transform: uppercase; }
+  .review-controls .rv-group-label { margin-left: var(--space-2); }
+  .review-controls .seg-btn { font-size: .65rem; padding: .18rem .5rem; }
+  .review-controls .rv-key-hint {
+    margin-left: auto; color: var(--muted); font-size: .58rem; opacity: .75;
+    font-family: var(--font-mono); white-space: nowrap;
+  }
   .review-controls select, .review-controls input[type="number"] {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -1553,17 +1560,6 @@
   .residual-good { color: var(--green); }
   .residual-warn { color: var(--amber); }
   .residual-bad { color: var(--red); }
-  .pick-mode-btn {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    border-radius: .35rem;
-    padding: .15rem .5rem;
-    font-size: .65rem;
-    font-family: inherit;
-    cursor: pointer;
-  }
-  .pick-mode-btn.active { color: var(--text); border-color: var(--blue); background: rgba(59,130,246,.15); }
   .reviewed-check { color: var(--green); font-weight: 700; }
 
   /* event type dropdown in review header */
