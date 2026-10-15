@@ -476,15 +476,8 @@ def run_monitoring_checks(send_alert_fn=None) -> dict:
     ok, msg = check_recent_events()
     results["recent_events"] = {"ok": ok, "message": msg}
     if not ok:
-        subject = "[El Paso Pipeline] No new events in 48 hours"
-        body = (
-            f"Event detection gap:\n{msg}\n\n"
-            f"This may indicate station outages, FDSNWS issues, or a quiet period."
-        )
-        print(f"  ALERT: {msg}")
-        if send_alert_fn:
-            send_alert_fn(subject, body)
-        send_webhook(subject, body)
+        # Logged, not emailed: days without events are normal for this network.
+        print(f"  NOTE: {msg}")
 
     # Significant events (M >= 4.0)
     significant = check_significant_events()

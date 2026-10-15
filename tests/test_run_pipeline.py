@@ -164,7 +164,7 @@ def test_retry_partial_days_clears_when_clean_and_ages_out(out, monkeypatch, tmp
     # 10-01: improved + clean → complete; 09-30: nothing new → stays, no downstream;
     # 09-29: improved but still short → re-processed, stays; 09-01: aged out
     assert st.days_partial == ["2026-09-29", "2026-09-30"]
-    assert any("remains incomplete" in n for n in notes)
+    assert notes == []  # partial days never email; dark stations do
     scripts_for = lambda d: [s for dd, s in ran if dd == d]
     assert scripts_for("2026-09-30") == ["ingest.py"]
     assert scripts_for("2026-10-01") == ["ingest.py", "process.py", "detect.py", "associate.py", "catalog.py"]

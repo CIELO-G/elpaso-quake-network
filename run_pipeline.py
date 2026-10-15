@@ -627,12 +627,10 @@ def _retry_partial_days(args: argparse.Namespace, status_data: dict, state: Pipe
             print(f"  {day_str}: still partial after {age} days — giving up")
             state.remove_partial(day_str)
             save_state(OUTPUT_DIR, state)
-            _notify(
-                f"[El Paso Pipeline] {day_str} remains incomplete",
-                f"Ingest for {day_str} was still partial {age} days later; no further "
-                f"automatic retries. Run `run_pipeline.py --gap-fill --start {day_str} "
-                f"--end {day_str}` by hand once the station data is available.\n",
-            )
+            # No email: routine for a flaky station; a station that is fully
+            # out is reported once by the dark-station alert instead.
+            print(f"  {day_str} remains incomplete — retry by hand with "
+                  f"`run_pipeline.py --gap-fill --start {day_str} --end {day_str}`")
             continue
         print(f"  Re-ingesting partial day {day_str} (age {age} d) ...")
         status_data["steps"] = _make_step_statuses()
@@ -869,14 +867,10 @@ def continuous_run(args: argparse.Namespace) -> None:
                     state.add_partial(day_str)
                     cont["days_partial"] = list(state.days_partial)
                     save_state(OUTPUT_DIR, state)
-                    _notify(
-                        f"[El Paso Pipeline] {day_str} ingested with gaps",
-                        f"Ingest for {day_str} stored data but some chunks failed or a "
-                        f"station was unreachable. The day was processed with what arrived "
-                        f"and will be re-ingested on later cycles for up to "
-                        f"{PARTIAL_MAX_AGE_DAYS} days.\nPartial days: "
-                        f"{', '.join(state.days_partial)}\n",
-                    )
+                    # No email: the day is retried automatically; only a station
+                    # dark for STATION_DARK_DAYS days is worth an alert.
+                    print(f"  {day_str} ingested with gaps — will retry for up to "
+                          f"{PARTIAL_MAX_AGE_DAYS} days")
 
                 # Refresh the public site (best-effort — a failed export or
                 # push must never affect the pipeline itself).

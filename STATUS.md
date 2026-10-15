@@ -2,23 +2,35 @@
 
 ## RESUME HERE
 
-- **Where:** Mac Studio, `~/Research/Elpaso/elpaso-quake-network`, branch `main` (Phases 1 and 2 merged and pushed 2026-10-12).
-  Pipeline is LIVE (El Paso Monitor.app, continuous mode, runs each day at 02:00 UTC since 2026-10-12).
-  Waveforms on `/Volumes/VelascoRAID1`; see `../MACSTUDIO_INSTALL.md` for the install.
-- **What:** Phase 2 (station readiness, B1–B9) done 2026-10-12 on `phase2-stations`. Phase 1 (A1–A14) done. Next: merge to main, then Phase 3 (hourly rolling pass + time-based event IDs).
-- **Rules:** small commits with tests; no behaviour change for good days; pipeline restart
-  only once at the end of the phase, right after a day finishes. Never run `scripts/prune_raw.py`.
+- **2026-10-15: moving to a different macOS account on the same Mac Studio.** Step-by-step
+  checklist: `../ACCOUNT_MIGRATION.md` (paths, envs, app, launch agent, secrets, Claude notes).
+  State at hand-off: pipeline LIVE under account `magarcia113` (El Paso Monitor.app, continuous,
+  daily 02:00 UTC; restarted 2026-10-15 10:21 MDT with the quieter-alerts code), re-ingesting
+  partial days Oct 7–14 (RADA1 at ~50 % coverage). Only ONE account may run the pipeline:
+  stop it here before starting it in the new account.
+- **Where:** Mac Studio, `~/Research/Elpaso/elpaso-quake-network`, branch `main`.
+  Waveforms on `/Volumes/VelascoRAID1` (`output/1-raw`, `output/2-processed` are symlinks);
+  see `../MACSTUDIO_INSTALL.md` for the original install.
+- **Rules:** small commits with tests; no behaviour change for good days; restart the pipeline
+  only right after a day finishes (or while it is "waiting"). Never run `scripts/prune_raw.py`.
+  `deploy/app/local.env` holds the alert SMTP password — never commit or print it.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
-- **Next step (paused 2026-10-13, Marc on other work):** nothing is pending on the machine; the
-  daily run is healthy (2026-10-12 completed with the 49 retired nodes skipped). Open items, in order:
-  1. ElPaso2021 campaign is a *first pass* (Shake-tuned PhaseNet/GaMMA on 49 urban nodes: 3–4k picks/day,
-     ~3 events/day). Option offered: a dedicated `4-association` config for the dense array (min picks,
-     clustering radius, velocity model) + re-run of 2021-06-05..06-16 — do it before anyone reviews the
-     2021 events (day-indexed IDs renumber on re-run). Magnitudes unverified for nodes; E component
-     missing 06-06 07:00 → 06-07 07:00 UTC.
-  2. RADA1 site fix (~2 weeks out): then re-run Sep 26–Oct 2 2026.
-  3. The 10 new stations (~2 weeks out): `scripts/add_station.py add ...`, then `--gap-fill --archive-only`.
-  4. Phase 3: hourly rolling pass + time-based event IDs (see log 2026-10-12 "latency").
+- **Open items, in order:**
+  1. **PhaseNO as a second detector** (evaluation done, nothing built; `../phaseno-eval/FINDINGS.md`
+     "Round 2"). Plan: (a) regional-quake triage rule first — auto-reject an event 5–90 s after a
+     ComCat M≥2 event >150 km away (catches 10/50 rejected, 0/47 confirmed); (b) PhaseNO step
+     (`phaseno` env, GPU, ~6 min/day) + its own GaMMA run, merged in the catalog step only when no
+     PhaseNet event is within 10 s and ≥3 of its picks match PhaseNet picks within 1 s (windows:
+     45/47 confirmed vs 41; 20 full days: 15/17 vs 12, ~0.85 queue items/day vs 0.70).
+     Config/code sketch at the end of FINDINGS.md Round 2. Awaiting Marc's go-ahead.
+  2. Public site push is rejected: `../elpaso-seismic` is ahead 12 / behind 2 of origin (remote
+     has a redesign PR; local commits are data-only, no file overlap) → `git pull --rebase`, push.
+     Needs `gh auth login` in the new account anyway.
+  3. ElPaso2021 nodal campaign is a first pass — dedicated association config + re-run of
+     2021-06-05..06-16 before anyone reviews those events.
+  4. RADA1 site fix (~2 weeks out): then re-run Sep 26–Oct 2 2026.
+  5. The 10 new stations (~2 weeks out): `scripts/add_station.py add ...`, then `--gap-fill --archive-only`.
+  6. Phase 3: hourly rolling pass + time-based event IDs (see log 2026-10-12 "latency").
   Keep watching `logs/ingest.log` for "too many requests" (revert `station_delay_seconds` to 5 if seen).
 ## Phase 1 checklist
 
@@ -238,3 +250,18 @@
   wide-event triage rule. PhaseNO recovers more human-added picks (P 41/48 vs 35/48) and
   runs ~7 min/day on the M2 Ultra GPU. Open idea: tag events that follow a USGS/TexNet
   Delaware Basin quake by 15–60 s (12 of 50 rejected events are these).
+- 2026-10-15: **Fewer alert emails.** Every day since Oct 7 is "partial" (RADA1), so the per-day
+  "ingested with gaps" and the 7-day "remains incomplete" emails fired daily; both are now log
+  lines only (`run_pipeline.py`). "No new events in 48 h" is logged, not emailed (quiet days are
+  normal; `lib/monitoring.py`). Still emailed: station dark 3 days / back, day skipped, watchdog
+  gave up, disk >80 %, M≥4. The dark-station check that failed on the 4B "node" instrument has
+  worked since the 2026-10-14 16:39 restart (fix in 932648e). Tests pass; pipeline restarted by
+  Marc 2026-10-15 10:21 MDT.
+- 2026-10-15: **PhaseNO round 2** (`../phaseno-eval/FINDINGS.md` "Round 2", 20 full days, ComCat
+  regional check). PhaseNO alone or with a higher threshold is worse (0.6 already loses 3
+  confirmed). Best: PhaseNet unchanged + PhaseNO events added only when corroborated by ≥3
+  PhaseNet picks + regional-quake rule → 45/47 confirmed in windows, 15/17 on full days,
+  ~0.85 queue items/day. Recommendation recorded as open item 1. Local earthquakes still
+  untested (3 ComCat events in 150 km; M1.4 Butterfield 2026-06-25 picked well by PhaseNO but
+  not associated by either).
+- 2026-10-15: account migration notes written (`../ACCOUNT_MIGRATION.md`).
