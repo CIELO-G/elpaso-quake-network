@@ -230,3 +230,11 @@
   inline styles; Export CSV / QuakeML collapsed into one Export dropdown (same IDs, File menu still
   works); catalog pagination uses `.btn-sm`; review header has coloured Confirm/Reject outlines and
   a × close at the far right. Static files only — no app restart needed (served from disk).
+- 2026-10-14: **PhaseNO vs PhaseNet test — keep PhaseNet.** Both pickers through the same GaMMA
+  and triage on all 97 reviewed events (±10 min windows) and 6 full days; details and re-run
+  steps in `../phaseno-eval/FINDINGS.md`. Confirmed events: 41/47 PhaseNO vs 40/47 PhaseNet
+  (different misses, union 46/47). Full days: PhaseNO 66 events / 21 in queue vs 6 / 5; its
+  extras are mostly Delaware Basin M2.8–3.8 quakes (Whites City/Toyah) that clear the
+  wide-event triage rule. PhaseNO recovers more human-added picks (P 41/48 vs 35/48) and
+  runs ~7 min/day on the M2 Ultra GPU. Open idea: tag events that follow a USGS/TexNet
+  Delaware Basin quake by 15–60 s (12 of 50 rejected events are these).
