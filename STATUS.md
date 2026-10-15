@@ -3,20 +3,20 @@
 ## RESUME HERE
 
 - **2026-10-15: moving to a different macOS account on the same Mac Studio.** Step-by-step
-  checklist: `../ACCOUNT_MIGRATION.md` (paths, envs, app, launch agent, secrets, Claude notes).
+  checklist: `../docs/ACCOUNT_MIGRATION.md` (paths, envs, app, launch agent, secrets, Claude notes).
   State at hand-off: pipeline LIVE under account `magarcia113` (El Paso Monitor.app, continuous,
   daily 02:00 UTC; restarted 2026-10-15 10:21 MDT with the quieter-alerts code), re-ingesting
   partial days Oct 7–14 (RADA1 at ~50 % coverage). Only ONE account may run the pipeline:
   stop it here before starting it in the new account.
-- **Where:** Mac Studio, `~/Research/Elpaso/elpaso-quake-network`, branch `main`.
+- **Where:** Mac Studio, `/Users/seismiclab/Marc/Elpaso/elpaso-quake-network`, branch `main`.
   Waveforms on `/Volumes/VelascoRAID1` (`output/1-raw`, `output/2-processed` are symlinks);
-  see `../MACSTUDIO_INSTALL.md` for the original install.
+  see `../docs/MACSTUDIO_INSTALL.md` for the original install.
 - **Rules:** small commits with tests; no behaviour change for good days; restart the pipeline
   only right after a day finishes (or while it is "waiting"). Never run `scripts/prune_raw.py`.
   `deploy/app/local.env` holds the alert SMTP password — never commit or print it.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
 - **Open items, in order:**
-  1. **PhaseNO as a second detector** (evaluation done, nothing built; `../phaseno-eval/FINDINGS.md`
+  1. **PhaseNO as a second detector** (evaluation done, nothing built; `../research/phaseno-eval/FINDINGS.md`
      "Round 2"). Plan: (a) regional-quake triage rule first — auto-reject an event 5–90 s after a
      ComCat M≥2 event >150 km away (catches 10/50 rejected, 0/47 confirmed); (b) PhaseNO step
      (`phaseno` env, GPU, ~6 min/day) + its own GaMMA run, merged in the catalog step only when no
@@ -52,7 +52,7 @@
 
 ## Log
 
-- 2026-10-03: review written (`ENGINEERING_REVIEW.md`), plan agreed, Phase 1 started.
+- 2026-10-03: review written (`docs/ENGINEERING_REVIEW.md`), plan agreed, Phase 1 started.
   Baseline commit `9d61e10` on main = exactly what is running; branch `phase1-hardening`.
 - 2026-10-03 A1 done. New `lib/catalog_lock.py` (flock on `output/5-catalog/.catalog.lock`) held by
   `5-catalog/catalog.py` for its whole merge and by both dashboard save handlers (which now run in a
@@ -178,7 +178,7 @@
   IRIS real time. Event latency 3-27 h (was 7-31). Stage 2 (hourly rolling pass,
   time-based event IDs, ~1-2 h latency) is planned as Phase 3 after the station work;
   stage 3 (SeedLink streaming) only if minutes are ever needed.
-- 2026-10-12: RADA1 check for Marc (`../station_checks/RADA1_2026-10-12/`): data loss
+- 2026-10-12: RADA1 check for Marc (`../research/station_checks/RADA1_2026-10-12/`): data loss
   since ~Sep 20, 50–85 % missing since Oct 3, identical on all 3 channels, arriving
   samples normal; points at Pi/power/SD/uplink, not the sensor. Pre-Phase-1 zero-fill
   hid it and produced ~1,000 false picks/day Sep 26–Oct 2 (days may deserve a re-run
@@ -220,7 +220,7 @@
   integer counts, 49 Fairfield ZLand 3C nodes (4B.101–150, no 125), 2021-06-05 07:00 → 06-15
   07:00 UTC, on the RAID at `Data/ElPaso/deployments/ElPaso2021_nodal/sac` (481 GB; the earlier
   100 Hz miniSEED derivative is kept beside it). Corner frequency confirmed at ~5 Hz from the
-  microseism-band noise ratio against EP.KIDD (`../station_checks/nodes_2021_response/`), so the
+  microseism-band noise ratio against EP.KIDD (`../research/station_checks/nodes_2021_response/`), so the
   StationXML carries a 5 Hz / 0.7-damped geophone response with the list's 1.507e9 counts/(m/s)
   (checked against theory at 0.2–40 Hz). One E-component day (06-06 07:00 → 06-07 07:00) is lost
   on every node: the export duplicated the previous file. Import (6 workers) 19 min → 24 GB of 100 Hz
@@ -244,7 +244,7 @@
   a × close at the far right. Static files only — no app restart needed (served from disk).
 - 2026-10-14: **PhaseNO vs PhaseNet test — keep PhaseNet.** Both pickers through the same GaMMA
   and triage on all 97 reviewed events (±10 min windows) and 6 full days; details and re-run
-  steps in `../phaseno-eval/FINDINGS.md`. Confirmed events: 41/47 PhaseNO vs 40/47 PhaseNet
+  steps in `../research/phaseno-eval/FINDINGS.md`. Confirmed events: 41/47 PhaseNO vs 40/47 PhaseNet
   (different misses, union 46/47). Full days: PhaseNO 66 events / 21 in queue vs 6 / 5; its
   extras are mostly Delaware Basin M2.8–3.8 quakes (Whites City/Toyah) that clear the
   wide-event triage rule. PhaseNO recovers more human-added picks (P 41/48 vs 35/48) and
@@ -257,11 +257,16 @@
   gave up, disk >80 %, M≥4. The dark-station check that failed on the 4B "node" instrument has
   worked since the 2026-10-14 16:39 restart (fix in 932648e). Tests pass; pipeline restarted by
   Marc 2026-10-15 10:21 MDT.
-- 2026-10-15: **PhaseNO round 2** (`../phaseno-eval/FINDINGS.md` "Round 2", 20 full days, ComCat
+- 2026-10-15: **PhaseNO round 2** (`../research/phaseno-eval/FINDINGS.md` "Round 2", 20 full days, ComCat
   regional check). PhaseNO alone or with a higher threshold is worse (0.6 already loses 3
   confirmed). Best: PhaseNet unchanged + PhaseNO events added only when corroborated by ≥3
   PhaseNet picks + regional-quake rule → 45/47 confirmed in windows, 15/17 on full days,
   ~0.85 queue items/day. Recommendation recorded as open item 1. Local earthquakes still
   untested (3 ComCat events in 150 km; M1.4 Butterfield 2026-06-25 picked well by PhaseNO but
   not associated by either).
-- 2026-10-15: account migration notes written (`../ACCOUNT_MIGRATION.md`).
+- 2026-10-15: account migration notes written (`../docs/ACCOUNT_MIGRATION.md`).
+- 2026-10-15: **moved to account `seismiclab`**, workspace `/Users/seismiclab/Marc/Elpaso`; app at
+  `~/Applications/El Paso Monitor.app`, pipeline restarted 13:16 MDT, 320 tests pass. Workspace
+  reorganised: side analyses under `../research/` (phaseno-eval, events, station_checks,
+  snr_analysis, concert_seismology), notes in `../docs/`, one-off logs in `../logs/`,
+  `dissertation-figures` renamed `../figures`; review docs here moved to `docs/`.

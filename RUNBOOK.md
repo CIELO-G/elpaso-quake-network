@@ -1,7 +1,7 @@
 # El Paso Monitor — Runbook
 
 Operating procedures for the live system. Design notes are in
-`ENGINEERING_REVIEW.md`; the running log is `STATUS.md`. Everything here was
+`docs/ENGINEERING_REVIEW.md`; the running log is `STATUS.md`. Everything here was
 written for the Mac Studio install (2026-10) — paths assume it.
 
 ## Where things are

@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-SRC="/Users/magarcia113/Research/Elpaso/elpaso-quake-network"
+SRC="/Users/seismiclab/Marc/Elpaso/elpaso-quake-network"
 DST="/Volumes/Marc/Data/Research/Elpaso/elpaso-quake-network"
 
 # Check drive is mounted
