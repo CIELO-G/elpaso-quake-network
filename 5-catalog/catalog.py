@@ -353,17 +353,14 @@ def main():
         logger.warning(warning)
 
     if getattr(args, "retriage", False):
-        # Relabel the existing catalog in place (atomic write). Used for
-        # the initial backfill and after changing triage thresholds.
-        existing_catalog, _ = load_existing_catalog(catalog_path, logger)
-        existing_assignments = load_existing_assignments(assignments_path, logger)
-        if existing_catalog.empty:
-            logger.warning("No catalog to retriage")
-            return
-        relabelled = apply_triage(existing_catalog, existing_assignments, triage_cfg)
-        atomic_write_df(relabelled, catalog_path, index=False)
-        counts = relabelled["triage"].value_counts().to_dict()
-        logger.info("Retriaged %d events: %s", len(relabelled), counts)
+        # Relabel the existing catalog in place. Used for the initial
+        # backfill and after changing triage thresholds.
+        try:
+            with catalog_lock(catalog_path.parent, timeout=CATALOG_LOCK_TIMEOUT_S):
+                _retriage_under_lock(catalog_path, assignments_path, triage_cfg, logger)
+        except CatalogLockTimeout as e:
+            logger.error("%s — catalog not retriaged.", e)
+            sys.exit(3)
         return
 
     # Ensure output directory exists
@@ -390,6 +387,18 @@ def main():
         logger.error("%s — leaving catalog untouched; the orchestrator will retry.", e)
         sys.exit(3)
 
+
+def _retriage_under_lock(catalog_path, assignments_path, triage_cfg, logger):
+    """Recompute triage labels on the existing catalog (read-modify-write)."""
+    existing_catalog, _ = load_existing_catalog(catalog_path, logger)
+    existing_assignments = load_existing_assignments(assignments_path, logger)
+    if existing_catalog.empty:
+        logger.warning("No catalog to retriage")
+        return
+    relabelled = apply_triage(existing_catalog, existing_assignments, triage_cfg)
+    atomic_write_df(relabelled, catalog_path, index=False)
+    counts = relabelled["triage"].value_counts().to_dict()
+    logger.info("Retriaged %d events: %s", len(relabelled), counts)
 
 def _merge_under_lock(args, daily_files, catalog_path, assignments_path, triage_cfg, logger):
     """Snapshot → load → merge new days → restore reviews → triage → write."""
