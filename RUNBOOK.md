@@ -90,6 +90,27 @@ that rule, so new stations can carry events into the review queue without
 retuning. Revisit the core list after a few months of data from the new
 stations.
 
+## Regional-earthquake tags
+
+Delaware Basin earthquakes reach the network as coherent wave trains that
+GaMMA can associate into a "local" event 5–90 s after the real one. The
+catalog step auto-rejects such events (`triage.regional` in
+`5-catalog/config.yaml`; reason "N s after regional M…, <place> (<ComCat
+id>)"). Like every triage label it only orders the queue; review_status is
+never changed, and the "auto-rejected" list in the dashboard still shows them.
+
+ComCat is cached in `output/5-catalog/comcat_regional.csv` (+ `.json` with
+the span it covers); each run re-fetches the last 7 days. If ComCat is
+unreachable, `logs/catalog.log` says "ComCat refresh failed" and the cache is
+used. Events past the cached span are not tagged until a later run succeeds.
+After changing the thresholds, relabel the whole catalog:
+
+```
+python 5-catalog/catalog.py --config 5-catalog/config.yaml --retriage
+```
+
+Deleting both cache files forces a full re-download (about 5 s).
+
 ## Retiring a station
 
 ```

@@ -13,6 +13,9 @@ Rules were measured against the reviewed catalog on 2026-09-30
                the override rescued 0 of 33 reviewer-rejected events), or
                magnitude >= `inflated_mag_min` from <= `inflated_mag_max_picks`
                picks (kept 98 %, removed 54 %). Together: 98 % / 80 %.
+               Or the origin is 5-90 s after a regional ComCat earthquake
+               (`regional:`; lib/regional.py), i.e. the network associated
+               the regional wave train (0 of 47 confirmed, 10 of 50 rejected).
   flag         <= `unconstrained_max_picks` picks: real events exist here
                (9 of 42 confirmed) but their locations are unconstrained.
   ok           everything else.
@@ -26,6 +29,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pandas as pd
+
+from lib.regional import RegionalCatalog, RegionalConfig, RegionalMatch
 
 AUTO_REJECT = "auto_reject"
 FLAG = "flag"
@@ -45,17 +50,23 @@ class TriageConfig:
     inflated_mag_min: float = 2.2
     inflated_mag_max_picks: int = 4
     unconstrained_max_picks: int = 4
+    regional: RegionalConfig = field(default_factory=RegionalConfig)
 
     @classmethod
     def from_config(cls, cfg: dict | None) -> "TriageConfig":
         c = dict(cfg or {})
         kw = {k: c[k] for k in cls.__dataclass_fields__ if k in c}
+        if "regional" in kw:
+            kw["regional"] = RegionalConfig.from_config(kw["regional"])
         return cls(**kw)
 
 
-def triage_event(magnitude, pick_stations, cfg: TriageConfig) -> tuple[str, str]:
+def triage_event(
+    magnitude, pick_stations, cfg: TriageConfig, regional: RegionalMatch | None = None
+) -> tuple[str, str]:
     """Label one event from its magnitude and the stations that picked it.
 
+    `regional` is the regional earthquake its origin follows, if any.
     Returns (label, reason). Multiple reasons are joined with '; '.
     """
     stations = {str(s) for s in pick_stations if isinstance(s, str) or not pd.isna(s)}
@@ -75,6 +86,9 @@ def triage_event(magnitude, pick_stations, cfg: TriageConfig) -> tuple[str, str]
     if mag is not None and mag >= cfg.inflated_mag_min and n_picks <= cfg.inflated_mag_max_picks:
         reasons.append(f"M{mag:.1f} from {n_picks} picks")
         label = AUTO_REJECT
+    if regional is not None:
+        reasons.append(regional.describe())
+        label = AUTO_REJECT
     if label != AUTO_REJECT and n_picks <= cfg.unconstrained_max_picks:
         reasons.append(f"{n_picks} picks (unconstrained)")
         label = FLAG
@@ -82,11 +96,14 @@ def triage_event(magnitude, pick_stations, cfg: TriageConfig) -> tuple[str, str]
 
 
 def apply_triage(catalog: pd.DataFrame, assignments: pd.DataFrame,
-                 cfg: TriageConfig) -> pd.DataFrame:
+                 cfg: TriageConfig,
+                 regional: RegionalCatalog | None = None) -> pd.DataFrame:
     """Add/refresh `triage` and `triage_reason` columns for EVERY row.
 
     Reviewed rows are labelled too (informational — lets you audit the
     rules against your own decisions); review_status is never touched.
+    `regional` enables the regional-earthquake rule when
+    `cfg.regional.enabled`; without it the rule is skipped.
     """
     out = catalog.copy()
     if not cfg.enabled or out.empty:
@@ -97,10 +114,13 @@ def apply_triage(catalog: pd.DataFrame, assignments: pd.DataFrame,
     if assignments is not None and not assignments.empty and "event_id" in assignments:
         for eid, grp in assignments.groupby("event_id"):
             picks_by_event[str(eid)] = grp["station"].tolist()
+    active = regional if cfg.regional.enabled else None
     labels, reasons = [], []
     for row in out.to_dict("records"):
+        t = row.get("time")
+        match = active.match(t) if active is not None and not pd.isna(t) else None
         lab, why = triage_event(row.get("magnitude"),
-                                picks_by_event.get(str(row.get("event_id")), []), cfg)
+                                picks_by_event.get(str(row.get("event_id")), []), cfg, match)
         labels.append(lab); reasons.append(why)
     out["triage"] = labels
     out["triage_reason"] = reasons

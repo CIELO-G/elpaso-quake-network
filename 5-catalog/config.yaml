@@ -55,3 +55,19 @@ triage:
   # Events with this many picks or fewer are flagged "unconstrained"
   # (real ones exist, but 4 picks / 4 unknowns cannot locate them).
   unconstrained_max_picks: 4
+  # Regional earthquakes: the network associates the wave train of a
+  # Delaware Basin quake into a "local" event 5-90 s after it. Auto-reject
+  # origins that follow a ComCat event this way (lib/regional.py). Measured
+  # 2026-10-15 on the reviewed catalog: 10 of 50 rejected, 0 of 47 confirmed.
+  # ComCat is cached in output/5-catalog/comcat_regional.csv; if it is
+  # unreachable the cache is used and events it does not cover are not tagged.
+  regional:
+    enabled: true
+    reference_lat: 31.778        # network centre (fixed; see lib/regional.py)
+    reference_lon: -106.408
+    min_magnitude: 2.0
+    min_distance_km: 150         # nearer events can be our own
+    max_distance_km: 700         # ComCat search radius
+    lag_min_s: 5
+    lag_max_s: 90
+    refresh_days: 7              # TexNet adds and revises events for days

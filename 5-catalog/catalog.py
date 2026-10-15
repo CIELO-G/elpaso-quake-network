@@ -27,6 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.atomic_io import atomic_write_df
 from lib.catalog_lock import CatalogLockTimeout, catalog_lock
 from lib.config import load_config, load_stations
+from lib.regional import RegionalCatalog
+from lib.regional import refresh as refresh_regional
 from lib.reviews import SIDECAR_FILENAME, append_review_records, jsonable
 from lib.triage import TriageConfig, apply_triage, check_core_stations
 from lib.logger import setup_logging
@@ -40,6 +42,7 @@ DEFAULTS = {
     "output_dir": "output",
     "catalog_file": "5-catalog/catalog.csv",
     "assignments_file": "5-catalog/assignments.csv",
+    "regional_cache_file": "5-catalog/comcat_regional.csv",
     "log_dir": "logs",
     "log_max_bytes": 10_485_760,
     "log_backup_count": 5,
@@ -293,6 +296,32 @@ def discover_daily_files(input_dir, logger):
     return daily
 
 
+def earliest_origin(catalog_path: Path, daily_files: list[dict]) -> pd.Timestamp | None:
+    """Earliest origin this run will triage: the existing catalog or a new day."""
+    candidates = [pd.Timestamp(d["day_key"], tz="UTC") for d in daily_files]
+    if catalog_path.exists():
+        times = pd.read_csv(catalog_path, usecols=["time"])["time"].dropna()
+        if not times.empty:
+            candidates.append(pd.to_datetime(times, utc=True, format="ISO8601").min())
+    return min(candidates) if candidates else None
+
+
+def load_regional(
+    triage_cfg: TriageConfig, cache_path: Path, need_from: pd.Timestamp | None, logger
+) -> RegionalCatalog | None:
+    """Refresh the ComCat cache for the regional rule; None when the rule is off.
+
+    Call this before taking the catalog lock: it waits on the network, and
+    reviewer saves in the dashboard must not.
+    """
+    if not (triage_cfg.enabled and triage_cfg.regional.enabled) or need_from is None:
+        return None
+    regional = refresh_regional(cache_path, triage_cfg.regional, need_from, logger=logger)
+    if regional.covered is None:
+        logger.warning("Regional triage rule enabled but no ComCat events cached; rule skipped")
+    return regional
+
+
 def load_existing_catalog(catalog_path, logger):
     """Load existing catalog if present; return (DataFrame, set-of-day-keys)."""
     if not catalog_path.exists():
@@ -348,6 +377,7 @@ def main():
     output_dir = Path(config["output_dir"])
     catalog_path = output_dir / config["catalog_file"]
     assignments_path = output_dir / config["assignments_file"]
+    regional_cache = output_dir / config["regional_cache_file"]
     triage_cfg = TriageConfig.from_config(config.get("triage"))
     for warning in check_core_stations(triage_cfg, stations):
         logger.warning(warning)
@@ -355,9 +385,14 @@ def main():
     if getattr(args, "retriage", False):
         # Relabel the existing catalog in place. Used for the initial
         # backfill and after changing triage thresholds.
+        regional = load_regional(
+            triage_cfg, regional_cache, earliest_origin(catalog_path, []), logger
+        )
         try:
             with catalog_lock(catalog_path.parent, timeout=CATALOG_LOCK_TIMEOUT_S):
-                _retriage_under_lock(catalog_path, assignments_path, triage_cfg, logger)
+                _retriage_under_lock(
+                    catalog_path, assignments_path, triage_cfg, regional, logger
+                )
         except CatalogLockTimeout as e:
             logger.error("%s — catalog not retriaged.", e)
             sys.exit(3)
@@ -373,6 +408,9 @@ def main():
         return
 
     logger.info("Discovered %d day(s) with event files", len(daily_files))
+    regional = load_regional(
+        triage_cfg, regional_cache, earliest_origin(catalog_path, daily_files), logger
+    )
 
     # The merge below is a whole-file read-modify-write of catalog.csv and
     # assignments.csv. The dashboard (reviewer saves) and maintenance scripts
@@ -381,26 +419,29 @@ def main():
     try:
         with catalog_lock(catalog_path.parent, timeout=CATALOG_LOCK_TIMEOUT_S):
             _merge_under_lock(
-                args, daily_files, catalog_path, assignments_path, triage_cfg, logger
+                args, daily_files, catalog_path, assignments_path, triage_cfg, regional, logger
             )
     except CatalogLockTimeout as e:
         logger.error("%s — leaving catalog untouched; the orchestrator will retry.", e)
         sys.exit(3)
 
 
-def _retriage_under_lock(catalog_path, assignments_path, triage_cfg, logger):
+def _retriage_under_lock(catalog_path, assignments_path, triage_cfg, regional, logger):
     """Recompute triage labels on the existing catalog (read-modify-write)."""
     existing_catalog, _ = load_existing_catalog(catalog_path, logger)
     existing_assignments = load_existing_assignments(assignments_path, logger)
     if existing_catalog.empty:
         logger.warning("No catalog to retriage")
         return
-    relabelled = apply_triage(existing_catalog, existing_assignments, triage_cfg)
+    relabelled = apply_triage(existing_catalog, existing_assignments, triage_cfg, regional)
     atomic_write_df(relabelled, catalog_path, index=False)
     counts = relabelled["triage"].value_counts().to_dict()
     logger.info("Retriaged %d events: %s", len(relabelled), counts)
 
-def _merge_under_lock(args, daily_files, catalog_path, assignments_path, triage_cfg, logger):
+
+def _merge_under_lock(
+    args, daily_files, catalog_path, assignments_path, triage_cfg, regional, logger
+):
     """Snapshot → load → merge new days → restore reviews → triage → write."""
     # ── Snapshot reviewed-event metadata BEFORE rebuild wipes it ─────
     # Even in --rebuild mode we must preserve user-supplied annotations:
@@ -568,7 +609,7 @@ def _merge_under_lock(args, daily_files, catalog_path, assignments_path, triage_
 
     # Triage labels (never touches review_status). Recomputed for every
     # row on each run so threshold changes take effect immediately.
-    catalog = apply_triage(catalog, assignments, triage_cfg)
+    catalog = apply_triage(catalog, assignments, triage_cfg, regional)
     if triage_cfg.enabled:
         logger.info("Triage: %s", catalog["triage"].value_counts().to_dict())
 
