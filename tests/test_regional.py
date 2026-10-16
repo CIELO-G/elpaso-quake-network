@@ -25,10 +25,12 @@ from lib.triage import AUTO_REJECT, OK, TriageConfig, apply_triage, triage_event
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "5-catalog"))
 from catalog import earliest_origin, load_regional  # noqa: E402
 
-CFG = RegionalConfig(enabled=True)
+# Explicit thresholds, so the matching tests do not depend on the shipped defaults.
+CFG = RegionalConfig(enabled=True, min_magnitude=2.0, max_distance_km=700.0)
 # A Delaware Basin point ~232 km east of the network, and one ~30 km away.
 FAR = (31.49, -103.986)
 NEAR = (31.80, -106.10)
+REF = (CFG.reference_lat, CFG.reference_lon)
 HEADER = "time,latitude,longitude,depth,mag,magType,id,place,type\n"
 
 
@@ -236,6 +238,29 @@ def test_triage_config_reads_nested_regional_block():
     )
     assert cfg.regional.enabled and cfg.regional.min_magnitude == 2.5
     assert TriageConfig.from_config(None).regional.enabled is False
+
+
+def test_shipped_config_tags_only_m3_within_350_km():
+    import yaml
+
+    cfg_path = Path(__file__).resolve().parent.parent / "5-catalog" / "config.yaml"
+    shipped = TriageConfig.from_config(yaml.safe_load(cfg_path.read_text())["triage"]).regional
+    assert shipped.enabled and shipped.min_magnitude == 3.0 and shipped.max_distance_km == 350.0
+    # ~400 km NE: beyond the 350 km cap, however large.
+    beyond = (34.5, -104.0)
+    assert distance_km(*REF, np.array([beyond[0]]), np.array([beyond[1]]))[0] > 350
+    rows = [
+        ("2026-03-07T10:00:00Z", FAR, 2.9, "m29"),
+        ("2026-03-07T11:00:00Z", FAR, 3.0, "m30"),
+        ("2026-03-07T12:00:00Z", beyond, 4.5, "beyond"),
+    ]
+    raw = parse_comcat_csv(usgs_csv(rows), shipped)
+    cat = RegionalCatalog(
+        raw, shipped, (pd.Timestamp("2026-01-01", tz="UTC"), pd.Timestamp("2026-12-31", tz="UTC"))
+    )
+    hits = {h: cat.match(pd.Timestamp(f"2026-03-07T{h}:00:30Z")) for h in (10, 11, 12)}
+    assert hits[10] is None and hits[12] is None
+    assert hits[11] is not None and hits[11].event_id == "m30"
 
 
 def _catalog_and_picks():

@@ -15,7 +15,8 @@ Rules were measured against the reviewed catalog on 2026-09-30
                picks (kept 98 %, removed 54 %). Together: 98 % / 80 %.
                Or the origin is 5-90 s after a regional ComCat earthquake
                (`regional:`; lib/regional.py), i.e. the network associated
-               the regional wave train (0 of 47 confirmed, 10 of 50 rejected).
+               the regional wave train (shipped M>=3.0 within 350 km: 0 of 46
+               confirmed, 8 of 50 rejected on the live catalog, 2026-10-16).
   flag         <= `unconstrained_max_picks` picks: real events exist here
                (9 of 42 confirmed) but their locations are unconstrained.
   ok           everything else.

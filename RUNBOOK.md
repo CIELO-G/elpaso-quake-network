@@ -94,9 +94,11 @@ stations.
 
 Delaware Basin earthquakes reach the network as coherent wave trains that
 GaMMA can associate into a "local" event 5–90 s after the real one. The
-catalog step auto-rejects such events (`triage.regional` in
-`5-catalog/config.yaml`; reason "N s after regional M…, <place> (<ComCat
-id>)"). Like every triage label it only orders the queue; review_status is
+catalog step auto-rejects events 5–90 s after a ComCat M ≥ 3.0 at 150–350 km
+(`triage.regional` in `5-catalog/config.yaml`; reason "N s after regional
+M…, <place> (<ComCat id>)"). Lowering `min_magnitude` to 2.0 catches a few
+more false events (11 instead of 8 of the 50 rejected), still no confirmed
+ones. Like every triage label it only orders the queue; review_status is
 never changed, and the "auto-rejected" list in the dashboard still shows them.
 
 ComCat is cached in `output/5-catalog/comcat_regional.csv` (+ `.json` with

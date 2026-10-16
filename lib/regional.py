@@ -1,12 +1,17 @@
 """Regional-earthquake tagging for triage.
 
-Regional earthquakes (mostly Delaware Basin, 150-700 km east) arrive across
+Regional earthquakes (mostly Delaware Basin, 150-350 km east) arrive across
 the network as coherent P/S trains that GaMMA associates into a local event
 with an origin 5-90 s after the real one. Measured on the reviewed catalog
 (research/phaseno-eval, Round 2): an origin 5-90 s after a ComCat event of
 M >= 2.0 more than 150 km away matched 10 of 50 reviewer-rejected events and
 0 of 47 confirmed ones; chance collisions are ~0.4 % (about 4 such events a
 day x 85 s window).
+
+The shipped thresholds are deliberately stricter, M >= 3.0 at 150-350 km
+(operator's choice, 2026-10-16): on the live catalog that tags 8 of 50
+rejected and 0 of 46 confirmed, against 11 of 50 at M >= 2.0. Every match
+seen so far was within 321 km, so the 350 km cap costs nothing.
 
 This module owns the ComCat side: fetching, a local cache with explicit
 coverage, and the time-window match. lib/triage.py turns a match into a label.
@@ -53,9 +58,9 @@ class RegionalConfig:
     # stations.json, so adding or retiring stations cannot move it.
     reference_lat: float = 31.778
     reference_lon: float = -106.408
-    min_magnitude: float = 2.0
+    min_magnitude: float = 3.0
     min_distance_km: float = 150.0
-    max_distance_km: float = 700.0
+    max_distance_km: float = 350.0
     # A local origin this many seconds after a regional event is tagged.
     lag_min_s: float = 5.0
     lag_max_s: float = 90.0
