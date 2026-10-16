@@ -8,6 +8,14 @@ catalog CSV with globally unique event IDs, and does the same for
 pick assignments. The catalog is updated incrementally — re-running
 appends new days without duplicating existing ones.
 
+Two sources feed it, each tracked per day by its event-id prefix:
+  ep  PhaseNet events, {input_dir}/4-events (step 4)
+  po  PhaseNO events PhaseNet missed, {input_dir}/{phaseno_additions_dir}
+      (3-detection/phaseno/step.py). Marked detector=PhaseNO, with the
+      number of PhaseNet picks that corroborate them. A day's additions
+      are ingested once, independently of its PhaseNet events, so a
+      PhaseNO run that comes later (backfill, retry) is still picked up.
+
 Usage (run from project root):
     python 5-catalog/catalog.py --config 5-catalog/config.yaml
     python 5-catalog/catalog.py --config 5-catalog/config.yaml --debug
@@ -43,6 +51,7 @@ DEFAULTS = {
     "catalog_file": "5-catalog/catalog.csv",
     "assignments_file": "5-catalog/assignments.csv",
     "regional_cache_file": "5-catalog/comcat_regional.csv",
+    "phaseno_additions_dir": "phaseno/4-additions",
     "log_dir": "logs",
     "log_max_bytes": 10_485_760,
     "log_backup_count": 5,
@@ -73,9 +82,17 @@ def _jday_to_date(year, jday):
     return dt.strftime("%Y%m%d")
 
 
-def make_event_id(year, jday, event_index):
-    """Build a globally unique event ID: ep{YYYYMMDD}-{NNNN}."""
-    return f"ep{_jday_to_date(year, jday)}-{int(event_index):04d}"
+def make_event_id(year, jday, event_index, prefix="ep"):
+    """Build a globally unique event ID: {prefix}{YYYYMMDD}-{NNNN}.
+
+    The prefix is two characters: catalog code reads the day as id[2:10].
+    """
+    return f"{prefix}{_jday_to_date(year, jday)}-{int(event_index):04d}"
+
+
+# Second-detector source (see module docstring).
+PHASENO_PREFIX = "po"
+PHASENO_DETECTOR = "PhaseNO"
 
 
 # ── Event-identity threshold (time-only) ──────────────────────────────
@@ -266,9 +283,9 @@ def day_key(year, jday):
     return _jday_to_date(year, jday)
 
 
-def discover_daily_files(input_dir, logger):
-    """Find all daily events/assignments CSV pairs under 4-events/."""
-    events_dir = Path(input_dir) / "4-events"
+def discover_daily_files(input_dir, logger, subdir="4-events"):
+    """Find all daily events/assignments CSV pairs under {input_dir}/{subdir}/."""
+    events_dir = Path(input_dir) / subdir
     pattern = "**/*.events.csv"
     event_files = sorted(events_dir.glob(pattern))
     logger.debug("Found %d daily event file(s) under %s", len(event_files), events_dir)
@@ -328,10 +345,23 @@ def load_existing_catalog(catalog_path, logger):
         return pd.DataFrame(), set()
 
     df = pd.read_csv(catalog_path, dtype={"event_id": str})
-    # Extract day keys from event_id: ep{YYYYMMDD}-NNNN → YYYYMMDD
-    existing_days = set(df["event_id"].str[2:10])
+    existing_days = cataloged_days(df)
     logger.info("Existing catalog: %d events covering %d day(s)", len(df), len(existing_days))
     return df, existing_days
+
+
+def cataloged_days(catalog, prefix=None):
+    """YYYYMMDD keys of the days a source already has in the catalog.
+
+    prefix=None is the primary source: every id except the PhaseNO ones
+    (template-matching "tm" rows included, as before). Day keys come from
+    the id: {prefix}{YYYYMMDD}-NNNN.
+    """
+    if catalog.empty:
+        return set()
+    ids = catalog["event_id"].astype(str)
+    is_po = ids.str.startswith(PHASENO_PREFIX)
+    return set(ids[is_po if prefix == PHASENO_PREFIX else ~is_po].str[2:10])
 
 
 def load_existing_assignments(assignments_path, logger):
@@ -408,6 +438,16 @@ def main():
         return
 
     logger.info("Discovered %d day(s) with event files", len(daily_files))
+    additions_dir = config.get("phaseno_additions_dir")
+    addition_files = (
+        discover_daily_files(input_dir, logger, subdir=additions_dir) if additions_dir else []
+    )
+    if addition_files:
+        logger.info("Discovered %d day(s) with PhaseNO additions", len(addition_files))
+    sources = [
+        (None, daily_files),
+        (PHASENO_PREFIX, addition_files),
+    ]
     regional = load_regional(
         triage_cfg, regional_cache, earliest_origin(catalog_path, daily_files), logger
     )
@@ -419,7 +459,7 @@ def main():
     try:
         with catalog_lock(catalog_path.parent, timeout=CATALOG_LOCK_TIMEOUT_S):
             _merge_under_lock(
-                args, daily_files, catalog_path, assignments_path, triage_cfg, regional, logger
+                args, sources, catalog_path, assignments_path, triage_cfg, regional, logger
             )
     except CatalogLockTimeout as e:
         logger.error("%s — leaving catalog untouched; the orchestrator will retry.", e)
@@ -439,10 +479,54 @@ def _retriage_under_lock(catalog_path, assignments_path, triage_cfg, regional, l
     logger.info("Retriaged %d events: %s", len(relabelled), counts)
 
 
+def _read_day(day, prefix, logger):
+    """One day file pair -> (events, assignments) with global ids, or None.
+
+    prefix None = PhaseNet ("ep"); PHASENO_PREFIX additionally marks the
+    rows detector=PhaseNO (their corroborating_picks column comes along).
+    """
+    events_path = day["events_path"]
+    try:
+        events = pd.read_csv(events_path, dtype={"event_id": str})
+    except Exception as e:
+        logger.warning("Failed to read %s: %s", events_path, e)
+        return None
+    if events.empty:
+        return None
+
+    id_prefix = prefix or "ep"
+    events["event_id"] = events["event_index"].apply(
+        lambda idx: make_event_id(day["year"], day["jday"], idx, prefix=id_prefix)
+    )
+    if prefix == PHASENO_PREFIX:
+        events["detector"] = PHASENO_DETECTOR
+    events = events[["event_id"] + [c for c in events.columns if c != "event_id"]]
+
+    assigns = pd.DataFrame()
+    assign_path = day["assignments_path"]
+    if assign_path.exists():
+        try:
+            assigns = pd.read_csv(assign_path, dtype={"network": str, "station": str, "location": str, "channel": str}, keep_default_na=False)
+        except Exception as e:
+            logger.warning("Failed to read %s: %s", assign_path, e)
+            assigns = pd.DataFrame()
+    if not assigns.empty:
+        idx_to_id = dict(zip(events["event_index"], events["event_id"]))
+        assigns["event_id"] = assigns["event_index"].map(idx_to_id)
+        assigns = assigns.drop(columns=["event_index"])
+        assigns = assigns[["event_id"] + [c for c in assigns.columns if c != "event_id"]]
+    return events, assigns
+
+
 def _merge_under_lock(
-    args, daily_files, catalog_path, assignments_path, triage_cfg, regional, logger
+    args, sources, catalog_path, assignments_path, triage_cfg, regional, logger
 ):
-    """Snapshot → load → merge new days → restore reviews → triage → write."""
+    """Snapshot → load → merge new days → restore reviews → triage → write.
+
+    `sources` is [(prefix, daily_files)]: prefix None for PhaseNet's 4-events,
+    PHASENO_PREFIX for PhaseNO's additions. Each source is ingested for the
+    days it does not have in the catalog yet.
+    """
     # ── Snapshot reviewed-event metadata BEFORE rebuild wipes it ─────
     # Even in --rebuild mode we must preserve user-supplied annotations:
     # reviewed/confirmed/rejected status, manually relocated lat/lon/depth,
@@ -508,9 +592,8 @@ def _merge_under_lock(
         logger.info("Rebuild mode — ignoring existing catalog")
         existing_catalog = pd.DataFrame()
         existing_assignments = pd.DataFrame()
-        existing_days = set()
     else:
-        existing_catalog, existing_days = load_existing_catalog(catalog_path, logger)
+        existing_catalog, _ = load_existing_catalog(catalog_path, logger)
         existing_assignments = load_existing_assignments(assignments_path, logger)
 
     # ── Process new days ─────────────────────────────────────────────
@@ -518,56 +601,23 @@ def _merge_under_lock(
     new_assign_dfs = []
     new_day_count = 0
 
-    for day in daily_files:
-        dk = day["day_key"]
-        if dk in existing_days:
-            logger.debug("Day %s already in catalog, skipping", dk)
-            continue
-
-        # Read events
-        events_path = day["events_path"]
-        try:
-            events = pd.read_csv(events_path, dtype={"event_id": str})
-        except Exception as e:
-            logger.warning("Failed to read %s: %s", events_path, e)
-            continue
-
-        if events.empty:
-            logger.debug("Day %s has no events, skipping", dk)
-            continue
-
-        # Build global event IDs
-        events["event_id"] = events["event_index"].apply(
-            lambda idx: make_event_id(day["year"], day["jday"], idx)
-        )
-
-        # Reorder columns: event_id first
-        cols = ["event_id"] + [c for c in events.columns if c != "event_id"]
-        events = events[cols]
-
-        new_event_dfs.append(events)
-        logger.debug("Day %s: %d event(s)", dk, len(events))
-
-        # Read assignments (if file exists)
-        assign_path = day["assignments_path"]
-        if assign_path.exists():
-            try:
-                assigns = pd.read_csv(assign_path, dtype={"network": str, "station": str, "location": str, "channel": str}, keep_default_na=False)
-            except Exception as e:
-                logger.warning("Failed to read %s: %s", assign_path, e)
-                assigns = pd.DataFrame()
-
+    for prefix, daily_files in sources:
+        existing_days = cataloged_days(existing_catalog, prefix)
+        for day in daily_files:
+            dk = day["day_key"]
+            if dk in existing_days:
+                logger.debug("Day %s already in catalog (%s), skipping", dk, prefix or "ep")
+                continue
+            got = _read_day(day, prefix, logger)
+            if got is None:
+                logger.debug("Day %s has no %s events, skipping", dk, prefix or "ep")
+                continue
+            events, assigns = got
+            new_event_dfs.append(events)
             if not assigns.empty:
-                # Map event_index -> event_id
-                idx_to_id = dict(zip(events["event_index"], events["event_id"]))
-                assigns["event_id"] = assigns["event_index"].map(idx_to_id)
-                # Drop event_index, put event_id first
-                assigns = assigns.drop(columns=["event_index"])
-                acols = ["event_id"] + [c for c in assigns.columns if c != "event_id"]
-                assigns = assigns[acols]
                 new_assign_dfs.append(assigns)
-
-        new_day_count += 1
+            logger.debug("Day %s: %d %s event(s)", dk, len(events), prefix or "ep")
+            new_day_count += 1
 
     # ── Merge ────────────────────────────────────────────────────────
     if not new_event_dfs:

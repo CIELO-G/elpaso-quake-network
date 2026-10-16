@@ -272,15 +272,15 @@ function _menubarShortcuts() {
 // ── Constants ───────────────────────────────────────────────────
 const STEP_COLORS = {
   ingest: '#3b82f6', process: '#f59e0b', detect: '#22c55e',
-  associate: '#a855f7', catalog: '#64748b'
+  associate: '#a855f7', phaseno: '#ec4899', catalog: '#64748b'
 };
 const STEP_LABELS = {
   ingest: '1 Ingest', process: '2 Process', detect: '3 Detect',
-  associate: '4 Associate', catalog: '5 Catalog'
+  associate: '4 Associate', phaseno: '4b PhaseNO', catalog: '5 Catalog'
 };
 const STEP_SHORT = {
   ingest: 'Ingest', process: 'Process', detect: 'Detect',
-  associate: 'Assoc', catalog: 'Catalog'
+  associate: 'Assoc', phaseno: 'PhaseNO', catalog: 'Catalog'
 };
 const STATUS_ICON = {
   pending: '', running: '\u25b6', completed: '\u2713', failed: '\u2717', skipped: '\u2014'
@@ -1233,7 +1233,10 @@ function renderThroughput(t) {
 
   var stepAvg = t.step_avg_sec || {};
   var total = Object.values(stepAvg).reduce(function(a, b) { return a + b; }, 0) || 1;
-  var order = ['ingest', 'process', 'detect', 'associate', 'catalog'];
+  // PhaseNO is optional: only drawn when it has run.
+  var order = ['ingest', 'process', 'detect', 'associate', 'phaseno', 'catalog'].filter(function(n) {
+    return n !== 'phaseno' || stepAvg[n];
+  });
   barEl.innerHTML = order.map(function(name) {
     var sec = stepAvg[name] || 0;
     var pct = (sec / total) * 100;
@@ -2011,7 +2014,7 @@ function loadCatalogTable() {
     } else {
       tbody.innerHTML = data.events.map(function(e) {
         return '<tr data-eid="' + esc(e.event_id) + '">' +
-          '<td>' + (e.review_status === 'confirmed' ? '<span style="color:var(--green);font-weight:700;font-size:.7rem">\u25cf Confirmed</span>' : e.review_status === 'rejected' ? '<span style="color:var(--red);font-weight:700;font-size:.7rem">\u25cf Rejected</span>' : '<span style="color:var(--amber);font-weight:700;font-size:.7rem">\u25cf Unreviewed</span>') + triageChip(e) + '</td>' +
+          '<td>' + (e.review_status === 'confirmed' ? '<span style="color:var(--green);font-weight:700;font-size:.7rem">\u25cf Confirmed</span>' : e.review_status === 'rejected' ? '<span style="color:var(--red);font-weight:700;font-size:.7rem">\u25cf Rejected</span>' : '<span style="color:var(--amber);font-weight:700;font-size:.7rem">\u25cf Unreviewed</span>') + triageChip(e) + detectorChip(e) + '</td>' +
           '<td>' + eventTypeBadge(e.event_type) + '</td>' +
           '<td>' + esc(e.event_id) + '</td>' +
           '<td>' + esc(e.time || '') + '<div class="local-time">' + esc(formatLocalTime(e.time)) + '</div></td>' +
@@ -3859,6 +3862,15 @@ function triageChip(e) {
   var cls = e.triage === 'auto_reject' ? 'triage-chip triage-reject' : 'triage-chip triage-flag';
   var txt = e.triage === 'auto_reject' ? 'auto-rejected' : 'flag';
   return '<span class="' + cls + '" title="' + esc(e.triage_reason || '') + '">' + txt + '</span>';
+}
+
+// Detector chip: the event was found by the second detector only (PhaseNO),
+// which PhaseNet's picks corroborate. Shown on every row, reviewed or not.
+function detectorChip(e) {
+  if (!e.detector) return '';
+  var why = 'Found by ' + e.detector + ' only';
+  if (e.corroborating_picks != null) why += '; ' + e.corroborating_picks + ' of its picks match PhaseNet picks';
+  return '<span class="triage-chip detector-chip" title="' + esc(why) + '">' + esc(e.detector) + '</span>';
 }
 
 // ── Review queue ────────────────────────────────────────────────

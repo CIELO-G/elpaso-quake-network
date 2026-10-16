@@ -113,6 +113,39 @@ python 5-catalog/catalog.py --config 5-catalog/config.yaml --retriage
 
 Deleting both cache files forces a full re-download (about 5 s).
 
+## PhaseNO second detector
+
+PhaseNet stays the primary picker. The optional `phaseno` step (between
+associate and catalog) picks the same day with PhaseNO on the GPU, associates
+those picks with the production GaMMA settings, and hands the catalog only the
+events PhaseNet **missed but saw**: no PhaseNet event within 10 s, and at
+least 3 PhaseNO picks matching PhaseNet picks (same station and phase, ±1 s).
+They get ids `poYYYYMMDD-NNNN`, `detector = PhaseNO`, the matching-pick count
+in `corroborating_picks`, a **PhaseNO** tag in the dashboard, and the same
+triage as everything else. Evaluated in
+`research/phaseno-eval/FINDINGS.md` (Round 2): 15/17 confirmed events on 20
+full days against 12/17 for PhaseNet alone, about 0.2 more queue items a day.
+
+- **On/off:** `enabled:` in `3-detection/phaseno/config.yaml`, read before
+  every day (no restart). Off, the step shows as skipped and the catalog is
+  PhaseNet's alone.
+- **Cost:** 4–7 min of GPU time per day (`logs/phaseno.log`; its association
+  logs to `logs/associate_phaseno.log`).
+- **Outputs:** `output/phaseno/{3-picks,4-events,4-additions}/`. PhaseNet's
+  files are only read.
+- **Failure** never fails the day: the step is marked failed, an alert is
+  sent with the commands to redo it, and the catalog is built without it.
+  When redone by hand, the next catalog run adds that day's PhaseNO events
+  (each day's additions are ingested once, separately from PhaseNet's).
+- **Backfill** (with the orchestrator idle, like any manual run; the step
+  skips days that already have PhaseNO picks):
+
+  ```
+  python 3-detection/phaseno/step.py --config 3-detection/phaseno/config.yaml \
+      --start 2026-01-01 --end 2026-10-01
+  python 5-catalog/catalog.py --config 5-catalog/config.yaml
+  ```
+
 ## Retiring a station
 
 ```

@@ -174,6 +174,9 @@ def parse_catalog_row(r: dict) -> dict:
         "event_type": r.get("event_type", "undetermined"),
         "triage": r.get("triage", "") or "",
         "triage_reason": r.get("triage_reason", "") or "",
+        # Set on events only the second detector found (5-catalog/catalog.py).
+        "detector": r.get("detector", "") or "",
+        "corroborating_picks": _as_int(r.get("corroborating_picks")),
     }
 
 

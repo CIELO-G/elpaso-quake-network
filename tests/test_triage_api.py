@@ -64,3 +64,10 @@ def test_per_page_zero_returns_all(monkeypatch):
     c = _client(monkeypatch)
     r = c.get("/api/catalog?per_page=0").json()
     assert len(r["events"]) == 5 and r["total"] == 5 and r["total_pages"] == 1
+
+
+def test_parse_row_carries_the_detector_of_phaseno_additions():
+    p = parse_catalog_row({"event_id": "po20260608-0003", "detector": "PhaseNO", "corroborating_picks": "3.0"})
+    assert p["detector"] == "PhaseNO" and p["corroborating_picks"] == 3
+    q = parse_catalog_row({"event_id": "ep20260608-0000", "detector": "", "corroborating_picks": ""})
+    assert q["detector"] == "" and q["corroborating_picks"] is None

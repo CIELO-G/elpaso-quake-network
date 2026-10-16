@@ -1759,3 +1759,4 @@
   font-size: .6rem; font-weight: 700; letter-spacing: .02em; vertical-align: middle; cursor: help; }
 .triage-reject { color: var(--red); border: 1px solid var(--red); opacity: .85; }
 .triage-flag { color: var(--amber); border: 1px solid var(--amber); opacity: .85; }
+.detector-chip { color: var(--accent, #6366f1); border: 1px solid currentColor; opacity: .85; }
