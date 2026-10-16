@@ -30,6 +30,9 @@ def out(tmp_path, monkeypatch):
     monkeypatch.setattr(rp, "RAW_DIR", o / "1-raw")
     monkeypatch.setattr(rp, "PROCESSED_DIR", o / "2-processed")
     monkeypatch.setattr(rp, "EVENTS_DIR", o / "4-events")
+    # Optional steps (PhaseNO) off, whatever the shipped config says; the
+    # tests that need them on override this.
+    monkeypatch.setattr(rp, "_step_enabled", lambda step: not step.get("optional"))
     return o
 
 
@@ -112,7 +115,63 @@ def test_run_day_failure_stops_and_is_not_partial(out, monkeypatch):
     st = _status()
     res = rp._run_day("2026-09-27", _args(), st)
     assert not res.ok and not res.partial
-    assert st["steps"][3]["status"] == "failed" and st["steps"][4]["status"] == "pending"
+    status = {s["name"]: s["status"] for s in st["steps"]}
+    assert status["associate"] == "failed" and status["catalog"] == "pending"
+
+
+# ── optional steps (PhaseNO) ──────────────────────────────────────────────
+
+def _scripts(calls):
+    return [c[2].split("/")[-1] for c in calls]
+
+
+def test_disabled_optional_step_is_skipped(out, monkeypatch):
+    calls = []
+    monkeypatch.setattr(rp.subprocess, "run", lambda cmd, **kw: (calls.append(cmd), SimpleNamespace(returncode=0))[1])
+    st = _status()
+    assert rp._run_day("2026-09-27", _args(), st).ok
+    assert "step.py" not in _scripts(calls)
+    assert {s["name"]: s["status"] for s in st["steps"]}["phaseno"] == "skipped"
+
+
+def test_optional_step_failure_alerts_and_the_day_completes(out, monkeypatch):
+    monkeypatch.setattr(rp, "_step_enabled", lambda step: True)
+    notes = []
+    monkeypatch.setattr(rp, "_notify", lambda s, b: notes.append((s, b)))
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return SimpleNamespace(returncode=1 if cmd[2].endswith("phaseno/step.py") else 0)
+
+    monkeypatch.setattr(rp.subprocess, "run", fake_run)
+    st = _status()
+    res = rp._run_day("2026-09-27", _args(), st)
+    assert res.ok
+    assert _scripts(calls) == ["ingest.py", "process.py", "detect.py", "associate.py", "step.py", "catalog.py"]
+    status = {s["name"]: s["status"] for s in st["steps"]}
+    assert status["phaseno"] == "failed" and status["catalog"] == "completed"
+    assert len(notes) == 1 and "phaseno failed for 2026-09-27" in notes[0][0]
+    assert "--start 2026-09-27 --end 2026-09-28" in notes[0][1]
+
+
+def test_required_step_failure_still_fails_with_optional_steps_enabled(out, monkeypatch):
+    monkeypatch.setattr(rp, "_step_enabled", lambda step: True)
+    monkeypatch.setattr(rp.subprocess, "run", lambda cmd, **kw: SimpleNamespace(returncode=1 if "detect.py" in cmd[2] else 0))
+    assert not rp._run_day("2026-09-27", _args(), _status()).ok
+
+
+@pytest.mark.parametrize("text, enabled", [
+    ("enabled: true\n", True), ("enabled: false\n", False), ("other: 1\n", False),
+    ("enabled: yes-please\n", False), ("enabled: [unclosed\n", False), (None, False),
+])
+def test_step_enabled_reads_the_steps_config(tmp_path, monkeypatch, text, enabled):
+    monkeypatch.setattr(rp, "ROOT", tmp_path)
+    step = {"name": "phaseno", "config": "phaseno.yaml", "optional": True}
+    if text is not None:
+        (tmp_path / "phaseno.yaml").write_text(text)
+    assert rp._step_enabled(step) is enabled
+    assert rp._step_enabled({"name": "detect", "config": "missing.yaml"}) is True
 
 
 # ── persisted state ───────────────────────────────────────────────────────
@@ -178,7 +237,9 @@ def test_run_day_only_steps_marks_others_skipped(out, monkeypatch):
     st = _status()
     res = rp._run_day("2026-09-27", _args(), st, only_steps={"process", "detect"})
     assert res.ok and len(calls) == 2
-    assert [s["status"] for s in st["steps"]] == ["skipped", "completed", "completed", "skipped", "skipped"]
+    status = {s["name"]: s["status"] for s in st["steps"]}
+    assert status == {"ingest": "skipped", "process": "completed", "detect": "completed",
+                      "associate": "skipped", "phaseno": "skipped", "catalog": "skipped"}
     assert calls[0][1] == "-u"
 
 
@@ -221,7 +282,7 @@ def test_load_station_expectations_reads_end_date(monkeypatch, tmp_path):
 
 def test_steps_are_selected_by_unique_name():
     assert len(set(rp.STEP_NAMES)) == len(rp.STEPS)
-    assert rp.STEP_NAMES[0] == "ingest" and rp.STEP_NAMES[-1] == "catalog"
+    assert rp.STEP_NAMES == ["ingest", "process", "detect", "associate", "phaseno", "catalog"]
     assert rp._steps_after("ingest") == set(rp.STEP_NAMES) - {"ingest"}
     assert rp._steps_after("catalog") == set()
     numbers = [s["number"] for s in rp._make_step_statuses()]

@@ -19,6 +19,9 @@ import time as _time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))  # allow `from lib.constants import ...`
@@ -78,8 +81,11 @@ signal.signal(signal.SIGTERM, _handle_sigterm)
 # ── step registry ────────────────────────────────────────────────────────────
 # Order is execution order. Code selects steps by name; the 1-based number
 # shown in status and taken by --start-step/--end-step is the position here.
+# An "optional" step runs only while its config says `enabled: true` (read
+# before every run, no restart needed), and its failure is alerted but does
+# not fail the day.
 
-STEPS = [
+STEPS: list[dict[str, Any]] = [
     {
         "name": "ingest",
         "script": "1-ingestion/ingest.py",
@@ -117,6 +123,17 @@ STEPS = [
         "accepts_rebuild": False,
     },
     {
+        # Second detector: adds the events PhaseNet missed (lib/detector_merge.py).
+        "name": "phaseno",
+        "script": "3-detection/phaseno/step.py",
+        "config": "3-detection/phaseno/config.yaml",
+        "log_file": "logs/phaseno.log",
+        "accepts_dates": True,
+        "accepts_force": True,
+        "accepts_rebuild": False,
+        "optional": True,
+    },
+    {
         "name": "catalog",
         "script": "5-catalog/catalog.py",
         "config": "5-catalog/config.yaml",
@@ -132,6 +149,29 @@ STEP_NAMES = [s["name"] for s in STEPS]
 def _steps_after(name: str) -> set[str]:
     """Names of the steps that run after `name`."""
     return set(STEP_NAMES[STEP_NAMES.index(name) + 1 :])
+
+
+def _step_enabled(step: dict) -> bool:
+    """Required steps always run; an optional one only with `enabled: true` in its config."""
+    if not step.get("optional"):
+        return True
+    try:
+        cfg = yaml.safe_load((ROOT / step["config"]).read_text()) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        print(f"  WARNING: cannot read {step['config']} ({exc}) — {step['name']} skipped")
+        return False
+    return cfg.get("enabled") is True
+
+
+def _alert_optional_failure(step: dict, day_str: str, returncode: int) -> None:
+    end = (date.fromisoformat(day_str) + timedelta(days=1)).isoformat()
+    _notify(
+        f"[El Paso Pipeline] optional step {step['name']} failed for {day_str}",
+        f"{step['name']} exited {returncode} for {day_str}; see {step['log_file']}.\n"
+        f"The day completed without it. To redo it by hand:\n"
+        f"  python {step['script']} --config {step['config']} --start {day_str} --end {end}\n"
+        f"  python 5-catalog/catalog.py --config 5-catalog/config.yaml\n",
+    )
 
 # ── status helpers ───────────────────────────────────────────────────────────
 
@@ -360,7 +400,7 @@ def single_run(args: argparse.Namespace) -> None:
     pipeline_started = _now()
     step_statuses = []
     for n, step in enumerate(STEPS, 1):
-        if n < args.start_step or n > args.end_step:
+        if n < args.start_step or n > args.end_step or not _step_enabled(step):
             status = "skipped"
         else:
             status = "pending"
@@ -399,7 +439,7 @@ def single_run(args: argparse.Namespace) -> None:
     failed = False
 
     for n, step in enumerate(STEPS, 1):
-        if n < args.start_step or n > args.end_step:
+        if step_statuses[n - 1]["status"] == "skipped":
             continue
 
         idx = n - args.start_step + 1
@@ -433,6 +473,9 @@ def single_run(args: argparse.Namespace) -> None:
         if result.returncode == 0:
             step_statuses[n - 1]["status"] = "completed"
             print(f"[{idx}/{total}] Completed in {_format_elapsed(elapsed)}")
+        elif step.get("optional"):
+            step_statuses[n - 1]["status"] = "failed"
+            print(f"[{idx}/{total}] FAILED (exit code {result.returncode}) — optional, continuing")
         else:
             step_statuses[n - 1]["status"] = "failed"
             print(f"[{idx}/{total}] FAILED (exit code {result.returncode})")
@@ -525,7 +568,7 @@ def _run_day(
     partial = False
 
     for i, step in enumerate(STEPS):
-        if only_steps is not None and step["name"] not in only_steps:
+        if (only_steps is not None and step["name"] not in only_steps) or not _step_enabled(step):
             steps[i]["status"] = "skipped"
             continue
         steps[i]["status"] = "running"
@@ -555,6 +598,10 @@ def _run_day(
             steps[i]["partial"] = True
             partial = True
             print(f"  {step['name']}: completed with gaps ({_format_elapsed(elapsed)}) — day marked partial")
+        elif step.get("optional"):
+            steps[i]["status"] = "failed"
+            print(f"  {step['name']}: FAILED (exit {result.returncode}) — optional, day continues")
+            _alert_optional_failure(step, day_str, result.returncode)
         else:
             steps[i]["status"] = "failed"
             print(f"  {step['name']}: FAILED (exit {result.returncode})")
