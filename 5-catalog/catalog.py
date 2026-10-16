@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.atomic_io import atomic_write_df
 from lib.catalog_lock import CatalogLockTimeout, catalog_lock
 from lib.config import load_config, load_stations
+from lib.event_ids import mint_event_id
 from lib.regional import RegionalCatalog
 from lib.regional import refresh as refresh_regional
 from lib.reviews import SIDECAR_FILENAME, append_review_records, jsonable
@@ -82,12 +83,9 @@ def _jday_to_date(year, jday):
     return dt.strftime("%Y%m%d")
 
 
-def make_event_id(year, jday, event_index, prefix="ep"):
-    """Build a globally unique event ID: {prefix}{YYYYMMDD}-{NNNN}.
-
-    The prefix is two characters: catalog code reads the day as id[2:10].
-    """
-    return f"{prefix}{_jday_to_date(year, jday)}-{int(event_index):04d}"
+# Event ids: lib/event_ids.py. A rebuild hands every re-found event its old id
+# (carry_over_ids below), so reviews, NLLoc work and public-site links survive
+# re-running association.
 
 
 # Second-detector source (see module docstring).
@@ -168,11 +166,17 @@ def restore_reviewed_events(catalog, assignments, preserved_events,
     append_picks = []
 
     def _next_free_id(old_id):
-        """Next unused NNNN suffix for old_id's day prefix (epYYYYMMDD-)."""
-        prefix = old_id.rsplit("-", 1)[0]
-        taken = [int(u.rsplit("-", 1)[1]) for u in used_ids
-                 if u.startswith(prefix + "-") and u.rsplit("-", 1)[1].isdigit()]
-        return f"{prefix}-{(max(taken) + 1 if taken else 0):04d}"
+        """A free id for a reviewed row whose id now names another event."""
+        day, sep, num = old_id.rpartition("-")
+        if sep and len(day) == 10 and len(num) == 4 and num.isdigit():
+            # Positional (pre-2026-10-16) id: next unused NNNN of that day.
+            taken = [int(u.rsplit("-", 1)[1]) for u in used_ids
+                     if u.startswith(day + "-") and u.rsplit("-", 1)[1].isdigit()]
+            return f"{day}-{(max(taken) + 1 if taken else 0):04d}"
+        n = 2
+        while f"{old_id}-{n}" in used_ids:
+            n += 1
+        return f"{old_id}-{n}"
 
     for eid, row_data in preserved_events.items():
         id_taken = False
@@ -276,6 +280,56 @@ def warn_near_duplicates(catalog, logger):
             )
             found += 1
     return found
+
+
+def carry_over_ids(catalog, assignments, previous, logger):
+    """Give each freshly read event the id of the previous event it re-finds.
+
+    `previous` holds event_id and time of the catalog before a rebuild. A
+    fresh and a previous event are the same when they come from the same
+    source (2-character id prefix) and their origins are within RECLAIM_DT_S;
+    pairs are matched one-to-one, closest first. Unmatched fresh events keep
+    their newly minted ids; unmatched previous ones are gone (restored later
+    only if reviewed). Fresh ids must not collide with previous ones (mint
+    them with the previous ids in `taken`). Returns (catalog, assignments).
+    """
+    if catalog.empty or previous is None or previous.empty:
+        return catalog, assignments
+
+    def _seconds(times):
+        t = pd.to_datetime(times, utc=True, format="ISO8601", errors="coerce")
+        return (t - pd.Timestamp("1970-01-01", tz="UTC")).dt.total_seconds()
+
+    fresh = pd.DataFrame({"id": catalog["event_id"].astype(str).to_numpy(),
+                          "t": _seconds(catalog["time"]).to_numpy()})
+    old = pd.DataFrame({"id": previous["event_id"].astype(str).to_numpy(),
+                        "t": _seconds(previous["time"]).to_numpy()}).dropna()
+    pairs = []
+    for src, olds in old.groupby(old["id"].str[:2]):
+        olds = olds.sort_values("t")
+        ot = olds["t"].to_numpy()
+        for fid, ft in fresh[fresh["id"].str[:2] == src].itertuples(index=False):
+            if pd.isna(ft):
+                continue
+            lo = ot.searchsorted(ft - RECLAIM_DT_S, side="left")
+            hi = ot.searchsorted(ft + RECLAIM_DT_S, side="right")
+            for oid, o_t in olds.iloc[lo:hi].itertuples(index=False):
+                pairs.append((abs(ft - o_t), fid, oid))
+    rename, used_old = {}, set()
+    for _, fid, oid in sorted(pairs):
+        if fid not in rename and oid not in used_old:
+            rename[fid] = oid
+            used_old.add(oid)
+    rename = {f: o for f, o in rename.items() if f != o}
+    if rename:
+        catalog = catalog.assign(event_id=catalog["event_id"].replace(rename))
+        if not assignments.empty:
+            assignments = assignments.assign(event_id=assignments["event_id"].replace(rename))
+    logger.info(
+        "Event ids: %d re-found event(s) kept their id, %d new",
+        len(used_old), len(fresh) - len(used_old),
+    )
+    return catalog, assignments
 
 
 def day_key(year, jday):
@@ -479,7 +533,7 @@ def _retriage_under_lock(catalog_path, assignments_path, triage_cfg, regional, l
     logger.info("Retriaged %d events: %s", len(relabelled), counts)
 
 
-def _read_day(day, prefix, logger):
+def _read_day(day, prefix, logger, taken):
     """One day file pair -> (events, assignments) with global ids, or None.
 
     prefix None = PhaseNet ("ep"); PHASENO_PREFIX additionally marks the
@@ -495,9 +549,7 @@ def _read_day(day, prefix, logger):
         return None
 
     id_prefix = prefix or "ep"
-    events["event_id"] = events["event_index"].apply(
-        lambda idx: make_event_id(day["year"], day["jday"], idx, prefix=id_prefix)
-    )
+    events["event_id"] = [mint_event_id(t, id_prefix, taken) for t in events["time"]]
     if prefix == PHASENO_PREFIX:
         events["detector"] = PHASENO_DETECTOR
     events = events[["event_id"] + [c for c in events.columns if c != "event_id"]]
@@ -537,6 +589,7 @@ def _merge_under_lock(
     # how step 4 generates daily events.
     preserved_events: dict[str, dict] = {}  # event_id → full catalog row
     preserved_assignments: dict[str, list] = {}  # event_id → list[pick dict]
+    previous = pd.DataFrame()  # event_id + time of every row before a rebuild
     if args.rebuild and catalog_path.exists():
         # Two-layer protection for human review work:
         #   1. In-memory snapshot (preserved_events) — restored into the new
@@ -547,6 +600,7 @@ def _merge_under_lock(
         #      this file. Never rewritten, only appended.
         try:
             snap_df = pd.read_csv(catalog_path, dtype={"event_id": str})
+            previous = snap_df[["event_id", "time"]]
             reviewed_mask = snap_df["review_status"].fillna("").astype(str).str.strip() != ""
             # to_dict('records') is C-level (much faster than iterrows())
             for row in snap_df[reviewed_mask].to_dict("records"):
@@ -597,6 +651,10 @@ def _merge_under_lock(
         existing_assignments = load_existing_assignments(assignments_path, logger)
 
     # ── Process new days ─────────────────────────────────────────────
+    # New ids must not reuse any id the catalog has (or had, before a rebuild).
+    taken = set(existing_catalog["event_id"].astype(str)) if not existing_catalog.empty else set()
+    if not previous.empty:
+        taken |= set(previous["event_id"].astype(str))
     new_event_dfs = []
     new_assign_dfs = []
     new_day_count = 0
@@ -608,7 +666,7 @@ def _merge_under_lock(
             if dk in existing_days:
                 logger.debug("Day %s already in catalog (%s), skipping", dk, prefix or "ep")
                 continue
-            got = _read_day(day, prefix, logger)
+            got = _read_day(day, prefix, logger, taken)
             if got is None:
                 logger.debug("Day %s has no %s events, skipping", dk, prefix or "ep")
                 continue
@@ -638,6 +696,10 @@ def _merge_under_lock(
         assignments = new_assigns
     else:
         assignments = existing_assignments
+
+    # ── Keep ids across a rebuild ────────────────────────────────────
+    if args.rebuild:
+        catalog, assignments = carry_over_ids(catalog, assignments, previous, logger)
 
     # ── Restore reviewed-event rows from snapshot ────────────────────
     # Content-aware overlay: preserves manual review work across rebuilds

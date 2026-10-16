@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Import from catalog module
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "5-catalog"))
-from catalog import _jday_to_date, day_key, make_event_id
+from catalog import _jday_to_date, day_key, mint_event_id
 
 
 class TestJdayToDate:
@@ -23,18 +23,36 @@ class TestJdayToDate:
         assert _jday_to_date("2026", "365") == "20261231"
 
 
-class TestMakeEventId:
-    def test_basic(self):
-        eid = make_event_id("2026", "029", 1)
-        assert eid == "ep20260129-0001"
+class TestMintEventId:
+    def test_origin_time_to_the_second(self):
+        assert mint_event_id("2025-11-28T18:58:04.646", "ep", set()) == "ep20251128T185804"
 
-    def test_padding(self):
-        eid = make_event_id("2026", "001", 42)
-        assert eid == "ep20260101-0042"
+    def test_naive_and_z_times_agree(self):
+        assert mint_event_id("2025-11-28T18:58:04.646123Z", "po", set()) == "po20251128T185804"
 
-    def test_large_index(self):
-        eid = make_event_id("2026", "365", 9999)
-        assert eid == "ep20261231-9999"
+    def test_taken_ids_get_a_suffix_and_are_recorded(self):
+        taken = {"ep20251128T185804"}
+        assert mint_event_id("2025-11-28T18:58:04.9", "ep", taken) == "ep20251128T185804-2"
+        assert mint_event_id("2025-11-28T18:58:04.1", "ep", taken) == "ep20251128T185804-3"
+        assert taken == {"ep20251128T185804", "ep20251128T185804-2", "ep20251128T185804-3"}
+
+    def test_prefix_must_be_two_characters(self):
+        import pytest
+        with pytest.raises(ValueError):
+            mint_event_id("2025-11-28T18:58:04", "e", set())
+
+    def test_template_match_script_uses_the_same_ids(self):
+        import importlib.util
+        root = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location(
+            "add_candidates", root / "scripts/add_candidates_to_catalog.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        cat = pd.DataFrame({"event_id": ["tm20251027T231303"]})
+        assert mod.next_event_id(cat, "2025-10-27T23:13:03.4Z", set()) == "tm20251027T231303-2"
+
+    def test_day_key_is_still_characters_2_to_10(self):
+        assert mint_event_id("2026-01-29T23:59:59.999", "ep", set())[2:10] == "20260129"
 
 
 class TestDayKey:
@@ -176,6 +194,16 @@ class TestRestoreReviewedEvents:
         assert by_station["NEWOWNER"] == "ep20260121-0008"   # untouched
         assert by_station["REVIEWEDPICK"] == "ep20260121-0002"  # re-keyed
         assert "FRESHTWIN" not in by_station                 # replaced
+
+    def test_stolen_time_based_id_without_twin_gets_a_suffix(self):
+        reviewed = {**REVIEWED, "event_id": "ep20260121T001339"}
+        other = {**REVIEWED, "event_id": "ep20260121T001339",
+                 "time": "2026-01-21T05:00:00.000", "reviewed": "",
+                 "review_status": "", "event_type": ""}
+        out, _ = restore_reviewed_events(
+            _cat([other]), pd.DataFrame(), {"ep20260121T001339": reviewed}, {}, _log)
+        assert set(out["event_id"]) == {"ep20260121T001339", "ep20260121T001339-2"}
+        assert out.set_index("event_id").loc["ep20260121T001339-2", "review_status"] == "confirmed"
 
     def test_never_drops_another_reviewed_row(self):
         # A reviewed near-twin must not be reclaimed/dropped.
