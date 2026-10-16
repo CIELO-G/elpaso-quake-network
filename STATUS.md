@@ -4,8 +4,8 @@
 
 - **2026-10-16: PhaseNO second detector + regional rule merged (`df6456c`), app restarted
   09:29 MDT; PhaseNO is OFF** (`3-detection/phaseno/config.yaml` `enabled: false`). Next: turn
-  it on (Marc's call), then Phase 3 time-based event IDs (in progress, branch
-  `feature/time-ids`) before any PhaseNO backfill. Pipeline LIVE under account `seismiclab`.
+  it on (Marc's call). **Time-based event ids merged 2026-10-16 (`9ef80d2`)**: new events from
+  the 2026-10-17 run on are `epYYYYMMDDTHHMMSS`; old ids kept. Pipeline LIVE under `seismiclab`.
 - **Where:** Mac Studio, `/Users/seismiclab/Marc/Elpaso/elpaso-quake-network`, branch `main`.
   Waveforms on `/Volumes/VelascoRAID1` (`output/1-raw`, `output/2-processed` are symlinks);
   see `../docs/MACSTUDIO_INSTALL.md` for the original install.
@@ -24,7 +24,7 @@
   4. RADA1 site fix (~2 weeks out): then re-run Sep 26–Oct 2 2026.
   5. The 10 new stations (~2 weeks out): `scripts/add_station.py add ...`, then `--gap-fill --archive-only`.
   6. Phase 3: hourly rolling pass + time-based event IDs (see log 2026-10-12 "latency").
-     Time-based IDs started 2026-10-16 (ahead of the rest of Phase 3).
+     Time-based IDs DONE 2026-10-16; hourly rolling pass still open.
   Keep watching `logs/ingest.log` for "too many requests" (revert `station_delay_seconds` to 5 if seen).
 ## Phase 1 checklist
 
@@ -180,6 +180,16 @@
   Merge rule `lib/detector_merge.py` reproduces analyze2.py exactly on the Round 2 data. End-to-end
   in a sandbox on 2025-11-28: PhaseNO 4 min, 11 events, 1 added (18:58:04 UTC, 3 corroborating
   picks, triage ok), existing rows unchanged. Tests: 385 pass. App restarted 09:29 MDT.
+- 2026-10-16: **stable, time-based event ids merged** (`8a7881b`..`9ef80d2`, ff; no restart
+  needed — catalog step). New ids `{ep|po|tm}YYYYMMDDTHHMMSS` from the first solution's origin
+  (`lib/event_ids.py`); on `--rebuild` every re-found event (same prefix, origin ±10 s, one-to-one)
+  keeps its previous id, reviewed or not (`carry_over_ids`). The 152 existing positional ids
+  (public site) are kept. Checked on a copy of the live catalog: plain rebuild keeps all 152 ids;
+  with every day's GaMMA indices reversed the old code left 60 ids naming a different event (20
+  reviewed), the new code 0. Re-detecting a new station's history (gap-fill without
+  `--archive-only`) is now safe (RUNBOOK "Event ids"). Backup `catalog.csv.bak-*-pretimeids`.
+  Tests: 399 pass. Also: disabled optional steps show "skipped" from the start (takes effect
+  at the next app restart).
 - 2026-10-12: **latency stage 1** (Marc). `DATA_LATENCY_HOURS` 6 -> 2: the day now runs at
   02:00 UTC (20:00 local) instead of 06:00. Measured server lag: Raspberry Shake ~30 min,
   IRIS real time. Event latency 3-27 h (was 7-31). Stage 2 (hourly rolling pass,
