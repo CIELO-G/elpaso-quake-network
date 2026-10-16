@@ -208,7 +208,8 @@ def _make_step_statuses(initial: str = "pending") -> list[dict]:
         {
             "number": n,
             "name": s["name"],
-            "status": initial,
+            # A disabled optional step will be skipped: say so from the start.
+            "status": initial if _step_enabled(s) else "skipped",
             "started_at": None,
             "finished_at": None,
             "return_code": None,

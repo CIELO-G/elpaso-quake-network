@@ -285,5 +285,11 @@ def test_steps_are_selected_by_unique_name():
     assert rp.STEP_NAMES == ["ingest", "process", "detect", "associate", "phaseno", "catalog"]
     assert rp._steps_after("ingest") == set(rp.STEP_NAMES) - {"ingest"}
     assert rp._steps_after("catalog") == set()
-    numbers = [s["number"] for s in rp._make_step_statuses()]
+    statuses = rp._make_step_statuses()
+    numbers = [s["number"] for s in statuses]
     assert numbers == list(range(1, len(rp.STEPS) + 1))
+
+
+def test_disabled_optional_step_shows_skipped_before_the_day_runs(out):
+    status = {s["name"]: s["status"] for s in rp._make_step_statuses()}
+    assert status["phaseno"] == "skipped" and status["detect"] == "pending"
