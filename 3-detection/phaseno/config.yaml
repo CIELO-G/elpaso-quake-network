@@ -1,0 +1,57 @@
+# =============================================================================
+# El Paso Seismic Network - PhaseNO second detector (3-detection/phaseno/step.py)
+# =============================================================================
+# PhaseNet stays the primary picker. PhaseNO picks the same day, its picks
+# are associated with the production settings, and an event is added to the
+# catalog (id prefix "po") only when PhaseNet missed it but saw its arrivals.
+# Evaluation: research/phaseno-eval/FINDINGS.md, Round 2.
+
+# Whether the daily pipeline runs this step. Off = the step is shown as
+# skipped and the catalog is exactly PhaseNet's. Read at the start of every
+# day, so no restart is needed. Running step.py by hand works either way.
+enabled: false
+
+stations_file: "stations.json"
+
+# Interpreter of the `phaseno` conda env (PyTorch; Apple GPU via MPS).
+python: "/opt/anaconda3/envs/phaseno/bin/python"
+device: "auto"               # auto | mps | cuda | cpu
+
+# Pick thresholds. Association drops picks below its min_pick_probability
+# (0.5) anyway; 0.4 keeps the picks file comparable with PhaseNet's.
+p_threshold: 0.4
+s_threshold: 0.4
+
+# -----------------------------------------------------------------------------
+# I/O
+# -----------------------------------------------------------------------------
+# PhaseNO reads raw counts: its gap handling needs the zero-filled gaps that
+# 2-processed has interpolated away.
+raw_dir: "output/1-raw"
+# PhaseNet's picks and events (read only).
+primary_dir: "output"
+# PhaseNO's own 3-picks, 4-events and 4-additions.
+output_dir: "output/phaseno"
+# Same association settings as PhaseNet's events.
+association_config: "4-association/config.yaml"
+
+# -----------------------------------------------------------------------------
+# Merge rule (lib/detector_merge.py)
+# -----------------------------------------------------------------------------
+merge:
+  # A PhaseNO pick is corroborated by a PhaseNet pick of the same station
+  # and phase within this many seconds...
+  corroboration_tolerance_s: 1.0
+  # ...and an event needs this many corroborated picks (2 let in 3 more
+  # false events in the evaluation and found no more confirmed ones).
+  min_corroborating_picks: 3
+  # No PhaseNet event within this many seconds (same as the catalog's
+  # same-event window, RECLAIM_DT_S), so additions are never duplicates.
+  min_separation_s: 10.0
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+log_dir: "logs"
+log_max_bytes: 10485760    # 10 MB per log file
+log_backup_count: 5        # keep 5 rotated files
