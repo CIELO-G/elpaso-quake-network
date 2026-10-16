@@ -2,8 +2,8 @@
 """Find (and optionally merge) duplicate events in the master catalog.
 
 Duplicates arise when association or template matching catalogs the same
-source twice (e.g. ep20260307-0001 / ep20260307-0003: identical origin time,
-hypocenter, and picks). Two events are considered duplicates when BOTH their
+source twice (e.g. the 2026-03-07 21:17:27 blast was in the catalog twice, with
+identical origin time, hypocenter, and picks). Two events are considered duplicates when BOTH their
 origin times are within ``--dt`` seconds AND their epicenters are within
 ``--dist`` km; groups are formed transitively (connected components).
 

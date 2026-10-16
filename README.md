@@ -307,18 +307,22 @@ Merges daily event files from Step 4 into a single running catalog with globally
 ### How It Works
 
 1. Discovers all daily event files under `output/4-events/{year}/{jday}/`
-2. Loads the existing catalog (if any) to determine which days are already included
+2. Loads the existing catalog (if any) and `ingested_days.json`, the days already included
 3. For each new day, reads the events and assignments CSVs
-4. Assigns each event a global ID in the format `ep{YYYYMMDD}-{NNNN}` (e.g., `ep20260101-0007`)
+4. Assigns each event an ID from its origin time (e.g., `ep20260101T103653`)
 5. Maps pick assignments from daily `event_index` to the global `event_id`
 6. Appends new data to the catalog, sorts chronologically, and writes output
 
 ### Event ID Format
 
-Each event gets an ID like `ep20260101-0007`:
-- `ep` — network prefix (El Paso)
-- `20260101` — calendar date (YYYYMMDD)
-- `0007` — zero-padded daily event index from Step 4
+Each event gets an ID like `ep20260101T103653`:
+- `ep` — source: `ep` PhaseNet, `po` PhaseNO, `tm` template matching
+- `20260101T103653` — origin time of its first solution, UTC, to the second
+  (`-2` is appended if two events of one source share a second)
+
+The ID never changes: a rebuild gives every re-found event its old ID. IDs issued before
+2026-10-16 were positional (`ep20260101-0007`) and were migrated;
+`output/5-catalog/id_aliases.csv` maps old to new (see RUNBOOK "Event ids").
 
 ### Output Format
 
@@ -326,14 +330,14 @@ Each event gets an ID like `ep20260101-0007`:
 
 ```csv
 event_id,event_index,time,magnitude,magnitude_type,ml_err,latitude,longitude,depth_km,sigma_time,sigma_amp,num_picks,num_ml_sta
-ep20260101-0007,7,2026-01-01T10:36:53.122,1.20,ML,0.29,31.674656,-106.088666,0.00,1.1208,0.5109,4,3
+ep20260101T103653,7,2026-01-01T10:36:53.122,1.20,ML,0.29,31.674656,-106.088666,0.00,1.1208,0.5109,4,3
 ```
 
 **Pick assignments** (`output/5-catalog/assignments.csv`):
 
 ```csv
 event_id,network,station,location,channel,phase,time,probability,amplitude,amplitude_channel
-ep20260101-0007,AM,R4B41,0.0,EHZ,P,2026-01-01T10:37:01.980000Z,0.8607,1.151308e-06,EHZ
+ep20260101T103653,AM,R4B41,0.0,EHZ,P,2026-01-01T10:37:01.980000Z,0.8607,1.151308e-06,EHZ
 ```
 
 ### Configuration

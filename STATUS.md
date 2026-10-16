@@ -2,48 +2,38 @@
 
 ## RESUME HERE
 
-- **2026-10-16: PhaseNO second detector + regional rule merged (`df6456c`), app restarted
-  09:29 MDT; PhaseNO is OFF** (`3-detection/phaseno/config.yaml` `enabled: false`). Next: turn
-  it on (Marc's call). **Time-based event ids merged 2026-10-16 (`9ef80d2`)**: new events from
-  the 2026-10-17 run on are `epYYYYMMDDTHHMMSS`. **All 152 old ids migrated to that form the same
-  day** (`a4c6f36`; old -> new in `output/5-catalog/id_aliases.csv`). Pipeline LIVE under `seismiclab`.
+- **State (2026-10-16):** pipeline LIVE under `seismiclab`, daily run 02:00 UTC. Event ids are
+  time-based and the 152 old ones were migrated (log 2026-10-16). PhaseNO second detector and the
+  regional-quake triage rule are merged; **PhaseNO is OFF** (`3-detection/phaseno/config.yaml`).
 - **Where:** Mac Studio, `/Users/seismiclab/Marc/Elpaso/elpaso-quake-network`, branch `main`.
   Waveforms on `/Volumes/VelascoRAID1` (`output/1-raw`, `output/2-processed` are symlinks);
   see `../docs/MACSTUDIO_INSTALL.md` for the original install.
 - **Rules:** small commits with tests; no behaviour change for good days; restart the pipeline
   only right after a day finishes (or while it is "waiting"). Never run `scripts/prune_raw.py`.
-  `deploy/app/local.env` holds the alert SMTP password — never commit or print it.
+  `deploy/app/local.env` holds the dashboard login and SMTP password — never commit or print it.
+  Commits carry no Co-Authored-By / Claude-Session lines. `dashboard/static/` is worked on in a
+  separate session.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
+  Keep watching `logs/ingest.log` for "too many requests" (revert `station_delay_seconds` to 5).
+- **Next check:** after the 2026-10-17 02:00 UTC run, the first on the new id code: new events
+  are `ep…T…`, `ingested_days.json` gains the day, no "Near-duplicate" in `logs/catalog.log`.
 - **Open items, in order:**
   1. **PhaseNO: enable** (`enabled: true`, no restart) and decide on a backfill (~36 h GPU for
-     all days; do it after the time-based IDs). RUNBOOK "PhaseNO second detector".
-  2. Public site push is rejected: `../elpaso-seismic` is ahead 12 / behind 2 of origin (remote
-     has a redesign PR; local commits are data-only, no file overlap) → `git pull --rebase`, push.
-     Needs `gh auth login` in the new account anyway.
+     all days). RUNBOOK "PhaseNO second detector".
+  2. Public site `../elpaso-seismic` is not pushed (local data commits + the old-id redirect;
+     origin has a redesign PR, no file overlap) → `git pull --rebase`, push. The pipeline's daily
+     push fails until then.
   3. ElPaso2021 nodal campaign is a first pass — dedicated association config + re-run of
      2021-06-05..06-16 before anyone reviews those events.
   4. RADA1 site fix (~2 weeks out): then re-run Sep 26–Oct 2 2026.
-  5. The 10 new stations (~2 weeks out): `scripts/add_station.py add ...`, then `--gap-fill --archive-only`.
-  6. Phase 3: hourly rolling pass + time-based event IDs (see log 2026-10-12 "latency").
-     Time-based IDs DONE 2026-10-16; hourly rolling pass still open.
-  Keep watching `logs/ingest.log` for "too many requests" (revert `station_delay_seconds` to 5 if seen).
-## Phase 1 checklist
+  5. The 10 new stations (~2 weeks out): `scripts/add_station.py add ...`, then `--gap-fill`
+     (without `--archive-only` is safe now; see RUNBOOK "Event ids").
+  6. Phase 3: hourly rolling pass (see log 2026-10-12 "latency").
+  7. Butterfield M1.4 (2026-06-25): picked by PhaseNO, associated by neither — investigate.
 
-- [x] A1 review record: cross-process lock shared by catalog step and dashboard; every dashboard save appended to `reviews.jsonl`; backfill sidecar from current catalog.
-- [x] A2 ingest exits non-zero on failure.
-- [x] A3 association leaves no outputs and exits non-zero on failure.
-- [x] A4 resume from last day with events; gap-fill checks picks/events.
-- [x] A5 skipped days persisted across restarts.
-- [x] A6 partial-hour chunks recorded with coverage and re-fetched.
-- [x] A7 alerts: env in local.env + launcher; per-station coverage check; watchdog-exhausted alert; health shows alert config.
-- [x] A8 prune_raw.py refuses to run when 1-raw is not local.
-- [x] A9 pipeline stop waits for exit; no double pipeline.
-- [x] A10 atomic writes for all stage outputs.
-- [x] A11 no zero-fill in raw storage.
-- [x] A12 NaN amplitude guard.
-- [x] A13 (added 2026-10-12) one corrupt chunk cannot kill an ingest run: Steim2 encode failure falls back to INT32/FLOAT64; any other per-chunk exception is recorded as a failed chunk.
-- [x] A14 (added 2026-10-12) corrupt samples (|counts| > 2^23, impossible on a 24-bit ADC) are masked as gaps in `lib/waveform_qc.py` before processing and before PhaseNet; raw storage untouched.
-- [x] Restart pipeline after a day completes (done 2026-10-03 18:45 UTC). [x] Verified: 2026-10-03 and 2026-10-04 ran end to end on the new code (55 min each).
+## Phase 1 and 2
+
+Phase 1 (A1–A14, hardening) and Phase 2 (B1–B9, stations) are complete; each item is in the log.
 
 ## Log
 
@@ -168,45 +158,6 @@
   AM.RDB14 2026-10-11 in a scratch dir: 24/24 chunks, output byte-identical to the
   archive, 202 s for the station-day (was ~240), no 429s. Pre-existing quirk kept: the
   sample at exactly 00:00:00 spills into a 1-sample file for the next day. 300 tests.
-- 2026-10-16: **regional rule + PhaseNO merged to main** (9 commits `098d075`..`df6456c`, ff).
-  Regional triage: auto-reject an origin 5–90 s after a ComCat M≥3.0 quake 150–350 km away
-  (Marc's thresholds; M≥2.0 would tag 11 instead of 8 of 50 rejected, 0 confirmed either way).
-  `--retriage` run on the live catalog: 9 labels changed (5 on reviewed-rejected events, 4
-  unreviewed → auto_reject), review_status untouched; backup `catalog.csv.bak-*-premerge`.
-  ComCat cache `output/5-catalog/comcat_regional.csv`. Also: catalog `--retriage` now holds the
-  catalog lock. PhaseNO: orchestrator selects steps by name; new optional step `phaseno`
-  (between associate and catalog; off unless config `enabled: true`; failure = alert, day
-  completes) runs `3-detection/phaseno/step.py` → `output/phaseno/{3-picks,4-events,4-additions}`;
-  catalog ingests additions as `po…` ids with `detector`, `corroborating_picks`; dashboard tag.
-  Merge rule `lib/detector_merge.py` reproduces analyze2.py exactly on the Round 2 data. End-to-end
-  in a sandbox on 2025-11-28: PhaseNO 4 min, 11 events, 1 added (18:58:04 UTC, 3 corroborating
-  picks, triage ok), existing rows unchanged. Tests: 385 pass. App restarted 09:29 MDT.
-- 2026-10-16: **stable, time-based event ids merged** (`8a7881b`..`9ef80d2`, ff; no restart
-  needed — catalog step). New ids `{ep|po|tm}YYYYMMDDTHHMMSS` from the first solution's origin
-  (`lib/event_ids.py`); on `--rebuild` every re-found event (same prefix, origin ±10 s, one-to-one)
-  keeps its previous id, reviewed or not (`carry_over_ids`). The 152 existing positional ids
-  (public site) are kept. Checked on a copy of the live catalog: plain rebuild keeps all 152 ids;
-  with every day's GaMMA indices reversed the old code left 60 ids naming a different event (20
-  reviewed), the new code 0. Re-detecting a new station's history (gap-fill without
-  `--archive-only`) is now safe (RUNBOOK "Event ids"). Backup `catalog.csv.bak-*-pretimeids`.
-  Tests: 399 pass. Also: disabled optional steps show "skipped" from the start (takes effect
-  at the next app restart).
-- 2026-10-16: **ingested-days ledger** (`2f19145`): the catalog step read which days it had
-  ingested off ids[2:10]; with time-based ids an event seconds before midnight would re-ingest its
-  day every run, one just after would hide the next day. Now `output/5-catalog/ingested_days.json`
-  (bootstrapped from the positional ids).
-- 2026-10-16: **old ids migrated** (Marc: "consistency matters"; `ac44013`..`a4c6f36`, ff; app
-  restarted 11:21 MDT). `scripts/migrate_event_ids.py --apply` renamed all 152 events (no
-  collisions) in catalog/assignments (byte-exact otherwise, verified), appended 96 `id_migration`
-  records to reviews.jsonl, wrote `id_aliases.csv`; templates renamed after their event by origin
-  time (8/34 June names had drifted: duplicates -> `<id>_2`), detections/candidates/manifest follow.
-  Backups `output/{5-catalog,templates}/id-migration-backup-20261016T172022Z/`. Dashboard search
-  and `/api/event/<old id>` accept old ids (`legacy_id` in the response; "Former ID" row asked of
-  the Frontend session). Public site: exporter drops retired pages and writes `data/aliases.json`,
-  event page resolves old links (checked in headless Chrome); site committed locally (`828e67e`),
-  NOT pushed. `validate_locator.py` finds the day by origin time. Sandbox: incremental run adds
-  nothing, `--rebuild` keeps all 152 ids and reviews. Tests: 416 pass. Old spectrogram cache
-  entries (keyed by old ids) are orphaned; regenerated on demand.
 - 2026-10-12: **latency stage 1** (Marc). `DATA_LATENCY_HOURS` 6 -> 2: the day now runs at
   02:00 UTC (20:00 local) instead of 06:00. Measured server lag: Raspberry Shake ~30 min,
   IRIS real time. Event latency 3-27 h (was 7-31). Stage 2 (hourly rolling pass,
@@ -229,7 +180,7 @@
   stations is never auto-rejected by the core-station rule, so events carried by the new
   stations reach a reviewer. Against the reviewed catalog (46 confirmed / 50 rejected) the
   override rescues none of the 33 rejected events the core rule catches. On the live catalog
-  one unreviewed event changes (ep20260915-0002, M2.1, 6 stations, 1 core: auto_reject -> ok).
+  one unreviewed event changes (ep20260915T084856, M2.1, 6 stations, 1 core: auto_reject -> ok).
   `check_core_stations` warns at catalog time if a core station is retired or unknown. 304 tests.
 - 2026-10-12: **B7 done.** Dashboard: `load_stations` reloads when `stations.json` changes
   (mtime), so adding/retiring a station needs no restart; each station carries
@@ -246,7 +197,7 @@
   `scripts/add_station.py add|retire` (entry from model template, validation incl. study
   area, one FDSN metadata request, atomic write, NLLoc grid rebuild, next steps printed);
   `run_pipeline.py --gap-fill --archive-only` runs ingest+process only for a new station's
-  history so reviewed days are never re-associated (event IDs are day-indexed until Phase 3).
+  history so reviewed days are never re-associated (event ids were day-indexed then).
   312 tests.
 - 2026-10-12: app restarted (B7/B8 live: `channel_codes`, newest-first catalog, `/api/study_area`,
   `nlloc_missing_grids: []`); `phase2-stations` fast-forwarded into `main`, 312 tests, pushed.
@@ -304,3 +255,33 @@
   reorganised: side analyses under `../research/` (phaseno-eval, events, station_checks,
   snr_analysis, concert_seismology), notes in `../docs/`, one-off logs in `../logs/`,
   `dissertation-figures` renamed `../figures`; review docs here moved to `docs/`.
+- 2026-10-16: **regional rule + PhaseNO merged to main** (9 commits `e824bb3`..`5844a94`, ff).
+  Regional triage: auto-reject an origin 5–90 s after a ComCat M≥3.0 quake 150–350 km away
+  (Marc's thresholds; M≥2.0 would tag 11 instead of 8 of 50 rejected, 0 confirmed either way).
+  `--retriage` run on the live catalog: 9 labels changed (5 on reviewed-rejected events, 4
+  unreviewed → auto_reject), review_status untouched; backup `catalog.csv.bak-*-premerge`.
+  ComCat cache `output/5-catalog/comcat_regional.csv`. Also: catalog `--retriage` now holds the
+  catalog lock. PhaseNO: orchestrator selects steps by name; new optional step `phaseno`
+  (between associate and catalog; off unless config `enabled: true`; failure = alert, day
+  completes) runs `3-detection/phaseno/step.py` → `output/phaseno/{3-picks,4-events,4-additions}`;
+  catalog ingests additions as `po…` ids with `detector`, `corroborating_picks`; dashboard tag.
+  Merge rule `lib/detector_merge.py` reproduces analyze2.py exactly on the Round 2 data. End-to-end
+  in a sandbox on 2025-11-28: PhaseNO 4 min, 11 events, 1 added (18:58:04 UTC, 3 corroborating
+  picks, triage ok), existing rows unchanged. Tests: 385 pass. App restarted 09:29 MDT.
+- 2026-10-16: **event ids are time-based** (`{ep|po|tm}YYYYMMDDTHHMMSS`, origin of the first
+  solution, `lib/event_ids.py`; commits `b40b5dd`..`75d1ca3`, `c4cd3ce`, `6554b01`..`01c4252`).
+  On `--rebuild` every re-found event (same prefix, origin ±10 s, one-to-one) keeps its id,
+  reviewed or not (`carry_over_ids`); with every day's GaMMA indices reversed the old code left
+  60 ids naming a different event (20 reviewed), the new code 0, so re-detecting a new station's
+  history is now safe. Which days are ingested is kept in `output/5-catalog/ingested_days.json`
+  (ids no longer say: an event seconds before midnight sits in the next day's file).
+  **All 152 old positional ids migrated** (Marc: consistency matters) with
+  `scripts/migrate_event_ids.py`: catalog/assignments byte-exact apart from ids, 96 `id_migration`
+  records appended to reviews.jsonl, old -> new in `output/5-catalog/id_aliases.csv`; templates
+  renamed after their event by origin time (8/34 June names had drifted: duplicates -> `<id>_2`).
+  Backups `output/{5-catalog,templates}/id-migration-backup-20261016T172022Z/`. Old ids still
+  work: dashboard search, `/api/event/<old id>` + "Former ID" row, public site
+  `data/aliases.json` (old links checked in headless Chrome). `validate_locator.py` finds the day
+  by origin time. Notes, figures (fig09/13/14) and FINDINGS.md updated to new ids; research
+  result CSVs keep old ids. Old spectrogram cache entries orphaned (regenerated on demand).
+  App restarted 11:21 MDT. 416 tests.

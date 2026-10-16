@@ -2,7 +2,7 @@
 
 Usage
 -----
-    python scripts/validate_locator.py ep20251022-0001
+    python scripts/validate_locator.py ep20251022T184314
 
 Loads the specified event from the catalog and the associated picks from
 the day's assignments file, runs both the in-house GridSearch locator and
