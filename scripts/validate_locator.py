@@ -22,7 +22,7 @@ import argparse
 import csv
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -38,6 +38,7 @@ from lib.projection import latlon_to_km  # noqa: E402
 
 CATALOG_PATH = ROOT / "output" / "5-catalog" / "catalog.csv"
 EVENTS_DIR = ROOT / "output" / "4-events"
+SAME_EVENT = timedelta(seconds=10)  # relocation moves an origin by up to ~5 s
 STATIONS_PATH = ROOT / "stations.json"
 
 
@@ -49,14 +50,37 @@ def load_catalog_row(event_id: str) -> dict:
     raise SystemExit(f"event {event_id} not found in {CATALOG_PATH}")
 
 
-def load_event_day_picks(event_id: str, event_index: int) -> tuple[list[dict], Path]:
+def utc(iso: str) -> datetime:
+    t = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    return t.replace(tzinfo=timezone.utc) if t.tzinfo is None else t
+
+
+def find_event_day(cat: dict) -> Path:
+    """Directory of the association day that holds this catalog event.
+
+    Usually the origin's UTC day, but an event within seconds of midnight can
+    sit in the neighbouring day's file, so the day is the one whose event
+    with this event_index has (about) this origin time.
+    """
+    origin, index = utc(cat["time"]), int(float(cat["event_index"]))
+    for shift in (0, 1, -1):
+        day = origin + timedelta(days=shift)
+        year, jday = f"{day.year}", f"{day.timetuple().tm_yday:03d}"
+        events = EVENTS_DIR / year / jday / f"{year}.{jday}.events.csv"
+        if not events.exists():
+            continue
+        with events.open() as f:
+            for row in csv.DictReader(f):
+                if int(row["event_index"]) == index and abs(utc(row["time"]) - origin) <= SAME_EVENT:
+                    return events.parent
+    raise SystemExit(f"no association day holds event_index={index} at {cat['time']}")
+
+
+def load_event_day_picks(cat: dict) -> tuple[list[dict], Path]:
     """Load all picks assigned to this event on its pipeline day."""
-    # event_id: {prefix}{YYYYMMDD}T{HHMMSS} or, before 2026-10-16, {prefix}{YYYYMMDD}-{NNNN}
-    date_str = event_id[2:10]  # YYYYMMDD
-    dt = datetime.strptime(date_str, "%Y%m%d").replace(tzinfo=timezone.utc)
-    year = dt.strftime("%Y")
-    jday = f"{dt.timetuple().tm_yday:03d}"
-    assignments = EVENTS_DIR / year / jday / f"{year}.{jday}.assignments.csv"
+    event_index = int(float(cat["event_index"]))  # pandas may write "14.0"
+    day_dir = find_event_day(cat)
+    assignments = day_dir / f"{day_dir.parent.name}.{day_dir.name}.assignments.csv"
     if not assignments.exists():
         raise SystemExit(f"assignments file not found: {assignments}")
     rows: list[dict] = []
@@ -103,8 +127,7 @@ def main() -> int:
     args = ap.parse_args()
 
     cat = load_catalog_row(args.event_id)
-    event_index = int(cat["event_index"])
-    pick_rows, assignments_path = load_event_day_picks(args.event_id, event_index)
+    pick_rows, assignments_path = load_event_day_picks(cat)
 
     stations = load_stations()
     known_ids = {s.station_id for s in stations}
