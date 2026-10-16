@@ -23,6 +23,7 @@ from lib.constants import (  # noqa: E402  (path setup above)
     CONTINUOUS_LAG_HOURS,
     PIPELINE_START_DATE_ISO,
 )
+from lib.event_ids import ALIASES_FILENAME, read_aliases  # noqa: E402
 from lib.models import channel_layout  # noqa: E402
 
 # ── Filesystem layout ────────────────────────────────────────────
@@ -34,6 +35,7 @@ OUTPUT_DIR = ROOT / "output"
 STATUS_FILE = OUTPUT_DIR / "pipeline_status.json"
 CATALOG_FILE = OUTPUT_DIR / "5-catalog" / "catalog.csv"
 ASSIGNMENTS_FILE = OUTPUT_DIR / "5-catalog" / "assignments.csv"
+ID_ALIASES_FILE = OUTPUT_DIR / "5-catalog" / ALIASES_FILENAME
 PICKS_DIR = OUTPUT_DIR / "3-picks"
 EVENTS_DIR = OUTPUT_DIR / "4-events"
 RAW_DIR = OUTPUT_DIR / "1-raw"
@@ -128,6 +130,11 @@ def read_catalog() -> list[dict]:
         return []
     with open(CATALOG_FILE, newline="") as f:
         return list(csv.DictReader(f))
+
+
+def read_id_aliases() -> dict[str, str]:
+    """Old positional event id -> current id (lib/event_ids.py)."""
+    return read_aliases(ID_ALIASES_FILE)
 
 
 def read_assignments() -> list[dict]:

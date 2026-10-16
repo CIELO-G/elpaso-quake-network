@@ -23,6 +23,7 @@ from dashboard.deps import (
     parse_catalog_row,
     read_assignments,
     read_catalog,
+    read_id_aliases,
 )
 
 router = APIRouter()
@@ -69,10 +70,13 @@ async def catalog(
         ]
     if search:
         s = search.lower()
+        legacy_of = {new: old for old, new in read_id_aliases().items()}
         all_events = [
             e
             for e in all_events
-            if s in (e.get("event_id") or "").lower() or s in (e.get("time") or "").lower()
+            if s in (e.get("event_id") or "").lower()
+            or s in (e.get("time") or "").lower()
+            or s in legacy_of.get(e.get("event_id") or "", "")
         ]
     if review_status:
         if review_status == "unreviewed":
@@ -203,13 +207,19 @@ async def stats(request: Request):
 # ── Single-event detail ──────────────────────────────────────────
 @router.get("/api/event/{event_id}")
 async def event_detail(event_id: str):
-    """Single event + its picks + per-station phase counts."""
+    """Single event + its picks + per-station phase counts.
+
+    An old positional id resolves to the event's current id.
+    """
     rows = read_catalog()
+    aliases = read_id_aliases()
+    event_id = aliases.get(event_id, event_id)
     event_row = next((r for r in rows if r.get("event_id") == event_id), None)
     if event_row is None:
         raise HTTPException(status_code=404, detail=f"Event {event_id} not found")
 
     event = parse_catalog_row(event_row)
+    event["legacy_id"] = next((old for old, new in aliases.items() if new == event_id), None)
 
     event_picks = []
     for a in read_assignments():
