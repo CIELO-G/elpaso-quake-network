@@ -74,6 +74,7 @@
   <button class="menu-item" data-action="toggle-theme">Toggle Theme</button>
   <button class="menu-item" data-action="reload">Reload</button>
   <div class="menu-divider"></div>
+  <button class="menu-item" data-action="tab-overview">Overview</button>
   <button class="menu-item" data-action="tab-monitor">Monitor</button>
   <button class="menu-item" data-action="tab-pipeline">Pipeline</button>
   <button class="menu-item" data-action="tab-catalog">Catalog</button>
@@ -131,15 +132,69 @@
 </div>
 
 <div class="tab-bar">
-  <button class="tab-btn active" data-tab="monitor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Monitor</button>
+  <button class="tab-btn active" data-tab="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Overview</button>
+  <button class="tab-btn" data-tab="monitor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Monitor</button>
   <button class="tab-btn" data-tab="pipeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Pipeline</button>
   <button class="tab-btn" data-tab="catalog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Catalog</button>
   <button class="tab-btn" data-tab="waveviewer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 13 4 13 6 11 8 15 10 5 12 19 14 9 16 13 19 13 23 13"/></svg>Waveviewer</button>
   <button class="tab-btn" data-tab="helicorder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><path d="M7 6c1-2 2-2 3 0s2 2 3 0"/></svg>Helicorder</button>
 </div>
 
+<!-- Tab: Overview (landing). Filled by js/overview.js from the shared polls. -->
+<div class="tab-content-full active" id="tab-overview">
+  <div class="ov-grid">
+    <div class="ov-tiles">
+      <button class="ov-tile sev-neutral" id="ov-tile-queue" data-go="queue" title="Open the review queue in the catalog">
+        <span class="ov-label">Review queue</span><span class="ov-value">&mdash;</span><span class="ov-sub"></span>
+      </button>
+      <button class="ov-tile sev-neutral" id="ov-tile-stations" data-go="stations" title="Show the station map">
+        <span class="ov-label">Stations up</span><span class="ov-value">&mdash;</span><span class="ov-sub"></span>
+      </button>
+      <button class="ov-tile sev-neutral" id="ov-tile-pipeline" data-go="pipeline" title="Open the pipeline tab">
+        <span class="ov-label">Pipeline</span><span class="ov-value">&mdash;</span><span class="ov-sub"></span>
+      </button>
+      <button class="ov-tile sev-neutral" id="ov-tile-data" data-go="pipeline" title="Open the pipeline tab">
+        <span class="ov-label">Data</span><span class="ov-value">&mdash;</span><span class="ov-sub"></span>
+      </button>
+      <button class="ov-tile sev-neutral" id="ov-tile-last" data-go="last" title="Show the latest event on the map">
+        <span class="ov-label">Last event</span><span class="ov-value">&mdash;</span><span class="ov-sub"></span>
+      </button>
+      <button class="ov-tile sev-neutral" id="ov-tile-errors" data-go="pipeline" title="Open the error log">
+        <span class="ov-label">Errors</span><span class="ov-value">&mdash;</span><span class="ov-sub"></span>
+      </button>
+    </div>
+    <div class="ov-panels">
+      <div class="panel ov-panel">
+        <div class="panel-title">Station health <span class="error-count" id="ov-sta-count"></span></div>
+        <table class="ov-table">
+          <thead><tr><th>Station</th><th>Status</th><th class="num">Last 3 days</th></tr></thead>
+          <tbody id="ov-sta-body"><tr><td colspan="3" class="ov-empty">Loading&hellip;</td></tr></tbody>
+        </table>
+        <div class="ov-foot" id="ov-sta-foot"></div>
+      </div>
+      <div class="panel ov-panel">
+        <div class="panel-title">Review queue <span class="error-count" id="ov-queue-count"></span>
+          <button class="cmp-toggle ov-action" id="ov-review-next" hidden>Review next &#9656;</button>
+          <button class="cmp-toggle ov-action" id="ov-open-catalog">Catalog</button>
+        </div>
+        <div class="ov-list" id="ov-queue-list"><div class="ov-empty">Loading&hellip;</div></div>
+      </div>
+      <div class="panel ov-panel">
+        <div class="panel-title">Events &middot; last 30 days <span class="error-count" id="ov-rate-total"></span></div>
+        <div class="ov-spark-wrap"><canvas id="ov-rate" class="ov-spark"></canvas></div>
+      </div>
+      <div class="panel ov-panel">
+        <div class="panel-title">Pipeline
+          <button class="cmp-toggle ov-action" id="ov-open-pipeline">Details</button>
+        </div>
+        <div id="ov-pipe-body"><div class="ov-empty">Loading&hellip;</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Tab: Monitor (map only) -->
-<div class="main tab-content active" id="tab-monitor">
+<div class="main tab-content" id="tab-monitor">
   <div class="map-wrap">
     <div id="map"></div>
     <div class="map-zoom-control" id="map-zoom-control">
@@ -577,6 +632,7 @@
 <script src="/static/js/review.js"></script>
 <script src="/static/js/waveviewer.js"></script>
 <script src="/static/js/pipeline-control.js"></script>
+<script src="/static/js/overview.js"></script>
 <script src="/static/js/boot.js"></script>
 </body>
 </html>

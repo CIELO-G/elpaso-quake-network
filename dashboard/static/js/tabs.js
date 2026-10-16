@@ -54,8 +54,8 @@ if (typeof ResizeObserver !== 'undefined') {
 }
 
 // ── Tab Navigation ──────────────────────────────────────────────
-var activeTab = 'monitor';
-var tabDataLoaded = { monitor: true, pipeline: true, catalog: false, waveviewer: false, helicorder: false };
+var activeTab = 'overview';
+var tabDataLoaded = { overview: true, monitor: true, pipeline: true, catalog: false, waveviewer: false, helicorder: false };
 
 function switchTab(tab) {
   if (tab === activeTab) return;
@@ -65,6 +65,9 @@ function switchTab(tab) {
   document.getElementById('tab-' + activeTab).classList.remove('active');
   document.getElementById('tab-' + tab).classList.add('active');
   activeTab = tab;
+  if (tab === 'overview') {
+    renderOverview();
+  }
   if (tab === 'monitor') {
     setTimeout(function() { map.invalidateSize(); }, 50);
   }

@@ -188,6 +188,7 @@ function _menubarAction(action) {
     // View
     case 'toggle-theme':     switchAppTheme(_currentAppTheme === 'light' ? 'dark' : 'light'); break;
     case 'reload':           location.reload(); break;
+    case 'tab-overview':     switchTab('overview'); break;
     case 'tab-monitor':      switchTab('monitor'); break;
     case 'tab-pipeline':     switchTab('pipeline'); break;
     case 'tab-catalog':      switchTab('catalog'); break;

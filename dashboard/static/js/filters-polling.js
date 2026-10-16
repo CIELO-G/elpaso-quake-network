@@ -224,12 +224,16 @@ async function pollData() {
       fetchJSON('/api/stats'),
       fetchJSON('/api/catalog' + catalogParams()),
       fetchJSON('/api/progress'),
-      fetchJSON('/api/throughput')
+      fetchJSON('/api/throughput'),
+      fetchJSON('/api/catalog?review_status=queue&per_page=0&sort_by=time&sort_order=desc'),
     ]);
     renderStats(results[0]);
     renderEvents((results[1] && results[1].events) || []);
     renderProgress(results[2]);
     renderThroughput(results[3]);
+    ovSet('stats', results[0]);
+    ovSet('progress', results[2]);
+    ovSet('queue', results[4]);
     onApiSuccess();
   } catch(e) { onApiFailure(e); }
   hideLoading('loading-progress');
@@ -239,7 +243,9 @@ async function pollData() {
 async function pollDisk() {
   showLoading('loading-disk');
   try {
-    renderDisk(await fetchJSON('/api/disk'));
+    var disk = await fetchJSON('/api/disk');
+    renderDisk(disk);
+    ovSet('disk', disk);
     onApiSuccess();
   } catch(e) { onApiFailure(e); }
   hideLoading('loading-disk');
@@ -248,7 +254,9 @@ async function pollDisk() {
 async function pollErrors() {
   showLoading('loading-errors');
   try {
-    renderErrors(await fetchJSON('/api/errors'));
+    var errs = await fetchJSON('/api/errors');
+    renderErrors(errs);
+    ovSet('errors', errs);
     onApiSuccess();
   } catch(e) { onApiFailure(e); }
   hideLoading('loading-errors');
@@ -260,10 +268,15 @@ async function pollSlow() {
     var results = await Promise.all([
       fetchJSON('/api/station_health'),
       fetchJSON('/api/data_completeness'),
+      fetchJSON('/api/event_rate'),
+      fetchJSON('/api/health'),
     ]);
     lastStationHealth = results[0];
     renderStationHealth(results[0]);
     renderCompleteness(results[1]);
+    ovSet('health', results[0]);
+    ovSet('rate', results[2]);
+    ovSet('apihealth', results[3]);
     onApiSuccess();
   } catch(e) { onApiFailure(e); }
   hideLoading('loading-completeness');

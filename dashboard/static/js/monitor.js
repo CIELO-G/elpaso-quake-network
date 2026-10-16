@@ -9,6 +9,7 @@
 // ── Render pipeline status + step strip ─────────────────────────
 function renderStatus(data) {
   if (!data) return;
+  if (typeof ovSet === 'function') ovSet('status', data);
   const p = data.pipeline;
   const steps = data.steps || [];
 
