@@ -5,7 +5,8 @@
 - **2026-10-16: PhaseNO second detector + regional rule merged (`df6456c`), app restarted
   09:29 MDT; PhaseNO is OFF** (`3-detection/phaseno/config.yaml` `enabled: false`). Next: turn
   it on (Marc's call). **Time-based event ids merged 2026-10-16 (`9ef80d2`)**: new events from
-  the 2026-10-17 run on are `epYYYYMMDDTHHMMSS`; old ids kept. Pipeline LIVE under `seismiclab`.
+  the 2026-10-17 run on are `epYYYYMMDDTHHMMSS`. **All 152 old ids migrated to that form the same
+  day** (`a4c6f36`; old -> new in `output/5-catalog/id_aliases.csv`). Pipeline LIVE under `seismiclab`.
 - **Where:** Mac Studio, `/Users/seismiclab/Marc/Elpaso/elpaso-quake-network`, branch `main`.
   Waveforms on `/Volumes/VelascoRAID1` (`output/1-raw`, `output/2-processed` are symlinks);
   see `../docs/MACSTUDIO_INSTALL.md` for the original install.
@@ -190,6 +191,22 @@
   `--archive-only`) is now safe (RUNBOOK "Event ids"). Backup `catalog.csv.bak-*-pretimeids`.
   Tests: 399 pass. Also: disabled optional steps show "skipped" from the start (takes effect
   at the next app restart).
+- 2026-10-16: **ingested-days ledger** (`2f19145`): the catalog step read which days it had
+  ingested off ids[2:10]; with time-based ids an event seconds before midnight would re-ingest its
+  day every run, one just after would hide the next day. Now `output/5-catalog/ingested_days.json`
+  (bootstrapped from the positional ids).
+- 2026-10-16: **old ids migrated** (Marc: "consistency matters"; `ac44013`..`a4c6f36`, ff; app
+  restarted 11:21 MDT). `scripts/migrate_event_ids.py --apply` renamed all 152 events (no
+  collisions) in catalog/assignments (byte-exact otherwise, verified), appended 96 `id_migration`
+  records to reviews.jsonl, wrote `id_aliases.csv`; templates renamed after their event by origin
+  time (8/34 June names had drifted: duplicates -> `<id>_2`), detections/candidates/manifest follow.
+  Backups `output/{5-catalog,templates}/id-migration-backup-20261016T172022Z/`. Dashboard search
+  and `/api/event/<old id>` accept old ids (`legacy_id` in the response; "Former ID" row asked of
+  the Frontend session). Public site: exporter drops retired pages and writes `data/aliases.json`,
+  event page resolves old links (checked in headless Chrome); site committed locally (`828e67e`),
+  NOT pushed. `validate_locator.py` finds the day by origin time. Sandbox: incremental run adds
+  nothing, `--rebuild` keeps all 152 ids and reviews. Tests: 416 pass. Old spectrogram cache
+  entries (keyed by old ids) are orphaned; regenerated on demand.
 - 2026-10-12: **latency stage 1** (Marc). `DATA_LATENCY_HOURS` 6 -> 2: the day now runs at
   02:00 UTC (20:00 local) instead of 06:00. Measured server lag: Raspberry Shake ~30 min,
   IRIS real time. Event latency 3-27 h (was 7-31). Stage 2 (hourly rolling pass,
