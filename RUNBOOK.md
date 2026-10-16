@@ -156,9 +156,20 @@ matching) and the origin time of the event's first solution, to the
 second. An id is issued once and never changes: when the catalog is rebuilt
 (`--rebuild`, gap-fill, partial-day re-runs), every event that association
 finds again — same source, origin within 10 s — keeps its old id, reviewed
-or not; relocations and later re-picks do not change it either. Ids issued
-before 2026-10-16 look like `ep20251128-0001` and keep that form (they are
-public on the site). In either form, characters 3–10 are the UTC day.
+or not; relocations and later re-picks do not change it either. Characters
+3–10 are the UTC date of the origin, which for an event within seconds of
+midnight is not the association day it came from; the catalog step keeps
+the days it has ingested in `output/5-catalog/ingested_days.json`.
+
+Ids issued before 2026-10-16 were positional (`ep20251128-0001`, the
+event's rank within its day) and were renamed to the new form that day by
+`scripts/migrate_event_ids.py`. The old id still finds the event:
+`output/5-catalog/id_aliases.csv` maps old to new, the dashboard search and
+`/api/event/<old id>` accept it (the response carries it as `legacy_id`),
+`reviews.jsonl` has an `id_migration` record per reviewed event naming
+both, and the public site resolves old links through `data/aliases.json`.
+Templates were renamed after their event (`output/templates/id_aliases.csv`;
+a second template of one event is `<id>_2`).
 
 ## Retiring a station
 
