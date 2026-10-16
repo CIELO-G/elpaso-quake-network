@@ -36,6 +36,13 @@ from lib.atomic_io import atomic_write_df
 from lib.catalog_lock import CatalogLockTimeout, catalog_lock
 from lib.config import load_config, load_stations
 from lib.event_ids import mint_event_id
+from lib.ingested_days import (
+    INGESTED_DAYS_FILENAME,
+    PRIMARY_SOURCE,
+    days_from_ids,
+    read_ingested_days,
+    write_ingested_days,
+)
 from lib.regional import RegionalCatalog
 from lib.regional import refresh as refresh_regional
 from lib.reviews import SIDECAR_FILENAME, append_review_records, jsonable
@@ -408,14 +415,14 @@ def cataloged_days(catalog, prefix=None):
     """YYYYMMDD keys of the days a source already has in the catalog.
 
     prefix=None is the primary source: every id except the PhaseNO ones
-    (template-matching "tm" rows included, as before). Day keys come from
-    the id: {prefix}{YYYYMMDD}-NNNN.
+    (template-matching "tm" rows included, as before). Read off the ids, so
+    exact only for positional ids ({prefix}{YYYYMMDD}-NNNN); the catalog step
+    itself uses the ingested_days.json ledger (lib/ingested_days.py).
     """
     if catalog.empty:
         return set()
-    ids = catalog["event_id"].astype(str)
-    is_po = ids.str.startswith(PHASENO_PREFIX)
-    return set(ids[is_po if prefix == PHASENO_PREFIX else ~is_po].str[2:10])
+    days = days_from_ids(catalog["event_id"].astype(str))
+    return days[prefix or PRIMARY_SOURCE]
 
 
 def load_existing_assignments(assignments_path, logger):
@@ -659,8 +666,18 @@ def _merge_under_lock(
     new_assign_dfs = []
     new_day_count = 0
 
+    # Days each source has ingested. A rebuild re-ingests everything.
+    ledger_path = catalog_path.parent / INGESTED_DAYS_FILENAME
+    ingested = {} if args.rebuild else read_ingested_days(ledger_path)
+    if ingested is None:
+        logger.info("No %s yet: taking ingested days from the catalog's ids", ledger_path.name)
+        ingested = {
+            prefix or PRIMARY_SOURCE: cataloged_days(existing_catalog, prefix)
+            for prefix, _ in sources
+        }
+
     for prefix, daily_files in sources:
-        existing_days = cataloged_days(existing_catalog, prefix)
+        existing_days = ingested.setdefault(prefix or PRIMARY_SOURCE, set())
         for day in daily_files:
             dk = day["day_key"]
             if dk in existing_days:
@@ -676,9 +693,12 @@ def _merge_under_lock(
                 new_assign_dfs.append(assigns)
             logger.debug("Day %s: %d %s event(s)", dk, len(events), prefix or "ep")
             new_day_count += 1
+            existing_days.add(dk)
 
     # ── Merge ────────────────────────────────────────────────────────
     if not new_event_dfs:
+        if not args.rebuild and not ledger_path.exists():
+            write_ingested_days(ledger_path, ingested)
         logger.info("No new days to add — catalog is up to date")
         return
 
@@ -735,6 +755,9 @@ def _merge_under_lock(
     if not assignments.empty:
         atomic_write_df(assignments, assignments_path, index=False)
         logger.info("Wrote assignments: %s (%d rows)", assignments_path, len(assignments))
+    # After the catalog: a crash in between re-ingests the days (duplicates,
+    # which warn_near_duplicates reports) rather than losing them.
+    write_ingested_days(ledger_path, ingested)
 
     # ── Summary ──────────────────────────────────────────────────────
     time_min = catalog["time"].min()

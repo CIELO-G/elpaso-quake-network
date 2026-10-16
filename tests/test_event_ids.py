@@ -6,6 +6,7 @@ a rebuild hands every re-found event its old id, reviewed or not.
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from pathlib import Path
@@ -81,12 +82,12 @@ def write(path: Path, *lines: str) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
-def day_files(out: Path, *events: tuple[int, str]) -> None:
-    """Write 2026/159 (2026-06-08) association output: (event_index, origin)."""
-    base = out / "4-events/2026/159"
-    write(base / "2026.159.events.csv", EVENT_COLS,
+def day_files(out: Path, *events: tuple[int, str], jday: int = 159) -> None:
+    """Write 2026/<jday> (default 2026-06-08) association output: (event_index, origin)."""
+    base = out / f"4-events/2026/{jday}"
+    write(base / f"2026.{jday}.events.csv", EVENT_COLS,
           *[f"{i},{t},1.0,31.8,-106.4,1.0,4" for i, t in events])  # fmt: skip
-    write(base / "2026.159.assignments.csv", ASSIGN_COLS,
+    write(base / f"2026.{jday}.assignments.csv", ASSIGN_COLS,
           *[f"{i},AM,KIDD,00,EHZ,P,{t},0.7,1e-6,EHZ" for i, t in events])  # fmt: skip
 
 
@@ -146,3 +147,44 @@ def test_legacy_positional_ids_survive_a_rebuild(tree):
     write(out / "5-catalog/catalog.csv", "event_id,event_index,time,review_status",
           "ep20260608-0000,0,2026-06-08T10:00:00.400,")  # fmt: skip
     assert run("--rebuild")["event_id"].tolist() == ["ep20260608-0000"]
+
+
+# ── which days are ingested: the ledger, not the ids ──────────────────
+
+
+def ledger(out: Path) -> dict:
+    return json.loads((out / "5-catalog/ingested_days.json").read_text())
+
+
+def test_event_just_before_midnight_is_not_ingested_twice(tree):
+    out, run = tree
+    day_files(out, (0, "2026-06-07T23:59:50.100"))  # in 2026-06-08's file
+    assert run()["event_id"].tolist() == ["ep20260607T235950"]
+    assert run()["event_id"].tolist() == ["ep20260607T235950"]
+    assert ledger(out)["ep"] == ["20260608"]
+
+
+def test_event_just_after_midnight_does_not_hide_the_next_day(tree):
+    out, run = tree
+    day_files(out, (0, "2026-06-09T00:00:03.000"))  # in 2026-06-08's file
+    run()
+    day_files(out, (0, "2026-06-09T10:00:00.000"), jday=160)
+    assert run()["event_id"].tolist() == ["ep20260609T000003", "ep20260609T100000"]
+
+
+def test_catalog_without_a_ledger_takes_its_days_from_positional_ids(tree):
+    out, run = tree
+    day_files(out, (0, "2026-06-08T10:00:00.400"))
+    write(out / "5-catalog/catalog.csv", "event_id,event_index,time,review_status",
+          "ep20260608-0000,0,2026-06-08T10:00:00.400,")  # fmt: skip
+    assert run()["event_id"].tolist() == ["ep20260608-0000"]
+    assert ledger(out) == {"ep": ["20260608"], "po": []}
+
+
+def test_rebuild_rewrites_the_ledger(tree):
+    out, run = tree
+    day_files(out, (0, "2026-06-08T10:00:00.400"))
+    run().assign(review_status="").to_csv(out / "5-catalog/catalog.csv", index=False)
+    (out / "5-catalog/ingested_days.json").write_text('{"ep": ["20990101"]}')
+    run("--rebuild")
+    assert ledger(out)["ep"] == ["20260608"]
