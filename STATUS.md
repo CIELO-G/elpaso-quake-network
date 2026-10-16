@@ -2,12 +2,10 @@
 
 ## RESUME HERE
 
-- **2026-10-15: moving to a different macOS account on the same Mac Studio.** Step-by-step
-  checklist: `../docs/ACCOUNT_MIGRATION.md` (paths, envs, app, launch agent, secrets, Claude notes).
-  State at hand-off: pipeline LIVE under account `magarcia113` (El Paso Monitor.app, continuous,
-  daily 02:00 UTC; restarted 2026-10-15 10:21 MDT with the quieter-alerts code), re-ingesting
-  partial days Oct 7–14 (RADA1 at ~50 % coverage). Only ONE account may run the pipeline:
-  stop it here before starting it in the new account.
+- **2026-10-16: PhaseNO second detector + regional rule merged (`df6456c`), app restarted
+  09:29 MDT; PhaseNO is OFF** (`3-detection/phaseno/config.yaml` `enabled: false`). Next: turn
+  it on (Marc's call), then Phase 3 time-based event IDs (in progress, branch
+  `feature/time-ids`) before any PhaseNO backfill. Pipeline LIVE under account `seismiclab`.
 - **Where:** Mac Studio, `/Users/seismiclab/Marc/Elpaso/elpaso-quake-network`, branch `main`.
   Waveforms on `/Volumes/VelascoRAID1` (`output/1-raw`, `output/2-processed` are symlinks);
   see `../docs/MACSTUDIO_INSTALL.md` for the original install.
@@ -16,13 +14,8 @@
   `deploy/app/local.env` holds the alert SMTP password — never commit or print it.
 - **Constraint:** Raspberry Shake FDSN rejects concurrent requests — AM ingest stays serial.
 - **Open items, in order:**
-  1. **PhaseNO as a second detector** (evaluation done, nothing built; `../research/phaseno-eval/FINDINGS.md`
-     "Round 2"). Plan: (a) regional-quake triage rule first — auto-reject an event 5–90 s after a
-     ComCat M≥2 event >150 km away (catches 10/50 rejected, 0/47 confirmed); (b) PhaseNO step
-     (`phaseno` env, GPU, ~6 min/day) + its own GaMMA run, merged in the catalog step only when no
-     PhaseNet event is within 10 s and ≥3 of its picks match PhaseNet picks within 1 s (windows:
-     45/47 confirmed vs 41; 20 full days: 15/17 vs 12, ~0.85 queue items/day vs 0.70).
-     Config/code sketch at the end of FINDINGS.md Round 2. Awaiting Marc's go-ahead.
+  1. **PhaseNO: enable** (`enabled: true`, no restart) and decide on a backfill (~36 h GPU for
+     all days; do it after the time-based IDs). RUNBOOK "PhaseNO second detector".
   2. Public site push is rejected: `../elpaso-seismic` is ahead 12 / behind 2 of origin (remote
      has a redesign PR; local commits are data-only, no file overlap) → `git pull --rebase`, push.
      Needs `gh auth login` in the new account anyway.
@@ -31,6 +24,7 @@
   4. RADA1 site fix (~2 weeks out): then re-run Sep 26–Oct 2 2026.
   5. The 10 new stations (~2 weeks out): `scripts/add_station.py add ...`, then `--gap-fill --archive-only`.
   6. Phase 3: hourly rolling pass + time-based event IDs (see log 2026-10-12 "latency").
+     Time-based IDs started 2026-10-16 (ahead of the rest of Phase 3).
   Keep watching `logs/ingest.log` for "too many requests" (revert `station_delay_seconds` to 5 if seen).
 ## Phase 1 checklist
 
@@ -173,6 +167,19 @@
   AM.RDB14 2026-10-11 in a scratch dir: 24/24 chunks, output byte-identical to the
   archive, 202 s for the station-day (was ~240), no 429s. Pre-existing quirk kept: the
   sample at exactly 00:00:00 spills into a 1-sample file for the next day. 300 tests.
+- 2026-10-16: **regional rule + PhaseNO merged to main** (9 commits `098d075`..`df6456c`, ff).
+  Regional triage: auto-reject an origin 5–90 s after a ComCat M≥3.0 quake 150–350 km away
+  (Marc's thresholds; M≥2.0 would tag 11 instead of 8 of 50 rejected, 0 confirmed either way).
+  `--retriage` run on the live catalog: 9 labels changed (5 on reviewed-rejected events, 4
+  unreviewed → auto_reject), review_status untouched; backup `catalog.csv.bak-*-premerge`.
+  ComCat cache `output/5-catalog/comcat_regional.csv`. Also: catalog `--retriage` now holds the
+  catalog lock. PhaseNO: orchestrator selects steps by name; new optional step `phaseno`
+  (between associate and catalog; off unless config `enabled: true`; failure = alert, day
+  completes) runs `3-detection/phaseno/step.py` → `output/phaseno/{3-picks,4-events,4-additions}`;
+  catalog ingests additions as `po…` ids with `detector`, `corroborating_picks`; dashboard tag.
+  Merge rule `lib/detector_merge.py` reproduces analyze2.py exactly on the Round 2 data. End-to-end
+  in a sandbox on 2025-11-28: PhaseNO 4 min, 11 events, 1 added (18:58:04 UTC, 3 corroborating
+  picks, triage ok), existing rows unchanged. Tests: 385 pass. App restarted 09:29 MDT.
 - 2026-10-12: **latency stage 1** (Marc). `DATA_LATENCY_HOURS` 6 -> 2: the day now runs at
   02:00 UTC (20:00 local) instead of 06:00. Measured server lag: Raspberry Shake ~30 min,
   IRIS real time. Event latency 3-27 h (was 7-31). Stage 2 (hourly rolling pass,
