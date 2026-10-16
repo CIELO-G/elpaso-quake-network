@@ -6,7 +6,7 @@ filter) and appends each candidate to output/5-catalog/catalog.csv with
 ``review_status=""`` so they show up as Unreviewed in the dashboard.
 
 For each candidate:
-  - event_id uses a ``tm`` prefix (template-match) to distinguish from
+  - event_id is tm{YYYYMMDD}T{HHMMSS} (lib/event_ids.py); the ``tm`` prefix distinguishes it from
     ``ep`` (event-pipeline) events.
   - latitude/longitude/depth seed from the best-matching template's
     confirmed location — that's our best guess until you re-pick.
@@ -36,26 +36,20 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from lib.atomic_io import atomic_write_df
+from lib.event_ids import mint_event_id
 
 CATALOG_PATH = ROOT / "output" / "5-catalog" / "catalog.csv"
 DEFAULT_CANDIDATES = ROOT / "output" / "templates" / "new_candidates.csv"
 
 
 def next_event_id(catalog: pd.DataFrame, event_time: str, taken: set[str]) -> str:
-    """Return a fresh tm<YYYYMMDD>-<NNNN> id.
+    """Return a fresh tm{YYYYMMDD}T{HHMMSS} id (lib/event_ids.py).
 
     Avoids both catalog rows AND ids already allocated in the current batch
-    (``taken``) so multiple candidates on the same day get distinct ids.
+    (``taken``).
     """
-    day = event_time[:10].replace("-", "")
-    stem = f"tm{day}"
-    existing = {
-        e for e in catalog["event_id"].dropna().astype(str).tolist() if e.startswith(stem)
-    } | taken
-    n = 0
-    while f"{stem}-{n:04d}" in existing:
-        n += 1
-    return f"{stem}-{n:04d}"
+    existing = set(catalog["event_id"].dropna().astype(str)) | taken
+    return mint_event_id(event_time, "tm", existing)
 
 
 def lookup_template_location(catalog: pd.DataFrame, template_id: str) -> dict:

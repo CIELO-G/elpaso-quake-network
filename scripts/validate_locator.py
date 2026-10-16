@@ -51,8 +51,8 @@ def load_catalog_row(event_id: str) -> dict:
 
 def load_event_day_picks(event_id: str, event_index: int) -> tuple[list[dict], Path]:
     """Load all picks assigned to this event on its pipeline day."""
-    # event_id format: ep{YYYYMMDD}-{NNNN}
-    date_str = event_id.split("-")[0][2:]  # YYYYMMDD
+    # event_id: {prefix}{YYYYMMDD}T{HHMMSS} or, before 2026-10-16, {prefix}{YYYYMMDD}-{NNNN}
+    date_str = event_id[2:10]  # YYYYMMDD
     dt = datetime.strptime(date_str, "%Y%m%d").replace(tzinfo=timezone.utc)
     year = dt.strftime("%Y")
     jday = f"{dt.timetuple().tm_yday:03d}"

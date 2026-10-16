@@ -1014,9 +1014,10 @@ def gap_fill_run(args: argparse.Namespace) -> None:
     archive_only = bool(getattr(args, "archive_only", False))
     if archive_only:
         # New-station backfill (RUNBOOK): fetch and process the history, but
-        # do not re-detect/re-associate days that already have events —
-        # re-association renumbers event IDs (ep{date}-{NNNN}) and would
-        # orphan reviews. Nothing needs --force: only missing files are made.
+        # do not re-detect/re-associate days that already have events (cheap,
+        # catalog untouched). Without --archive-only the catalog is rebuilt;
+        # event ids are stable across that. Nothing needs --force: only
+        # missing files are made.
         args.force = False
         only_steps: set[str] | None = {"ingest", "process"}
         print("Archive-only: running ingest + processing for the gap days (no re-detection).")

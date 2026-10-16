@@ -133,7 +133,7 @@ python scripts/add_candidates_to_catalog.py             # actually write
 ```
 
 Appends each candidate to the catalog with:
-- `event_id` = `tm<YYYYMMDD>-<NNNN>` (the `tm` prefix flags template-derived events)
+- `event_id` = `tm<YYYYMMDD>T<HHMMSS>` (the `tm` prefix flags template-derived events; ids before 2026-10-16 are `tm<YYYYMMDD>-<NNNN>`)
 - `review_status` = empty → shows as **Unreviewed** in the dashboard catalog tab
 - `latitude`/`longitude`/`depth_km` seeded from the best-matching template
 - Everything else blank (you fill in during review)

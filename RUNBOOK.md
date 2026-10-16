@@ -69,11 +69,14 @@ archive what the station recorded earlier:
    — ingest + processing only, ~4 min per station-day;
 3. press **Start**. The orchestrator catches up on any daily run it missed.
 
-`--archive-only` deliberately does **not** re-run detection and association
-on days that already have events: re-association renumbers event IDs and
-would orphan reviews. The station contributes to the catalog from the day
-it was added; its earlier data is archived for research use. (Phase 3,
-time-based event IDs, lifts this restriction.)
+`--archive-only` does **not** re-run detection and association on days
+that already have events, so the station's history is archived but does
+not change the catalog. To let it into the catalog for those days, run the
+same range without `--archive-only` (re-detects, re-associates and rebuilds
+the catalog; hours per month of data). That is safe since event ids became
+stable (2026-10-16, see "Event ids"): every re-found event keeps its id and
+its review. Unreviewed events that the new association no longer finds
+disappear; new ones appear as unreviewed.
 
 **After the first daily run**, check:
 
@@ -145,6 +148,17 @@ full days against 12/17 for PhaseNet alone, about 0.2 more queue items a day.
       --start 2026-01-01 --end 2026-10-01
   python 5-catalog/catalog.py --config 5-catalog/config.yaml
   ```
+
+## Event ids
+
+`ep20251128T185804`: the source (`ep` PhaseNet, `po` PhaseNO, `tm` template
+matching) and the origin time of the event's first solution, to the
+second. An id is issued once and never changes: when the catalog is rebuilt
+(`--rebuild`, gap-fill, partial-day re-runs), every event that association
+finds again — same source, origin within 10 s — keeps its old id, reviewed
+or not; relocations and later re-picks do not change it either. Ids issued
+before 2026-10-16 look like `ep20251128-0001` and keep that form (they are
+public on the site). In either form, characters 3–10 are the UTC day.
 
 ## Retiring a station
 
