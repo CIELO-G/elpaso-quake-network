@@ -563,6 +563,20 @@
 
 <!-- Runtime map config (CARTO key from server env; never in the repo) -->
 <script src="/api/mapconfig.js"></script>
-<script src="/static/app.js"></script>
+<!-- App scripts: classic scripts sharing one global scope, in dependency order; boot.js last. -->
+<script src="/static/js/theme-chrome.js"></script>
+<script src="/static/js/map.js"></script>
+<script src="/static/js/util.js"></script>
+<script src="/static/js/monitor.js"></script>
+<script src="/static/js/pipeline-panels.js"></script>
+<script src="/static/js/filters-polling.js"></script>
+<script src="/static/js/tabs.js"></script>
+<script src="/static/js/helicorder.js"></script>
+<script src="/static/js/catalog.js"></script>
+<script src="/static/js/waveforms.js"></script>
+<script src="/static/js/review.js"></script>
+<script src="/static/js/waveviewer.js"></script>
+<script src="/static/js/pipeline-control.js"></script>
+<script src="/static/js/boot.js"></script>
 </body>
 </html>
