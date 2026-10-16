@@ -10,6 +10,11 @@ Usage (run from project root):
     python 4-association/associate.py --config 4-association/config.yaml
     python 4-association/associate.py --config 4-association/config.yaml --start 2026-01-29 --end 2026-01-29
     python 4-association/associate.py --config 4-association/config.yaml --force --debug
+
+A second picker's picks (3-detection/phaseno/step.py) are associated with the
+same settings by pointing the I/O elsewhere:
+    python 4-association/associate.py --config 4-association/config.yaml \
+        --input-dir output/phaseno --output-dir output/phaseno --log-name associate_phaseno
 """
 
 from __future__ import annotations
@@ -140,6 +145,17 @@ def parse_args() -> argparse.Namespace:
         "--force", action="store_true", help="Re-associate even if output already exists"
     )
     parser.add_argument("--debug", action="store_true", help="Enable debug-level logging")
+    parser.add_argument(
+        "--input-dir", help="Read {dir}/3-picks instead of the config's input_dir"
+    )
+    parser.add_argument(
+        "--output-dir", help="Write {dir}/4-events instead of the config's output_dir"
+    )
+    parser.add_argument(
+        "--log-name",
+        default="associate",
+        help="Log file stem and metrics step name (default: associate)",
+    )
     return parser.parse_args()
 
 
@@ -610,8 +626,12 @@ def main() -> None:
             f"{args.config} sets {', '.join(_overridden)}: the study area is defined once in "
             "lib/constants.py (NETWORK_CENTER_*, NETWORK_HALF_WIDTH_DEG). Remove them."
         )
+    if args.input_dir:
+        config["input_dir"] = args.input_dir
+    if args.output_dir:
+        config["output_dir"] = args.output_dir
     stations = load_stations(config["stations_file"])
-    logger = setup_logging("associate", config, debug=args.debug)
+    logger = setup_logging(args.log_name, config, debug=args.debug)
     metrics = MetricsWriter(Path(config["log_dir"]) / "metrics.jsonl")
 
     logger.info("=" * 60)
@@ -760,7 +780,7 @@ def main() -> None:
 
         day_elapsed = time.monotonic() - day_t0
         metrics.record(
-            "associate",
+            args.log_name,
             day=f"{year}/{jday}",
             events=n_events,
             picks_associated=n_assigned,

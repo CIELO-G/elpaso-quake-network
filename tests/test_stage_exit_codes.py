@@ -74,3 +74,34 @@ def test_associate_exits_nonzero_on_failed_day(tmp_path, monkeypatch):
     )
     assert r.returncode == 1, r.stdout + r.stderr
     assert not (out / "4-events" / "2026" / "270" / "2026.270.events.csv").exists()
+
+
+def test_associate_io_overrides_redirect_picks_events_and_log(tmp_path):
+    """--input-dir/--output-dir/--log-name: how the PhaseNO step reuses association."""
+    import json
+    import subprocess
+
+    alt = tmp_path / "phaseno"
+    picks_dir = alt / "3-picks" / "2026" / "270"
+    picks_dir.mkdir(parents=True)
+    (picks_dir / "2026.270.picks.csv").write_text(
+        "network,station,location,channel,phase,time,probability,model,amplitude,amplitude_channel\n"
+    )
+    (tmp_path / "stations.json").write_text(json.dumps(json.load(open(ROOT / "stations.json"))))
+    cfg = (ROOT / "4-association" / "config.yaml").read_text()
+    cfg = cfg.replace('stations_file: "stations.json"', f'stations_file: "{tmp_path}/stations.json"')
+    cfg = cfg.replace('input_dir: "output"', f'input_dir: "{tmp_path}/unused"')
+    cfg = cfg.replace('output_dir: "output"', f'output_dir: "{tmp_path}/unused"')
+    cfg = cfg.replace('log_dir: "logs"', f'log_dir: "{tmp_path}/logs"')
+    (tmp_path / "assoc.yaml").write_text(cfg)
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "4-association" / "associate.py"), "--config", str(tmp_path / "assoc.yaml"),
+         "--start", "2026-09-27", "--end", "2026-09-28", "--input-dir", str(alt),
+         "--output-dir", str(alt), "--log-name", "associate_phaseno"],
+        cwd=ROOT, capture_output=True, text=True, timeout=300,
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (alt / "4-events" / "2026" / "270" / "2026.270.events.csv").exists()
+    assert not (tmp_path / "unused").exists()
+    assert (tmp_path / "logs" / "associate_phaseno.log").exists()
+    assert not (tmp_path / "logs" / "associate.log").exists()
