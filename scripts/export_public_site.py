@@ -4,7 +4,10 @@ Writes static JSON consumed by the public site (../elpaso-seismic —
 a separate repo deployed on GitHub Pages at
 https://cielo-g.github.io/elpaso-seismic). ONLY confirmed events are
 exported: rejected/unreviewed detections, review bookkeeping, logs and
-credentials never leave this machine.
+credentials never leave this machine. An event page that is no longer
+exported (renamed, or no longer confirmed) is removed; data/aliases.json
+maps the old positional ids of exported events to their current ids, so
+links from before the 2026-10-16 id change still open.
 
     python scripts/export_public_site.py           # export only
     python scripts/export_public_site.py --push    # export + commit + push
@@ -30,6 +33,8 @@ SITE = REPO.parent / "elpaso-seismic"
 PROC = REPO / "output" / "2-processed"
 
 sys.path.insert(0, str(REPO))
+
+from lib.event_ids import ALIASES_FILENAME, read_aliases  # noqa: E402
 
 WAVE_SECONDS_MAX = 45.0
 WAVE_POINTS = 700  # min/max pairs per trace — a few KB per station
@@ -76,6 +81,16 @@ def minmax_decimate(data: np.ndarray, n_bins: int):
             out.append([round(float(seg.min()) / peak, 4),
                        round(float(seg.max()) / peak, 4)])
     return out
+
+
+def retire_old_pages(data_dir: Path, exported: set[str], aliases: dict[str, str]) -> None:
+    """Remove event pages not in `exported`; write aliases.json for the exported ones."""
+    for page in (data_dir / "events").glob("*.json"):
+        if page.stem not in exported:
+            page.unlink()
+    (data_dir / "aliases.json").write_text(json.dumps(
+        {old: new for old, new in sorted(aliases.items()) if new in exported},
+        separators=(",", ":")))
 
 
 def export() -> dict:
@@ -144,6 +159,12 @@ def export() -> dict:
 
     (SITE / "data" / "catalog.json").write_text(
         json.dumps(catalog_rows, separators=(",", ":")))
+
+    retire_old_pages(
+        SITE / "data",
+        {r["event_id"] for r in catalog_rows},
+        read_aliases(REPO / "output" / "5-catalog" / ALIASES_FILENAME),
+    )
 
     pub_stations = [{
         "station": s["station"], "network": s["network"],
