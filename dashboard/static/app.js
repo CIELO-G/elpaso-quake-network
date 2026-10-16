@@ -643,11 +643,11 @@ function fmtDur(sec) {
   return h + 'h ' + String(rm).padStart(2, '0') + 'm';
 }
 
+var _ESC_RE = /[&<>"']/g;
+var _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function esc(s) {
   if (s == null) return '';
-  const d = document.createElement('div');
-  d.textContent = String(s);
-  return d.innerHTML;
+  return String(s).replace(_ESC_RE, function(ch) { return _ESC_MAP[ch]; });
 }
 
 function showLoading(id) {
@@ -1055,6 +1055,7 @@ function showEventDetail(eventId) {
       title.textContent = esc(ev.event_id);
       var html = '';
       html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '<div class="local-time">' + esc(formatLocalTime(ev.time)) + '</div></span></div>';
+      if (ev.legacy_id) html += '<div class="detail-row"><span class="detail-label">Former ID</span><span class="detail-value mono">' + esc(ev.legacy_id) + '</span></div>';
       html += '<div class="detail-row"><span class="detail-label">Magnitude</span><span class="detail-value">' + (ev.magnitude != null ? ev.magnitude.toFixed(2) : '-') + '</span></div>';
       html += '<div class="detail-row"><span class="detail-label">Depth</span><span class="detail-value">' + (ev.depth_km != null ? ev.depth_km.toFixed(1) + ' km' : '-') + '</span></div>';
       html += '<div class="detail-row"><span class="detail-label">Location</span><span class="detail-value">' + (ev.latitude != null ? ev.latitude.toFixed(4) + ', ' + ev.longitude.toFixed(4) : '-') + '</span></div>';
@@ -1259,7 +1260,40 @@ function completenessColor(val, max) {
 }
 
 // ── Render data completeness calendar ────────────────────────────
+// Drawn on a <canvas>, not SVG: 60+ stations × 400+ days is ~25k cells,
+// which as DOM nodes costs tens of ms per render and bloats the page.
+// Retired / campaign stations collapse into one aggregate row (per-day max
+// across them) unless the "Retired" toggle is on, so the nodal campaign's
+// 49 one-week rows don't swamp the live network.
 var lastCompletenessData = null;
+var lastStationHealth = null;     // from /api/station_health; drives grouping
+var cmpShowRetired = false;
+var _cmpLayout = null;            // hit-test data for the hover tooltip
+var _cmpTip = null;
+
+function _cmpRows(data) {
+  var retired = {};
+  (lastStationHealth || []).forEach(function(h) { if (h.status === 'retired') retired[h.station] = true; });
+  var rows = [], retiredIdx = [];
+  data.stations.forEach(function(sta, si) {
+    if (retired[sta]) retiredIdx.push(si);
+    else rows.push({ label: sta, values: data.matrix[si], kind: 'active' });
+  });
+  if (retiredIdx.length) {
+    if (cmpShowRetired) {
+      retiredIdx.forEach(function(si) { rows.push({ label: data.stations[si], values: data.matrix[si], kind: 'retired' }); });
+    } else {
+      var agg = new Array(data.days.length).fill(0);
+      retiredIdx.forEach(function(si) {
+        var r = data.matrix[si];
+        for (var d = 0; d < r.length; d++) if (r[d] > agg[d]) agg[d] = r[d];
+      });
+      rows.push({ label: 'retired (' + retiredIdx.length + ')', values: agg, kind: 'group', n: retiredIdx.length });
+    }
+  }
+  return { rows: rows, nRetired: retiredIdx.length };
+}
+
 function renderCompleteness(data) {
   if (data) lastCompletenessData = data;
   else data = lastCompletenessData;
@@ -1268,56 +1302,155 @@ function renderCompleteness(data) {
   var el = document.getElementById('completeness-calendar');
   var rangeEl = document.getElementById('completeness-range');
   var maxEl = document.getElementById('completeness-max');
+  var toggle = document.getElementById('cmp-toggle-retired');
 
   if (!days || days.length === 0 || !stations || stations.length === 0) {
     el.innerHTML = '<div class="empty-state">No raw data yet.</div>';
     rangeEl.textContent = '';
     maxEl.textContent = 'max';
+    if (toggle) toggle.hidden = true;
+    _cmpLayout = null;
     return;
   }
 
-  var globalMax = Math.max.apply(null, [1].concat(matrix.reduce(function(a, b) { return a.concat(b); }, [])));
+  var globalMax = 1;
+  for (var si = 0; si < matrix.length; si++) {
+    var r0 = matrix[si];
+    for (var di = 0; di < r0.length; di++) if (r0[di] > globalMax) globalMax = r0[di];
+  }
   maxEl.textContent = globalMax;
   rangeEl.textContent = days.length + ' days';
 
-  var LABEL_W = 60;
-  var W = el.clientWidth || 280;
-  var chartW = W - LABEL_W;
-  var ROW_H = 24;
-  var PAD_BOTTOM = 20;
-  var cellW = Math.max(1, chartW / days.length);
-  var svgW = LABEL_W + cellW * days.length;
-  var svgH = ROW_H * stations.length + PAD_BOTTOM;
-
-  var svg = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
-  stations.forEach(function(sta, si) {
-    var y = si * ROW_H;
-    svg += '<text x="' + (LABEL_W - 4) + '" y="' + (y + ROW_H / 2 + 3) + '" fill="var(--muted)" font-size="10" font-family="monospace" text-anchor="end">' + esc(sta) + '</text>';
-    var row = matrix[si];
-    row.forEach(function(count, di) {
-      var x = LABEL_W + di * cellW;
-      var color = completenessColor(count, globalMax);
-      svg += '<rect x="' + x + '" y="' + (y + 1) + '" width="' + Math.max(cellW - 0.5, 0.5) + '" height="' + (ROW_H - 2) + '" fill="' + color + '" rx="1"><title>' + esc(sta) + ' ' + esc(days[di]) + ': ' + count + ' files</title></rect>';
-    });
-  });
-  var baseY = ROW_H * stations.length;
-  var pm2 = days[0].slice(0, 7);
-  var ticks2 = [{ i: 0, label: days[0].slice(5) }];
-  for (var k = 1; k < days.length; k++) {
-    var mo3 = days[k].slice(0, 7);
-    if (mo3 !== pm2) {
-      ticks2.push({ i: k, label: days[k].slice(5) });
-      pm2 = mo3;
-    }
+  var grouped = _cmpRows(data);
+  var rows = grouped.rows;
+  if (toggle) {
+    toggle.hidden = grouped.nRetired === 0;
+    toggle.textContent = (cmpShowRetired ? 'Hide' : 'Show') + ' retired (' + grouped.nRetired + ')';
+    toggle.classList.toggle('active', cmpShowRetired);
   }
-  if (days.length > 1) ticks2.push({ i: days.length - 1, label: days[days.length - 1].slice(5) });
-  ticks2.forEach(function(item) {
-    var x = LABEL_W + item.i * cellW + cellW / 2;
-    svg += '<text x="' + x + '" y="' + (baseY + PAD_BOTTOM - 4) + '" fill="var(--muted)" font-size="9" font-family="monospace" text-anchor="middle">' + esc(item.label) + '</text>';
+
+  var canvas = el.querySelector('canvas');
+  if (!canvas) {
+    el.innerHTML = '';
+    canvas = document.createElement('canvas');
+    el.appendChild(canvas);
+    canvas.addEventListener('mousemove', _cmpHover);
+    canvas.addEventListener('mouseleave', _cmpHideTip);
+  }
+
+  var ROW_H = 16, PAD_BOTTOM = 18;
+  var W = el.clientWidth || 600;
+  var H = ROW_H * rows.length + PAD_BOTTOM;
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  canvas.style.height = H + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  var css = getComputedStyle(document.documentElement);
+  var muted = css.getPropertyValue('--muted').trim() || '#64748b';
+  var text = css.getPropertyValue('--text').trim() || '#0f172a';
+  var border = css.getPropertyValue('--border').trim() || '#cbd5e1';
+  var mono = css.getPropertyValue('--font-mono').trim() || 'ui-monospace, Menlo, monospace';
+
+  // Label gutter fits the longest label (the aggregate row is the widest).
+  ctx.font = 'italic 10px ' + mono;
+  var LABEL_W = 64;
+  rows.forEach(function(r) { LABEL_W = Math.max(LABEL_W, Math.ceil(ctx.measureText(r.label).width) + 12); });
+  var chartW = W - LABEL_W;
+  var cellW = chartW / days.length;
+
+  // Pre-compute one fill per count so the hot loop does no string work.
+  var palette = new Array(globalMax + 1);
+  for (var v = 1; v <= globalMax; v++) palette[v] = completenessColor(v, globalMax);
+
+  var cw = Math.max(cellW - 0.5, 0.5);
+  ctx.font = '10px ' + mono;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  rows.forEach(function(row, ri) {
+    var y = ri * ROW_H;
+    // row guide
+    ctx.fillStyle = border;
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(LABEL_W, y + ROW_H - 1, chartW, 0.5);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = row.kind === 'active' ? text : muted;
+    if (row.kind === 'group') ctx.font = 'italic 10px ' + mono; else ctx.font = '10px ' + mono;
+    ctx.fillText(row.label, LABEL_W - 6, y + ROW_H / 2);
+    var vals = row.values;
+    for (var d = 0; d < vals.length; d++) {
+      var n = vals[d];
+      if (n <= 0) continue;
+      ctx.fillStyle = palette[Math.min(n, globalMax)];
+      ctx.fillRect(LABEL_W + d * cellW, y + 1.5, cw, ROW_H - 3);
+    }
   });
-  svg += '</svg>';
-  el.innerHTML = svg;
+
+  // Month ticks
+  var baseY = ROW_H * rows.length;
+  ctx.font = '9px ' + mono;
+  ctx.fillStyle = muted;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  var pm = days[0].slice(0, 7);
+  var ticks = [{ i: 0, label: days[0].slice(5) }];
+  for (var k = 1; k < days.length; k++) {
+    var mo = days[k].slice(0, 7);
+    if (mo !== pm) { ticks.push({ i: k, label: days[k].slice(5) }); pm = mo; }
+  }
+  if (days.length > 1) ticks.push({ i: days.length - 1, label: days[days.length - 1].slice(5) });
+  var lastX = -1e9;
+  ticks.forEach(function(item) {
+    var x = LABEL_W + item.i * cellW + cellW / 2;
+    if (x - lastX < 34) return;          // don't let labels overprint
+    lastX = x;
+    ctx.fillText(item.label, x, baseY + PAD_BOTTOM - 4);
+  });
+  ctx.textAlign = 'left';
+
+  _cmpLayout = { rows: rows, days: days, LABEL_W: LABEL_W, ROW_H: ROW_H, cellW: cellW };
 }
+
+function _cmpHover(ev) {
+  if (!_cmpLayout) return;
+  var L = _cmpLayout;
+  var rect = ev.currentTarget.getBoundingClientRect();
+  var x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+  var ri = Math.floor(y / L.ROW_H), di = Math.floor((x - L.LABEL_W) / L.cellW);
+  if (ri < 0 || ri >= L.rows.length || di < 0 || di >= L.days.length) { _cmpHideTip(); return; }
+  var row = L.rows[ri];
+  var n = row.values[di];
+  if (!_cmpTip) {
+    _cmpTip = document.createElement('div');
+    _cmpTip.className = 'cmp-tip';
+    document.body.appendChild(_cmpTip);
+  }
+  _cmpTip.textContent = row.label + ' \u00b7 ' + L.days[di] + ' \u00b7 ' +
+    (row.kind === 'group' ? 'max ' : '') + n + ' file' + (n === 1 ? '' : 's');
+  _cmpTip.style.display = 'block';
+  var tw = _cmpTip.offsetWidth, th = _cmpTip.offsetHeight;
+  var left = ev.clientX + 12, top = ev.clientY - th - 8;
+  if (left + tw > window.innerWidth - 8) left = ev.clientX - tw - 12;
+  if (top < 8) top = ev.clientY + 14;
+  _cmpTip.style.left = left + 'px';
+  _cmpTip.style.top = top + 'px';
+}
+
+function _cmpHideTip() {
+  if (_cmpTip) _cmpTip.style.display = 'none';
+}
+
+(function wireCompletenessToggle() {
+  var t = document.getElementById('cmp-toggle-retired');
+  if (!t) return;
+  t.addEventListener('click', function() {
+    cmpShowRetired = !cmpShowRetired;
+    renderCompleteness();
+  });
+})();
 
 // ── Render disk panel ───────────────────────────────────────────
 function renderDisk(d) {
@@ -1620,6 +1753,7 @@ async function pollSlow() {
       fetchJSON('/api/station_health'),
       fetchJSON('/api/data_completeness'),
     ]);
+    lastStationHealth = results[0];
     renderStationHealth(results[0]);
     renderCompleteness(results[1]);
     onApiSuccess();
@@ -1914,83 +2048,125 @@ document.getElementById('export-quakeml').addEventListener('click', function() {
 // ── Catalog Table ───────────────────────────────────────────────
 var catPage = 1;
 var catPerPage = 50;
+try { catPerPage = parseInt(localStorage.getItem('cat.perPage'), 10) || 50; } catch (e) {}
+if ([50, 100, 200].indexOf(catPerPage) === -1) catPerPage = 50;
 var catSortBy = 'time';
 var catSortOrder = 'desc';
 var catMinMag = null;
 var catMaxDepth = null;
 var catMinPicks = null;
+var catRows = [];        // events on the current page (row lookup by id)
+var _catReqSeq = 0;      // drop stale responses when loads overlap
 
+// num: right-aligned tabular figures. cls: extra td class.
 var CAT_COLUMNS = [
-  { key: 'reviewed', label: 'Review', sortable: false },
-  { key: 'event_type', label: 'Type', sortable: false },
-  { key: 'event_id', label: 'ID', sortable: false },
-  { key: 'time', label: 'Time', sortable: true },
-  { key: 'magnitude', label: 'Mag', sortable: true },
-  { key: 'magnitude_type', label: 'Mag Type', sortable: false },
-  { key: 'depth_km', label: 'Depth (km)', sortable: true },
-  { key: 'latitude', label: 'Lat', sortable: false },
-  { key: 'longitude', label: 'Lon', sortable: false },
-  { key: 'num_picks', label: 'Picks', sortable: true },
-  { key: 'sigma_time', label: '\u03c3 T', sortable: false },
-  { key: 'sigma_amp', label: '\u03c3 A', sortable: false },
+  { key: 'reviewed',       label: 'Status',   sortable: false },
+  { key: 'event_type',     label: 'Type',     sortable: false },
+  { key: 'event_id',       label: 'ID',       sortable: false, cls: 'mono' },
+  { key: 'time',           label: 'Time',     sortable: true,  cls: 'mono' },
+  { key: 'magnitude',      label: 'Mag',      sortable: true,  num: true },
+  { key: 'magnitude_type', label: 'Scale',    sortable: false, cls: 'dim' },
+  { key: 'depth_km',       label: 'Depth km', sortable: true,  num: true },
+  { key: 'latitude',       label: 'Lat',      sortable: false, num: true },
+  { key: 'longitude',      label: 'Lon',      sortable: false, num: true },
+  { key: 'num_picks',      label: 'Picks',    sortable: true,  num: true },
+  { key: 'sigma_time',     label: '\u03c3t (s)', sortable: false, num: true, nocase: true },
+  { key: 'sigma_amp',      label: '\u03c3a',     sortable: false, num: true, nocase: true },
 ];
 
+// Header is built once; sort state is reflected by toggling classes, and
+// one delegated click handler on <thead> replaces per-<th> listeners.
+var _catHeaderBuilt = false;
 function renderCatalogHeader() {
   var thead = document.getElementById('cat-thead');
-  var html = '<tr>';
-  CAT_COLUMNS.forEach(function(col) {
-    var arrow = '';
-    if (col.sortable) {
-      if (catSortBy === col.key) {
-        arrow = '<span class="sort-arrow">' + (catSortOrder === 'asc' ? '\u25b2' : '\u25bc') + '</span>';
-      } else {
-        arrow = '<span class="sort-arrow" style="opacity:.3">\u25bc</span>';
-      }
-    }
-    html += '<th data-sort="' + (col.sortable ? col.key : '') + '">' + esc(col.label) + arrow + '</th>';
-  });
-  html += '</tr>';
-  thead.innerHTML = html;
-
-  thead.querySelectorAll('th[data-sort]').forEach(function(th) {
-    th.addEventListener('click', function() {
+  if (!_catHeaderBuilt) {
+    thead.innerHTML = '<tr>' + CAT_COLUMNS.map(function(col) {
+      var cls = (col.num ? 'num' : '') + (col.sortable ? ' sortable' : '') + (col.nocase ? ' nocase' : '');
+      var arrow = col.sortable ? '<span class="sort-arrow">\u25bc</span>' : '';
+      return '<th class="' + cls.trim() + '" data-sort="' + (col.sortable ? col.key : '') + '"' +
+        (col.sortable ? ' title="Sort by ' + esc(col.label) + '"' : '') + '>' + esc(col.label) + arrow + '</th>';
+    }).join('') + '</tr>';
+    thead.addEventListener('click', function(ev) {
+      var th = ev.target.closest('th[data-sort]');
+      if (!th) return;
       var sortKey = th.getAttribute('data-sort');
       if (!sortKey) return;
-      if (catSortBy === sortKey) {
-        catSortOrder = catSortOrder === 'asc' ? 'desc' : 'asc';
-      } else {
-        catSortBy = sortKey;
-        catSortOrder = 'desc';
-      }
+      if (catSortBy === sortKey) catSortOrder = catSortOrder === 'asc' ? 'desc' : 'asc';
+      else { catSortBy = sortKey; catSortOrder = 'desc'; }
       catPage = 1;
       loadCatalogTable();
     });
+    _catHeaderBuilt = true;
+  }
+  thead.querySelectorAll('th[data-sort]').forEach(function(th) {
+    var on = th.getAttribute('data-sort') === catSortBy;
+    th.classList.toggle('sorted', on);
+    var a = th.querySelector('.sort-arrow');
+    if (a) a.textContent = (on && catSortOrder === 'asc') ? '\u25b2' : '\u25bc';
   });
 }
 
-function magClass(m) {
-  if (m == null) return '';
-  if (m < 1.0) return 'mag-green';
-  if (m < 2.0) return 'mag-amber';
-  return 'mag-red';
+// ── Status semantics ────────────────────────────────────────────
+// One vocabulary for "where is this event in the review workflow":
+//   confirmed · rejected · queue (needs a human) · auto (triage dismissed it)
+// Colours live in styles.css (--st-*). Every surface calls these helpers
+// so the catalog, the detail overlay and the review header cannot drift.
+var STATUS_LABEL = { confirmed: 'Confirmed', rejected: 'Rejected', queue: 'Unreviewed', auto: 'Auto-rejected' };
+
+function eventStatusKey(e) {
+  if (e.review_status === 'confirmed') return 'confirmed';
+  if (e.review_status === 'rejected') return 'rejected';
+  return _isAutoRejected(e) ? 'auto' : 'queue';
 }
 
-function eventTypeBadge(t) {
-  var colors = {
-    earthquake: 'var(--blue)',
-    quarry_blast: 'var(--amber)',
-    noise: 'var(--gray)',
-    undetermined: 'var(--muted)',
-  };
-  var labels = {
-    earthquake: 'EQ',
-    quarry_blast: 'QB',
-    noise: 'Noise',
-    undetermined: '?',
-  };
-  var c = colors[t] || 'var(--muted)';
-  var l = labels[t] || esc(t || '?');
-  return '<span style="color:' + c + ';font-weight:700;font-size:.6rem;text-transform:uppercase">' + l + '</span>';
+function statusPill(e) {
+  var k = eventStatusKey(e);
+  var title = (k === 'auto' && e.triage_reason) ? ' title="' + esc(e.triage_reason) + '"' : '';
+  return '<span class="pill pill-' + k + '"' + title + '>' + STATUS_LABEL[k] + '</span>';
+}
+
+var TYPE_PILL = {
+  earthquake:   ['eq', 'EQ', 'Earthquake'],
+  quarry_blast: ['qb', 'QB', 'Quarry blast'],
+  noise:        ['noise', 'Noise', 'Noise'],
+};
+
+function typePill(t) {
+  var d = TYPE_PILL[t];
+  if (!d) return '<span class="pill pill-type pill-type-none" title="Type not set">\u2014</span>';
+  return '<span class="pill pill-type pill-type-' + d[0] + '" title="' + d[2] + '">' + d[1] + '</span>';
+}
+
+// Catalog time display: UTC is canonical; local matters for blasts (they
+// keep office hours). Persisted per browser.
+var catTimeMode = 'utc';
+try { catTimeMode = localStorage.getItem('cat.timeMode') === 'local' ? 'local' : 'utc'; } catch (e) {}
+
+var _localFmt = null;
+function fmtLocalCompact(iso) {
+  // "2026-10-08 20:51:09 MDT" — same shape as the UTC column so the eye
+  // doesn't have to re-parse when toggling.
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  if (!_localFmt) {
+    _localFmt = new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23', timeZoneName: 'short',
+    });
+  }
+  var p = {};
+  _localFmt.formatToParts(d).forEach(function(x) { p[x.type] = x.value; });
+  return p.year + '-' + p.month + '-' + p.day + ' ' + p.hour + ':' + p.minute + ':' + p.second +
+    ' <span class="cat-time-local">' + esc(p.timeZoneName || '') + '</span>';
+}
+
+function fmtCatTime(iso) {
+  if (!iso) return '';
+  if (catTimeMode === 'local') return fmtLocalCompact(iso);
+  // "2026-10-09T02:51:09.299" → "2026-10-09 02:51:09"
+  return esc(iso.slice(0, 19).replace('T', ' '));
 }
 
 function loadCatalogTable() {
@@ -2006,55 +2182,137 @@ function loadCatalogTable() {
   if (catMaxDepth != null) params.push('max_depth=' + catMaxDepth);
   if (catMinPicks != null) params.push('min_picks=' + catMinPicks);
 
+  var seq = ++_catReqSeq;
   fetchJSON('/api/catalog?' + params.join('&')).then(function(data) {
+    if (seq !== _catReqSeq) return;   // a newer load already landed
     renderCatalogHeader();
     var tbody = document.getElementById('cat-tbody');
-    if (!data.events || data.events.length === 0) {
+    catRows = data.events || [];
+    if (catRows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="' + CAT_COLUMNS.length + '" style="text-align:center;color:var(--muted);padding:2rem">No events found.</td></tr>';
     } else {
-      tbody.innerHTML = data.events.map(function(e) {
-        return '<tr data-eid="' + esc(e.event_id) + '">' +
-          '<td>' + (e.review_status === 'confirmed' ? '<span style="color:var(--green);font-weight:700;font-size:.7rem">\u25cf Confirmed</span>' : e.review_status === 'rejected' ? '<span style="color:var(--red);font-weight:700;font-size:.7rem">\u25cf Rejected</span>' : '<span style="color:var(--amber);font-weight:700;font-size:.7rem">\u25cf Unreviewed</span>') + triageChip(e) + detectorChip(e) + '</td>' +
-          '<td>' + eventTypeBadge(e.event_type) + '</td>' +
-          '<td>' + esc(e.event_id) + '</td>' +
-          '<td>' + esc(e.time || '') + '<div class="local-time">' + esc(formatLocalTime(e.time)) + '</div></td>' +
-          '<td class="' + magClass(e.magnitude) + '">' + (e.magnitude != null ? e.magnitude.toFixed(2) : '-') + '</td>' +
-          '<td>' + esc(e.magnitude_type || '') + '</td>' +
-          '<td>' + (e.depth_km != null ? e.depth_km.toFixed(1) : '-') + '</td>' +
-          '<td>' + (e.latitude != null ? e.latitude.toFixed(4) : '-') + '</td>' +
-          '<td>' + (e.longitude != null ? e.longitude.toFixed(4) : '-') + '</td>' +
-          '<td>' + (e.num_picks || 0) + '</td>' +
-          '<td>' + (e.sigma_time != null ? e.sigma_time.toFixed(3) : '-') + '</td>' +
-          '<td>' + (e.sigma_amp != null ? e.sigma_amp.toFixed(3) : '-') + '</td>' +
-          '</tr>';
-      }).join('');
-
-      tbody.querySelectorAll('tr').forEach(function(row) {
-        row.addEventListener('click', function() {
-          var eid = row.getAttribute('data-eid');
-          switchTab('monitor');
-          var ev = data.events.find(function(x) { return x.event_id === eid; });
-          if (ev && ev.latitude != null && ev.longitude != null) {
-            map.flyTo([ev.latitude, ev.longitude], 13);
-          }
-          showEventDetail(eid);
-        });
-      });
+      tbody.innerHTML = catRows.map(_catRowHTML).join('');
     }
 
-    document.getElementById('cat-page-info').textContent = 'Page ' + data.page + ' of ' + data.total_pages;
+    var start = catRows.length ? (data.page - 1) * data.per_page + 1 : 0;
+    var end = start ? start + catRows.length - 1 : 0;
+    document.getElementById('cat-page-info').textContent =
+      (start ? start + '\u2013' + end : '0') + ' of ' + data.total + ' \u00b7 page ' + data.page + '/' + data.total_pages;
     document.getElementById('cat-summary').textContent = data.total + ' event' + (data.total !== 1 ? 's' : '');
     document.getElementById('cat-prev').disabled = data.page <= 1;
     document.getElementById('cat-next').disabled = data.page >= data.total_pages;
   }).catch(function() {
+    if (seq !== _catReqSeq) return;
     document.getElementById('cat-tbody').innerHTML = '<tr><td colspan="' + CAT_COLUMNS.length + '" style="text-align:center;color:var(--red);padding:2rem">Failed to load catalog.</td></tr>';
   });
 }
 
+function _num(v, digits) { return v != null ? v.toFixed(digits) : '\u2014'; }
+
+function _catRowHTML(e) {
+  var auto = eventStatusKey(e) === 'auto';
+  return '<tr tabindex="0" data-eid="' + esc(e.event_id) + '"' + (auto ? ' class="is-auto"' : '') + '>' +
+    '<td>' + statusPill(e) + triageChip(e) + detectorChip(e) + '</td>' +
+    '<td>' + typePill(e.event_type) + '</td>' +
+    '<td class="mono">' + esc(e.event_id) + '</td>' +
+    '<td class="mono">' + fmtCatTime(e.time) + '</td>' +
+    '<td class="num">' + _num(e.magnitude, 2) + '</td>' +
+    '<td class="dim">' + esc(e.magnitude_type || '') + '</td>' +
+    '<td class="num">' + _num(e.depth_km, 1) + '</td>' +
+    '<td class="num">' + _num(e.latitude, 4) + '</td>' +
+    '<td class="num">' + _num(e.longitude, 4) + '</td>' +
+    '<td class="num">' + (e.num_picks || 0) + '</td>' +
+    '<td class="num">' + _num(e.sigma_time, 3) + '</td>' +
+    '<td class="num">' + _num(e.sigma_amp, 3) + '</td>' +
+    '</tr>';
+}
+
+// Row actions. 'detail' = map + detail panel (the click default),
+// 'review' = straight into review mode, 'waves' = waveform overlay.
+function _catRowAction(eid, mode) {
+  if (mode === 'review') { openReviewMode(eid); return; }
+  if (mode === 'waves') { showEventWaveforms(eid); return; }
+  var ev = null;
+  for (var i = 0; i < catRows.length; i++) if (catRows[i].event_id === eid) { ev = catRows[i]; break; }
+  switchTab('monitor');
+  if (ev && ev.latitude != null && ev.longitude != null) map.flyTo([ev.latitude, ev.longitude], 13);
+  showEventDetail(eid);
+}
+
+(function wireCatalogGrid() {
+  var tbody = document.getElementById('cat-tbody');
+  tbody.addEventListener('click', function(ev) {
+    var tr = ev.target.closest('tr[data-eid]');
+    if (tr) _catRowAction(tr.getAttribute('data-eid'), 'detail');
+  });
+  tbody.addEventListener('keydown', function(ev) {
+    var tr = ev.target.closest('tr[data-eid]');
+    if (!tr) return;
+    var k = ev.key;
+    var next = null;
+    if (k === 'ArrowDown') next = tr.nextElementSibling;
+    else if (k === 'ArrowUp') next = tr.previousElementSibling;
+    else if (k === 'Home') next = tbody.firstElementChild;
+    else if (k === 'End') next = tbody.lastElementChild;
+    // stopPropagation matters: openReviewMode() shows the overlay synchronously,
+    // and the document-level review shortcuts (R = relocate, W, …) would
+    // otherwise see this same keydown with the overlay already visible.
+    else if (k === 'Enter') { ev.preventDefault(); ev.stopPropagation(); _catRowAction(tr.getAttribute('data-eid'), 'detail'); return; }
+    else if (k === 'r' || k === 'R') { ev.preventDefault(); ev.stopPropagation(); _catRowAction(tr.getAttribute('data-eid'), 'review'); return; }
+    else if (k === 'w' || k === 'W') { ev.preventDefault(); ev.stopPropagation(); _catRowAction(tr.getAttribute('data-eid'), 'waves'); return; }
+    else if (k === 'PageDown' && !document.getElementById('cat-next').disabled) { catPage++; loadCatalogTable(); ev.preventDefault(); return; }
+    else if (k === 'PageUp' && catPage > 1) { catPage--; loadCatalogTable(); ev.preventDefault(); return; }
+    if (next && next.hasAttribute('data-eid')) {
+      next.focus();
+      next.scrollIntoView({ block: 'nearest' });
+      ev.preventDefault();
+    }
+  });
+
+  // UTC / Local time display
+  var seg = document.getElementById('cat-time-mode');
+  if (seg) {
+    seg.querySelectorAll('.seg-btn').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-tz') === catTimeMode);
+    });
+    seg.addEventListener('click', function(ev) {
+      var b = ev.target.closest('.seg-btn');
+      if (!b) return;
+      catTimeMode = b.getAttribute('data-tz') === 'local' ? 'local' : 'utc';
+      try { localStorage.setItem('cat.timeMode', catTimeMode); } catch (e) {}
+      seg.querySelectorAll('.seg-btn').forEach(function(x) { x.classList.toggle('active', x === b); });
+      // Re-render from the rows in hand; no refetch needed.
+      if (catRows.length) document.getElementById('cat-tbody').innerHTML = catRows.map(_catRowHTML).join('');
+    });
+  }
+
+  // Rows per page
+  var pp = document.getElementById('cat-per-page');
+  if (pp) {
+    pp.value = String(catPerPage);
+    pp.addEventListener('change', function() {
+      catPerPage = parseInt(pp.value, 10) || 50;
+      try { localStorage.setItem('cat.perPage', String(catPerPage)); } catch (e) {}
+      catPage = 1;
+      loadCatalogTable();
+    });
+  }
+})();
+
 document.getElementById('cat-prev').addEventListener('click', function() { if (catPage > 1) { catPage--; loadCatalogTable(); } });
 document.getElementById('cat-next').addEventListener('click', function() { catPage++; loadCatalogTable(); });
+var _catSearchTimer = null;
+document.getElementById('cat-search').addEventListener('input', function() {
+  clearTimeout(_catSearchTimer);
+  _catSearchTimer = setTimeout(function() { catPage = 1; loadCatalogTable(); }, 300);
+});
 document.getElementById('cat-search').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') { catPage = 1; loadCatalogTable(); }
+  if (e.key === 'Enter') { clearTimeout(_catSearchTimer); catPage = 1; loadCatalogTable(); }
+});
+['cat-min-mag', 'cat-max-depth', 'cat-min-picks'].forEach(function(id) {
+  document.getElementById(id).addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('cat-filter-apply').click();
+  });
 });
 document.getElementById('cat-review-next').addEventListener('click', function() {
   advanceToNextUnreviewed();
@@ -2105,7 +2363,9 @@ showEventDetail = function(eventId) {
       }
       title.textContent = esc(ev.event_id);
       var html = '';
+      html += '<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">' + statusPill(ev) + ' &nbsp;' + typePill(ev.event_type) + '</span></div>';
       html += '<div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">' + esc(ev.time) + '<div class="local-time">' + esc(formatLocalTime(ev.time)) + '</div></span></div>';
+      if (ev.legacy_id) html += '<div class="detail-row"><span class="detail-label">Former ID</span><span class="detail-value mono">' + esc(ev.legacy_id) + '</span></div>';
       html += '<div class="detail-row"><span class="detail-label">Magnitude</span><span class="detail-value">' + (ev.magnitude != null ? ev.magnitude.toFixed(2) : '-') + (ev.magnitude_type ? ' (' + esc(ev.magnitude_type) + ')' : '') + '</span></div>';
       if (ev.ml_err != null) {
         html += '<div class="detail-row"><span class="detail-label">ML Error</span><span class="detail-value">\u00b1' + ev.ml_err.toFixed(3) + '</span></div>';
@@ -2295,7 +2555,17 @@ function _waveColors() {
     ot:       v('--text',      '#334155'),
     axisText: v('--muted',     '#64748b'),
     grid:     v('--border',    '#e2e8f0'),
+    mono:     v('--font-mono', 'ui-monospace, Menlo, monospace'),
   };
+}
+
+// Plot geometry shared by every waveform canvas. A band at the bottom is
+// reserved for the time axis so amplitude labels on the right edge can
+// never collide with time labels, whatever the canvas height.
+var AXIS_BAND_H = 16;
+function _plotGeom(H) {
+  var top = 2, bottom = H - AXIS_BAND_H;
+  return { top: top, bottom: bottom, mid: (top + bottom) / 2, amp: ((bottom - top) / 2) * 0.9 };
 }
 
 function _formatSI(v) {
@@ -2308,15 +2578,16 @@ function _formatSI(v) {
 }
 
 function _drawYAxis(ctx, c, maxAbs, mid, amp, W, H) {
-  ctx.font = '9px monospace';
+  ctx.font = '9px ' + c.mono;
   ctx.textAlign = 'right';
   ctx.lineWidth = 0.5;
 
-  // Ticks: +max, +half, 0, -half, -max — overlaid on right edge
+  // Ticks: +max, +half, 0, -half, -max — overlaid on the right edge, all
+  // inside the plot area (the time band below is reserved by _plotGeom).
+  // The unit rides on the top tick only, so it can't collide with anything.
   var ticks = [maxAbs, maxAbs * 0.5, 0, -maxAbs * 0.5, -maxAbs];
-  ticks.forEach(function(val) {
+  ticks.forEach(function(val, i) {
     var y = mid - (val / maxAbs) * amp;
-    // Tick dash
     ctx.strokeStyle = c.grid;
     ctx.setLineDash([2, 3]);
     ctx.beginPath();
@@ -2324,26 +2595,49 @@ function _drawYAxis(ctx, c, maxAbs, mid, amp, W, H) {
     ctx.lineTo(W - 6, y);
     ctx.stroke();
     ctx.setLineDash([]);
-    // Label with background for readability
-    var label = _formatSI(val);
+    var label = _formatSI(val) + (i === 0 ? ' m/s' : '');
     var tw = ctx.measureText(label).width;
     ctx.fillStyle = c.bg;
-    ctx.globalAlpha = 0.7;
-    ctx.fillRect(W - tw - 10, y - 5, tw + 4, 10);
+    ctx.globalAlpha = 0.75;
+    ctx.fillRect(W - tw - 10, y - 5, tw + 5, 10);
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = c.axisText;
     ctx.fillText(label, W - 7, y + 3);
   });
-
-  // Unit label top-right
-  var ulw = ctx.measureText('m/s').width;
-  ctx.fillStyle = c.bg;
-  ctx.globalAlpha = 0.7;
-  ctx.fillRect(W - ulw - 6, 1, ulw + 4, 11);
-  ctx.globalAlpha = 1.0;
-  ctx.fillStyle = c.axisText;
-  ctx.fillText('m/s', W - 4, 10);
   ctx.textAlign = 'left';
+}
+
+// Time axis in the reserved bottom band: nice-interval ticks relative to
+// refT, faint gridlines through the plot, labels centred on the tick and
+// kept inside the canvas at both edges.
+function _drawTimeBand(ctx, c, tStart, dur, refT, W, H, geom) {
+  var interval = _niceTickInterval(dur, 8);
+  var rel0 = tStart - refT;                       // offset of the left edge
+  var first = Math.ceil(rel0 / interval - 1e-6) * interval;
+  ctx.font = '10px ' + c.mono;
+  ctx.fillStyle = c.axisText;
+  ctx.strokeStyle = c.grid;
+  ctx.lineWidth = 0.5;
+  // band separator
+  ctx.beginPath();
+  ctx.moveTo(0, geom.bottom + 0.5);
+  ctx.lineTo(W, geom.bottom + 0.5);
+  ctx.stroke();
+  for (var rel = first; rel <= rel0 + dur + 1e-9; rel += interval) {
+    var x = ((rel - rel0) / dur) * W;
+    ctx.setLineDash([1, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, geom.top);
+    ctx.lineTo(x, geom.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    var label = _formatTimeOffset(rel, interval);
+    var tw = ctx.measureText(label).width;
+    var lx = x - tw / 2;
+    if (lx < 2) lx = 2;
+    if (lx + tw > W - 2) lx = W - 2 - tw;
+    ctx.fillText(label, lx, H - 4);
+  }
 }
 
 function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
@@ -2371,8 +2665,9 @@ function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
 
   var plotLeft = 0;
   var plotW = W;
-  var mid = H / 2;
-  var amp = (H / 2) * 0.85;
+  var geom = _plotGeom(H);
+  var mid = geom.mid;
+  var amp = geom.amp;
 
   // Draw waveform
   ctx.strokeStyle = c.trace;
@@ -2402,12 +2697,12 @@ function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
         ctx.setLineDash([6, 4]);
         ctx.beginPath();
         ctx.moveTo(plotLeft + otFrac * plotW, 0);
-        ctx.lineTo(plotLeft + otFrac * plotW, H);
+        ctx.lineTo(plotLeft + otFrac * plotW, geom.bottom);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = c.ot;
-        ctx.font = 'bold 12px monospace';
-        ctx.fillText('OT', plotLeft + otFrac * plotW + 3, H - 4);
+        ctx.font = 'bold 12px ' + c.mono;
+        ctx.fillText('OT', plotLeft + otFrac * plotW + 3, geom.bottom - 4);
       }
     }
 
@@ -2426,28 +2721,21 @@ function renderWaveformCanvas(canvas, trace, eventTime, cssW, cssH, dpr) {
         ctx.setLineDash([4, 3]);
         ctx.beginPath();
         ctx.moveTo(px, 0);
-        ctx.lineTo(px, H);
+        ctx.lineTo(px, geom.bottom);
         ctx.stroke();
         ctx.setLineDash([]);
 
         // Label
         ctx.fillStyle = color;
-        ctx.font = 'bold 12px monospace';
+        ctx.font = 'bold 12px ' + c.mono;
         var label = pick.phase + (pick.probability != null ? ' ' + (pick.probability * 100).toFixed(0) + '%' : '');
         ctx.fillText(label, px + 3, 14);
       });
     }
 
-    // Time axis labels (relative to origin time or start)
-    ctx.fillStyle = c.axisText;
-    ctx.font = '10px monospace';
-    for (var t = 0; t <= 10; t++) {
-      var relSec = (t / 10) * dur;
-      var xPos = plotLeft + (t / 10) * plotW;
-      var refT = eventTime ? new Date(eventTime.replace('T', ' ').replace('Z', '')).getTime() / 1000 : tStart;
-      var relToRef = (tStart + relSec) - refT;
-      ctx.fillText((relToRef >= 0 ? '+' : '') + relToRef.toFixed(1) + 's', xPos + 2, H - 2);
-    }
+    // Time axis (relative to origin time, or to trace start without one)
+    var refT = eventTime ? new Date(eventTime.replace('T', ' ').replace('Z', '')).getTime() / 1000 : tStart;
+    _drawTimeBand(ctx, c, tStart, dur, refT, W, H, geom);
   }
 
   // Y-axis overlay (drawn last, on top of waveform)
@@ -2519,13 +2807,13 @@ function _drawCursorCrosshair(canvas, trace, clientX) {
   // Translate to canvas-CSS pixels (we already setTransform'd to dpr).
   var cx = (pxX / rect.width) * W;
 
-  // Vertical guide line
+  // Vertical guide line (stops at the time band)
   ctx.strokeStyle = '#3b82f6';
   ctx.lineWidth = 1;
   ctx.setLineDash([2, 3]);
   ctx.beginPath();
   ctx.moveTo(cx, 0);
-  ctx.lineTo(cx, H);
+  ctx.lineTo(cx, H - AXIS_BAND_H);
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -2621,17 +2909,15 @@ function openReviewMode(eventId) {
   loadReviewWaveforms();
 }
 
-function reviewStatusBadge(status) {
-  if (status === 'confirmed') return ' <span style="color:var(--green);font-size:.7rem;font-weight:700">\u25cf Confirmed</span>';
-  if (status === 'rejected') return ' <span style="color:var(--red);font-size:.7rem;font-weight:700">\u25cf Rejected</span>';
-  return ' <span style="color:var(--amber);font-size:.7rem;font-weight:700">\u25cf Unreviewed</span>';
+function reviewStatusBadge(ev) {
+  return ' ' + statusPill(ev || {});
 }
 
 function updateReviewTitleBadge() {
   // Fetch event detail to get review_status for badge
   fetchJSON('/api/event/' + encodeURIComponent(reviewState.eventId)).then(function(data) {
     if (data && data.event) {
-      document.getElementById('rv-title').innerHTML = 'Review \u2014 ' + esc(reviewState.eventId) + reviewStatusBadge(data.event.review_status);
+      document.getElementById('rv-title').innerHTML = 'Review \u2014 ' + esc(reviewState.eventId) + reviewStatusBadge(data.event);
     }
   }).catch(function() {});
 }
@@ -2888,8 +3174,9 @@ function drawReviewCanvas(canvas, trace) {
 
   var plotLeft = 0;
   var plotW = W;
-  var mid = H / 2;
-  var amp = (H / 2) * 0.85;
+  var geom = _plotGeom(H);
+  var mid = geom.mid;
+  var amp = geom.amp;
 
   // Sample indices that intersect the visible window. Clamp to trace bounds
   // so panning past the edges just shows blank instead of crashing.
@@ -2933,12 +3220,12 @@ function drawReviewCanvas(canvas, trace) {
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(ox, 0); ctx.lineTo(ox, H);
+      ctx.moveTo(ox, 0); ctx.lineTo(ox, geom.bottom);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = c.ot;
-      ctx.font = 'bold 13px monospace';
-      ctx.fillText('OT', ox + 3, H - 4);
+      ctx.font = 'bold 13px ' + c.mono;
+      ctx.fillText('OT', ox + 3, geom.bottom - 4);
     }
   }
 
@@ -2955,11 +3242,11 @@ function drawReviewCanvas(canvas, trace) {
     ctx.lineWidth = 2.5;
     ctx.setLineDash([5, 3]);
     ctx.beginPath();
-    ctx.moveTo(px, 0); ctx.lineTo(px, H);
+    ctx.moveTo(px, 0); ctx.lineTo(px, geom.bottom);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = color;
-    ctx.font = 'bold 14px monospace';
+    ctx.font = 'bold 14px ' + c.mono;
     ctx.fillText(pick.phase, px + 3, 16);
   });
 
@@ -2980,11 +3267,11 @@ function drawReviewCanvas(canvas, trace) {
         ctx.lineWidth = 1.2;
         ctx.setLineDash([3, 4]);
         ctx.beginPath();
-        ctx.moveTo(px, 0); ctx.lineTo(px, H);
+        ctx.moveTo(px, 0); ctx.lineTo(px, geom.bottom);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = color;
-        ctx.font = '11px monospace';
+        ctx.font = '11px ' + c.mono;
         ctx.fillText(label, px + 3, 30);
       }
       _drawPred(tpPred, 'Tp', '#00e5ff');
@@ -2999,35 +3286,46 @@ function drawReviewCanvas(canvas, trace) {
   // with the same +0.012s style across zoom levels.
   var interval = _niceTickInterval(viewDur, 7);
   var minorInterval = interval / 5;
-  var firstMajor = Math.ceil(viewStart / interval) * interval;
-  var firstMinor = Math.ceil(viewStart / minorInterval) * minorInterval;
+  // Ticks are placed on offsets from origin time (so "+0.0" is exactly OT),
+  // not on absolute epoch seconds.
+  var firstMajor = eventOriginT + Math.ceil((viewStart - eventOriginT) / interval - 1e-6) * interval;
+  var firstMinor = eventOriginT + Math.ceil((viewStart - eventOriginT) / minorInterval - 1e-6) * minorInterval;
   ctx.fillStyle = c.axisText;
   ctx.strokeStyle = c.grid;
-  ctx.font = '10px monospace';
+  ctx.font = '10px ' + c.mono;
   ctx.textAlign = 'left';
   ctx.lineWidth = 0.5;
+
+  // Band separator
+  ctx.beginPath();
+  ctx.moveTo(0, geom.bottom + 0.5); ctx.lineTo(W, geom.bottom + 0.5);
+  ctx.stroke();
 
   // Minor ticks first (so majors overlay cleanly where they coincide).
   ctx.globalAlpha = 0.55;
   for (var minor = firstMinor; minor <= viewEnd; minor += minorInterval) {
     var xm = tx(minor);
     ctx.beginPath();
-    ctx.moveTo(xm, H - 18);
-    ctx.lineTo(xm, H - 14);
+    ctx.moveTo(xm, geom.bottom);
+    ctx.lineTo(xm, geom.bottom + 4);
     ctx.stroke();
   }
   ctx.globalAlpha = 1.0;
 
-  // Major ticks: dashed full-height + label
+  // Major ticks: dashed through the plot + centred label in the band
   for (var tick = firstMajor; tick <= viewEnd; tick += interval) {
     var xT = tx(tick);
     ctx.setLineDash([1, 3]);
     ctx.beginPath();
-    ctx.moveTo(xT, 0); ctx.lineTo(xT, H - 14);
+    ctx.moveTo(xT, geom.top); ctx.lineTo(xT, geom.bottom);
     ctx.stroke();
     ctx.setLineDash([]);
     var label = _formatTimeOffset(tick - eventOriginT, interval);
-    ctx.fillText(label, xT + 2, H - 2);
+    var tw = ctx.measureText(label).width;
+    var lx = xT - tw / 2;
+    if (lx < 2) lx = 2;
+    if (lx + tw > W - 2) lx = W - 2 - tw;
+    ctx.fillText(label, lx, H - 4);
   }
 
   // Y-axis overlay (drawn last, on top of waveform)
@@ -3161,7 +3459,7 @@ function drawSpectrogramCanvas(canvas, trace, eventTime, picks) {
       var originT = parseTimeStr(eventTime);
       var frac2 = (originT - tStart2) / dur2;
       if (frac2 >= 0 && frac2 <= 1) {
-        ctx.strokeStyle = _light ? '#334155' : '#ffffff';
+        ctx.strokeStyle = _isLightTheme() ? '#334155' : '#ffffff';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([6, 4]);
         ctx.beginPath();
@@ -3858,10 +4156,10 @@ document.getElementById('rv-reject').addEventListener('click', function() {
 // Triage chip: shown on unreviewed rows only (reviewed rows carry a human
 // decision that supersedes the automatic label). Hover for the reason.
 function triageChip(e) {
-  if (e.review_status || !e.triage || e.triage === 'ok') return '';
-  var cls = e.triage === 'auto_reject' ? 'triage-chip triage-reject' : 'triage-chip triage-flag';
-  var txt = e.triage === 'auto_reject' ? 'auto-rejected' : 'flag';
-  return '<span class="' + cls + '" title="' + esc(e.triage_reason || '') + '">' + txt + '</span>';
+  // auto_reject is carried by the status pill (statusPill → "Auto-rejected");
+  // only a soft flag still needs its own chip.
+  if (e.review_status || !e.triage || e.triage === 'ok' || e.triage === 'auto_reject') return '';
+  return '<span class="triage-chip triage-flag" title="' + esc(e.triage_reason || '') + '">flag</span>';
 }
 
 // Detector chip: the event was found by the second detector only (PhaseNO),

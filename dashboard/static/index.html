@@ -11,6 +11,8 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
+<!-- Favicon: the brand mark, inline so there is nothing extra to serve -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ea680c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='1 13 5 13 7 11 9 15 11 5 13 19 15 9 17 13 19 13 23 13'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -268,7 +270,9 @@
     </div>
     <!-- Data Completeness -->
     <div class="panel pipeline-wide">
-      <div class="panel-title">Data Completeness <span class="error-count" id="completeness-range"></span></div>
+      <div class="panel-title">Data Completeness <span class="error-count" id="completeness-range"></span>
+        <button class="cmp-toggle" id="cmp-toggle-retired" hidden title="Show every retired / campaign station as its own row">Retired</button>
+      </div>
       <div class="panel-loading" id="loading-completeness"><span class="spinner"></span></div>
       <div class="completeness-wrap" id="completeness-calendar">
         <div class="empty-state">No raw data yet.</div>
@@ -340,7 +344,13 @@
     <button class="btn-sm btn-primary cat-review-next" id="cat-review-next" hidden>
       Review next <span id="cat-queue-count"></span> &#9656;
     </button>
-    <span class="cat-summary" id="cat-summary"></span>
+    <div class="cat-right">
+      <span class="cat-summary" id="cat-summary"></span>
+      <div class="seg" role="group" aria-label="Time display" id="cat-time-mode">
+        <button class="seg-btn active" data-tz="utc" title="Show event times in UTC">UTC</button>
+        <button class="seg-btn" data-tz="local" title="Show event times in this computer's local time zone">Local</button>
+      </div>
+    </div>
   </div>
   <div class="catalog-table-wrap">
     <table class="catalog-table">
@@ -349,8 +359,15 @@
     </table>
   </div>
   <div class="catalog-pagination">
-    <button class="btn-sm" id="cat-prev">&#8249; Previous</button>
-    <span id="cat-page-info">Page 1 of 1</span>
+    <span class="pg-info" id="cat-page-info">&mdash;</span>
+    <label>Rows
+      <select id="cat-per-page" aria-label="Rows per page">
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+      </select>
+    </label>
+    <button class="btn-sm" id="cat-prev">&#8249; Prev</button>
     <button class="btn-sm" id="cat-next">Next &#8250;</button>
   </div>
 </div>
