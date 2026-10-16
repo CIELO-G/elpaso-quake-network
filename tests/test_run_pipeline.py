@@ -176,7 +176,7 @@ def test_run_day_only_steps_marks_others_skipped(out, monkeypatch):
     calls = []
     monkeypatch.setattr(rp.subprocess, "run", lambda cmd, **kw: (calls.append(cmd), SimpleNamespace(returncode=0))[1])
     st = _status()
-    res = rp._run_day("2026-09-27", _args(), st, only_steps={2, 3})
+    res = rp._run_day("2026-09-27", _args(), st, only_steps={"process", "detect"})
     assert res.ok and len(calls) == 2
     assert [s["status"] for s in st["steps"]] == ["skipped", "completed", "completed", "skipped", "skipped"]
     assert calls[0][1] == "-u"
@@ -217,3 +217,12 @@ def test_load_station_expectations_reads_end_date(monkeypatch, tmp_path):
     monkeypatch.setattr(rp, "STATIONS_FILE", f)
     exp = rp._load_station_expectations()
     assert exp[0][3] is None and exp[1][3] == date(2026, 2, 23)
+
+
+def test_steps_are_selected_by_unique_name():
+    assert len(set(rp.STEP_NAMES)) == len(rp.STEPS)
+    assert rp.STEP_NAMES[0] == "ingest" and rp.STEP_NAMES[-1] == "catalog"
+    assert rp._steps_after("ingest") == set(rp.STEP_NAMES) - {"ingest"}
+    assert rp._steps_after("catalog") == set()
+    numbers = [s["number"] for s in rp._make_step_statuses()]
+    assert numbers == list(range(1, len(rp.STEPS) + 1))

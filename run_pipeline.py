@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Pipeline orchestrator — runs all 5 seismic processing steps as subprocesses
+Pipeline orchestrator — runs the seismic processing steps (STEPS) as subprocesses
 and writes status to output/pipeline_status.json for the dashboard to read.
 
 Supports three modes:
@@ -76,10 +76,11 @@ signal.signal(signal.SIGTERM, _handle_sigterm)
 #   ALERT_SMTP_PASSWORD — app password or SMTP password
 
 # ── step registry ────────────────────────────────────────────────────────────
+# Order is execution order. Code selects steps by name; the 1-based number
+# shown in status and taken by --start-step/--end-step is the position here.
 
 STEPS = [
     {
-        "number": 1,
         "name": "ingest",
         "script": "1-ingestion/ingest.py",
         "config": "1-ingestion/config.yaml",
@@ -89,7 +90,6 @@ STEPS = [
         "accepts_rebuild": False,
     },
     {
-        "number": 2,
         "name": "process",
         "script": "2-processing/process.py",
         "config": "2-processing/config.yaml",
@@ -99,7 +99,6 @@ STEPS = [
         "accepts_rebuild": False,
     },
     {
-        "number": 3,
         "name": "detect",
         "script": "3-detection/detect.py",
         "config": "3-detection/config.yaml",
@@ -109,7 +108,6 @@ STEPS = [
         "accepts_rebuild": False,
     },
     {
-        "number": 4,
         "name": "associate",
         "script": "4-association/associate.py",
         "config": "4-association/config.yaml",
@@ -119,7 +117,6 @@ STEPS = [
         "accepts_rebuild": False,
     },
     {
-        "number": 5,
         "name": "catalog",
         "script": "5-catalog/catalog.py",
         "config": "5-catalog/config.yaml",
@@ -129,6 +126,12 @@ STEPS = [
         "accepts_rebuild": True,
     },
 ]
+STEP_NAMES = [s["name"] for s in STEPS]
+
+
+def _steps_after(name: str) -> set[str]:
+    """Names of the steps that run after `name`."""
+    return set(STEP_NAMES[STEP_NAMES.index(name) + 1 :])
 
 # ── status helpers ───────────────────────────────────────────────────────────
 
@@ -163,7 +166,7 @@ def _target_date() -> date:
 def _make_step_statuses(initial: str = "pending") -> list[dict]:
     return [
         {
-            "number": s["number"],
+            "number": n,
             "name": s["name"],
             "status": initial,
             "started_at": None,
@@ -171,7 +174,7 @@ def _make_step_statuses(initial: str = "pending") -> list[dict]:
             "return_code": None,
             "log_file": s["log_file"],
         }
-        for s in STEPS
+        for n, s in enumerate(STEPS, 1)
     ]
 
 
@@ -267,19 +270,20 @@ def _scan_gaps(
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Run the seismic processing pipeline.")
-    p.add_argument("--start", help="Start date (forwarded to steps 1-4)")
-    p.add_argument("--end", help="End date (forwarded to steps 1-4)")
+    p.add_argument("--start", help="Start date (forwarded to the per-day steps)")
+    p.add_argument("--end", help="End date (forwarded to the per-day steps)")
     p.add_argument(
         "--force",
         action="store_true",
-        help="Force reprocessing (--force for steps 2-4, --rebuild for step 5)",
+        help="Force reprocessing (--force for the per-day steps, --rebuild for catalog)",
     )
     p.add_argument("--debug", action="store_true", help="Enable debug logging in all steps")
     p.add_argument(
-        "--start-step", type=int, default=1, metavar="N", help="First step to run (default: 1)"
+        "--start-step", type=int, default=1, metavar="N", help="First step to run (default: 1; numbers follow STEPS order)"
     )
     p.add_argument(
-        "--end-step", type=int, default=5, metavar="N", help="Last step to run (default: 5)"
+        "--end-step", type=int, default=len(STEPS), metavar="N",
+        help=f"Last step to run (default: {len(STEPS)}, all)"
     )
     p.add_argument(
         "--continuous",
@@ -348,15 +352,14 @@ def build_command(
 
 
 def single_run(args: argparse.Namespace) -> None:
-    if args.start_step < 1 or args.end_step > 5 or args.start_step > args.end_step:
+    if args.start_step < 1 or args.end_step > len(STEPS) or args.start_step > args.end_step:
         print(f"Error: invalid step range {args.start_step}-{args.end_step}", file=sys.stderr)
         sys.exit(1)
 
     # ── build initial status ─────────────────────────────────────────────
     pipeline_started = _now()
     step_statuses = []
-    for step in STEPS:
-        n = step["number"]
+    for n, step in enumerate(STEPS, 1):
         if n < args.start_step or n > args.end_step:
             status = "skipped"
         else:
@@ -395,8 +398,7 @@ def single_run(args: argparse.Namespace) -> None:
     total = args.end_step - args.start_step + 1
     failed = False
 
-    for step in STEPS:
-        n = step["number"]
+    for n, step in enumerate(STEPS, 1):
         if n < args.start_step or n > args.end_step:
             continue
 
@@ -508,9 +510,9 @@ def _run_day(
     status_data: dict,
     *,
     force: bool | None = None,
-    only_steps: set[int] | None = None,
+    only_steps: set[str] | None = None,
 ) -> DayResult:
-    """Run all 5 pipeline steps for a single day.
+    """Run the pipeline steps for a single day (all, or the names in `only_steps`).
 
     Updates ``status_data["steps"]`` in-place so the dashboard sees
     real-time step progress. ``force`` overrides ``args.force`` (used when
@@ -523,7 +525,7 @@ def _run_day(
     partial = False
 
     for i, step in enumerate(STEPS):
-        if only_steps is not None and step["number"] not in only_steps:
+        if only_steps is not None and step["name"] not in only_steps:
             steps[i]["status"] = "skipped"
             continue
         steps[i]["status"] = "running"
@@ -641,7 +643,7 @@ def _retry_partial_days(args: argparse.Namespace, status_data: dict, state: Pipe
         # Ingest alone first. Re-processing the day (detect, associate,
         # catalog --rebuild) is only worth it if the re-fetch actually
         # brought in more samples than the tracker already had.
-        res = _run_day(day_str, args, status_data, force=True, only_steps={1})
+        res = _run_day(day_str, args, status_data, force=True, only_steps={"ingest"})
         if not res.ok:
             print(f"    {day_str} re-ingest failed; will try again next cycle")
             continue
@@ -653,7 +655,7 @@ def _retry_partial_days(args: argparse.Namespace, status_data: dict, state: Pipe
                 save_state(OUTPUT_DIR, state)
             continue
         print(f"    {day_str}: {improved} chunk(s) improved — re-processing")
-        res2 = _run_day(day_str, args, status_data, force=True, only_steps={2, 3, 4, 5})
+        res2 = _run_day(day_str, args, status_data, force=True, only_steps=_steps_after("ingest"))
         if res2.ok and not res.partial:
             print(f"    {day_str} is now complete")
             state.remove_partial(day_str)
@@ -697,7 +699,7 @@ def continuous_run(args: argparse.Namespace) -> None:
                 "force": args.force,
                 "debug": args.debug,
                 "start_step": 1,
-                "end_step": 5,
+                "end_step": len(STEPS),
             },
             "continuous": {
                 "current_day": current_day.isoformat(),
@@ -968,7 +970,7 @@ def gap_fill_run(args: argparse.Namespace) -> None:
         # re-association renumbers event IDs (ep{date}-{NNNN}) and would
         # orphan reviews. Nothing needs --force: only missing files are made.
         args.force = False
-        only_steps: set[int] | None = {1, 2}
+        only_steps: set[str] | None = {"ingest", "process"}
         print("Archive-only: running ingest + processing for the gap days (no re-detection).")
     else:
         args.force = True  # reprocess downstream steps with new data
@@ -990,7 +992,7 @@ def gap_fill_run(args: argparse.Namespace) -> None:
                 "force": True,
                 "debug": args.debug,
                 "start_step": 1,
-                "end_step": 5,
+                "end_step": len(STEPS),
             },
             "gap_fill": {
                 "total_gap_days": len(gaps),
